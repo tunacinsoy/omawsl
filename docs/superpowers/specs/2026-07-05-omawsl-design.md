@@ -81,9 +81,9 @@ All prompts live in `install/first-run-choices.sh`, mirroring Omakub's
 | Prompt | Type | Options | Default | Env var |
 |---|---|---|---|---|
 | Connectivity | single-select | "Corporate / restricted network", "Personal / unrestricted" | none | `OMAWSL_NETWORK_MODE` |
-| Editor add-ons | multi-select | Neovim, opencode, Cursor (VS Code is always on, not shown as a choice) | none selected | `OMAWSL_EDITORS` |
+| Editors & AI tooling | multi-select | VS Code, Neovim, opencode, Cursor | none selected | `OMAWSL_EDITORS` |
 | Languages & cloud tools | multi-select | Ruby on Rails, Node.js, Go, PHP, Python, Elixir, Rust, Java, Terraform, Azure CLI | none selected | `OMAWSL_LANGUAGES` |
-| Storage | multi-select | MySQL, Redis, PostgreSQL | MySQL, Redis | `OMAWSL_STORAGE` |
+| Storage | multi-select | MySQL, Redis, PostgreSQL | none selected | `OMAWSL_STORAGE` |
 
 **`OMAWSL_NETWORK_MODE` — reserved flag, no consumer yet.** This is intentional, not dead
 code: it is captured now because future omawsl versions are expected to need it (e.g. gating a
@@ -146,6 +146,14 @@ omawsl/
 │   ├── windows-terminal.json
 │   ├── fonts/
 │   └── setup.ps1
+├── themes/
+│   ├── catppuccin/ … tokyo-night/   # 10 themes, ported from Omakub
+│   │   ├── windows-terminal-scheme.json   # replaces Omakub's alacritty.toml
+│   │   ├── neovim.lua
+│   │   ├── zellij.kdl
+│   │   ├── btop.theme
+│   │   └── vscode.sh                       # also targets Cursor's settings.json if installed
+│   └── set-vscode-theme.sh                 # shared helper, ported from Omakub
 ├── migrations/
 ├── bin/
 │   └── omawsl
@@ -235,27 +243,82 @@ to the native-vs-Desktop choice and is not specifically mitigated by this design
 
 ## 10. Editor tooling
 
-- **VS Code (Remote-WSL) is always on**, not a menu choice: `app-vscode.sh` checks for the
-  `code` CLI via Win32 interop and ships `.vscode/extensions.json` recommending the Remote-WSL
-  extension, plus `configs/vscode.json` for WSL-side default settings.
-- **Neovim, opencode, Cursor are optional**, selected via `OMAWSL_EDITORS`:
-  - `app-neovim.sh` — Neovim + a LazyVim-based config, matching Omakub's actual approach.
-  - `app-opencode.sh` — the opencode.ai terminal AI coding agent CLI.
-  - `app-cursor.sh` — Cursor is a Windows-side GUI app (a VS Code fork), so this script doesn't
-    install anything inside WSL; it verifies Remote-WSL-equivalent support and surfaces the
-    relevant note in `docs/windows-setup.md`.
+All four are optional, selected via `OMAWSL_EDITORS` — no default is forced on the user,
+including VS Code, to stay neutral and let the picker reflect actual intent rather than an
+assumed default:
 
-## 11. Languages, cloud tools, storage
+- `app-vscode.sh` — checks for the `code` CLI via Win32 interop, ships
+  `.vscode/extensions.json` recommending the Remote-WSL extension, plus `configs/vscode.json`
+  for WSL-side default settings.
+- `app-neovim.sh` — Neovim + a LazyVim-based config, matching Omakub's actual approach.
+- `app-opencode.sh` — the opencode.ai terminal AI coding agent CLI.
+- `app-cursor.sh` — Cursor is a Windows-side GUI app (a VS Code fork), so this script doesn't
+  install anything inside WSL; it verifies Remote-WSL-equivalent support and surfaces the
+  relevant note in `docs/windows-setup.md`.
+
+Each of these scripts is skipped entirely if its editor wasn't selected — no partial setup, no
+extension/config writes for tools the user didn't ask for.
+
+## 11. Theming
+
+Omakub ships 10 built-in themes (catppuccin, everforest, gruvbox, kanagawa, matte-black, nord,
+osaka-jade, ristretto, rose-pine, tokyo-night) as `themes/<name>/` folders, each holding
+per-tool files (`alacritty.toml`, `neovim.lua`, `zellij.kdl`, `btop.theme`, `vscode.sh`, plus
+GNOME-only files we drop: `gnome.sh`, `tophat.sh`, `background.jpg`). A `bin/omakub theme`
+command lets the user pick one via `gum choose`, then copies/patches each tool's config to
+match. There's no daemon or reload signal — each tool just picks up its config file on next
+launch. This mechanism is directly portable to WSL, verified against the actual upstream
+scripts (`bin/omakub-sub/theme.sh`, `themes/set-vscode-theme.sh`).
+
+omawsl ports all 10 themes as `themes/<name>/` folders, with one substitution and one addition:
+
+- **Alacritty → Windows Terminal.** Instead of `alacritty.toml`, each theme folder carries a
+  `windows-terminal-scheme.json` fragment (a `schemes` entry in Windows Terminal's own format).
+  Community exports of these color schemes already exist for all 10 theme names and will be
+  sourced/adapted rather than hand-derived from the Alacritty TOML.
+- **VS Code theme step also covers Cursor**, since Cursor reads the same `workbench.colorTheme`
+  settings key and supports most VS Code extensions — `vscode.sh` becomes a shared step
+  parameterized by target settings.json path (VS Code's and/or Cursor's, whichever is
+  installed).
+- `neovim.lua`, `zellij.kdl`, `btop.theme` are ported as-is (or lightly adapted) from upstream.
+- `opencode` theming is best-effort: if opencode.ai's CLI exposes a theme/color setting at
+  implementation time, it's wired in the same way; if not, it's skipped rather than forcing a
+  workaround, since it has no direct Omakub precedent to port.
+
+`bin/omawsl theme <name>` applies the theme across every installed component:
+
+```bash
+# WSL-side (same pattern as Omakub, for whichever tools were actually installed):
+cp themes/$NAME/zellij.kdl        ~/.config/zellij/themes/$NAME.kdl   # + sed-patch active theme ref
+cp themes/$NAME/btop.theme        ~/.config/btop/themes/$NAME.theme   # + sed-patch btop.conf
+cp themes/$NAME/neovim.lua        ~/.config/nvim/lua/plugins/theme.lua   # only if neovim installed
+source themes/$NAME/vscode.sh     # code --install-extension + sed-patch settings.json, per installed target (VS Code / Cursor)
+
+# Windows-side (new for omawsl):
+# Merge themes/$NAME/windows-terminal-scheme.json into Windows Terminal's settings.json
+# via the /mnt/c mount, and set it as the active profile's colorScheme.
+# This is a pure local JSON edit — no download, no install, no admin rights — so it's
+# automated even in corporate/restricted mode. If the settings.json path can't be found or
+# isn't writable (e.g. Windows Terminal not yet installed), skip with a message pointing to
+# docs/windows-setup.md rather than failing the whole command.
+```
+
+Because bat/eza/ripgrep/git-diff colors follow the terminal's own ANSI palette rather than
+having separate per-tool theme files, syncing the Windows Terminal color scheme is what makes
+those feel themed too — matching how Alacritty's palette does the same job in upstream Omakub.
+
+## 12. Languages, cloud tools, storage
 
 - **Languages/tools** (`select-dev-language.sh` + `cloud-tools.sh`), all via `mise` where
   supported: Ruby on Rails, Node.js, Go, PHP, Python, Elixir, Rust, Java (Omakub's full list,
   unchanged) plus Terraform and Azure CLI (new for omawsl). Nothing is pre-selected by
   default — a public tool should not surprise-install anything the user didn't explicitly ask
   for.
-- **Storage** (`select-dev-storage.sh`): MySQL, Redis, PostgreSQL as Docker containers,
-  mirroring Omakub exactly, with MySQL and Redis pre-selected.
+- **Storage** (`select-dev-storage.sh`): MySQL, Redis, PostgreSQL as Docker containers. Unlike
+  Omakub (which pre-selects MySQL+Redis), nothing is pre-selected here — to stay maximally
+  generic and not bias the picker toward any one storage solution.
 
-## 12. Windows-side deliverables (manual only)
+## 13. Windows-side deliverables (manual, except theme sync)
 
 - `docs/windows-setup.md` — step-by-step walkthrough: install Windows Terminal (Store, or "ask
   IT" note if blocked), install a Nerd Font from `windows/fonts/` (no admin rights needed),
@@ -272,15 +335,22 @@ to the native-vs-Desktop choice and is not specifically mitigated by this design
   alternative, they need to complete that Windows-side install themselves before `docker`
   becomes available via interop; this is a documented manual choice, not something omawsl
   detects or blocks on.
+- **Exception:** `bin/omawsl theme <name>` (§11) *does* automatically edit Windows Terminal's
+  settings.json across the `/mnt/c` mount. This is treated as categorically different from the
+  "no automatic Windows-side installs" rule — it's a local JSON edit to an already-installed
+  app, no network call, no admin rights — and it skips gracefully (falling back to the
+  documented manual step) if the file can't be found or written.
 
-## 13. Post-install CLI (`bin/omawsl`)
+## 14. Post-install CLI (`bin/omawsl`)
 
 - `bin/omawsl migrate` — runs pending `migrations/*.sh` scripts newer than the last-applied
   version.
+- `bin/omawsl theme <name>` — applies one of the 10 ported themes across every installed
+  component; see §11.
 - `bin/omawsl doctor` (or `status`) — reports what's installed/configured; doubles as a manual
   smoke test after install and a quick way to verify state without re-reading every script.
 
-## 14. Testing & verification
+## 15. Testing & verification
 
 - No CI/hardware exists in this environment to run a real WSL instance, so verification is
   manual: after implementation, test on an actual fresh WSL2 Ubuntu instance (or a disposable
