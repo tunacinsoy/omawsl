@@ -55,7 +55,7 @@ disposition:**
 | `install/desktop.sh` | Dropped — no desktop layer on WSL |
 | `install/identification.sh` | Ported (§6) |
 | `install/first-run-choices.sh` | Ported and extended (§6) |
-| `install/terminal.sh` + `install/terminal/*.sh` | Ported, extended with `cloud-tools.sh`, `app-vscode.sh`, `app-opencode.sh`, `app-cursor.sh` |
+| `install/terminal.sh` + `install/terminal/*.sh` | Ported, extended with `cloud-tools.sh`, `app-vscode.sh`, `app-opencode.sh`, `app-cursor.sh`, `app-claude-cli.sh`, `app-codex-cli.sh`, `app-gemini-cli.sh`, `app-gh-copilot.sh` |
 | `configs/` (bashrc, inputrc, zellij.kdl, btop.conf, fastfetch.jsonc, vscode.json, neovim/) | Ported |
 | `configs/alacritty*` | Dropped — Windows Terminal replaces Alacritty |
 | `configs/typora/`, `configs/ulauncher.*` | Dropped — see exclusions above |
@@ -93,7 +93,10 @@ curl -fsSL https://raw.githubusercontent.com/tunacinsoy/omawsl/master/boot.sh | 
    `bin/omawsl` (via a shared `header.sh`-equivalent) so the identity is consistent across the
    initial install and later CLI use.
 2. `sudo apt-get update` and install `git` if missing.
-3. Clone `https://github.com/tunacinsoy/omawsl` into `~/.local/share/omawsl`.
+3. Clone `https://github.com/tunacinsoy/omawsl` into `~/.local/share/omawsl` — **but first check
+   whether that directory already exists** (e.g. a prior run was interrupted, or the user is
+   re-bootstrapping). If it does, `git -C ~/.local/share/omawsl pull` instead of cloning fresh;
+   a plain re-clone into a non-empty directory would fail outright.
 4. Support an `OMAWSL_REF` env var to check out a specific branch/tag instead of `master`
    (for testing changes before merge).
 5. Exec `install.sh` from the clone.
@@ -103,15 +106,24 @@ curl -fsSL https://raw.githubusercontent.com/tunacinsoy/omawsl/master/boot.sh | 
 `install.sh` runs, in order:
 
 1. **`install/check-version.sh`** — verifies Ubuntu (floor-only version check, see §8),
-   x86_64/arm64 architecture, and that we are actually inside WSL2 (checks
-   `$WSL_DISTRO_NAME` / `/proc/sys/fs/binfmt_misc/WSLInterop`). Hard-fails with a clear message
-   otherwise.
-2. **`install/first-run-choices.sh`** — every interactive prompt happens here, up front, via
+   x86_64/arm64 architecture, and that we are actually inside **WSL2 specifically** (not WSL1 —
+   see §8's WSL-generation check). Hard-fails with a clear message otherwise.
+2. **`install/terminal/required/app-gum.sh`** — bootstraps `gum` itself. This must run *before*
+   `first-run-choices.sh`, since every prompt in that script depends on `gum choose`/`gum
+   confirm` already being available. (An earlier draft of this spec nested this step inside
+   `install/terminal.sh`, which runs *after* `first-run-choices.sh` — that ordering would have
+   made every first-run prompt fail on a fresh machine where `gum` isn't preinstalled. Fixed
+   here: `app-gum.sh` is invoked directly by `install.sh` ahead of the prompts, in addition to
+   still being idempotently sourced again as part of `install/terminal.sh`'s normal pass.)
+3. **`install/first-run-choices.sh`** — every interactive prompt happens here, up front, via
    `gum`. Results are exported as `OMAWSL_*` env vars so the remainder of the run is
    unattended. See §6.
-3. **`install/terminal.sh`** — sources every script under `install/terminal/*.sh` in a fixed
+4. **`install/terminal.sh`** — sources every script under `install/terminal/*.sh` in a fixed
    order. Each script is idempotent and consults the `OMAWSL_*` flags where relevant.
-4. Final summary, printed with a pointer to `docs/windows-setup.md` for the manual
+5. On successful completion, write `~/.local/state/omawsl/version` with the repo's current
+   `version` timestamp (see §8) — this is what keeps a fresh install from later thinking every
+   historical migration is still pending.
+6. Final summary, printed with a pointer to `docs/windows-setup.md` for the manual
    Windows-side steps.
 
 ## 6. First-run choices
@@ -122,7 +134,7 @@ All prompts live in `install/first-run-choices.sh`, mirroring Omakub's
 | Prompt | Type | Options | Default | Env var |
 |---|---|---|---|---|
 | Connectivity | single-select | "Corporate / restricted network", "Personal / unrestricted" | none | `OMAWSL_NETWORK_MODE` |
-| Editors & AI tooling | multi-select | VS Code, Neovim, opencode, Cursor | none selected | `OMAWSL_EDITORS` |
+| Editors & AI tooling | multi-select | VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI, GitHub Copilot CLI, Gemini CLI | none selected | `OMAWSL_EDITORS` |
 | Languages & cloud tools | multi-select | Ruby on Rails, Node.js, Go, PHP, Python, Elixir, Rust, Java, Terraform, Azure CLI | none selected | `OMAWSL_LANGUAGES` |
 | Storage | multi-select | MySQL, Redis, PostgreSQL | none selected | `OMAWSL_STORAGE` |
 
@@ -132,6 +144,11 @@ raw `curl | bash` binary install behind a "corporate networks may block this" fa
 It is asked at first run and stored so that behavior can become network-mode-aware later
 without a breaking change to the prompt flow. As of this version, no install step branches on
 it.
+
+Selecting nothing in any of the three multi-selects is a valid, expected state, not an error —
+`select-dev-language.sh`, `select-dev-storage.sh`, and every `app-*.sh` editor/tool script must
+no-op cleanly (skip their body, no partial writes) when their corresponding `OMAWSL_*` var is
+empty, rather than assuming at least one option was picked.
 
 Downstream scripts do simple membership checks against these vars, e.g.:
 
@@ -172,6 +189,10 @@ omawsl/
 │       ├── app-neovim.sh
 │       ├── app-opencode.sh
 │       ├── app-cursor.sh
+│       ├── app-claude-cli.sh
+│       ├── app-codex-cli.sh
+│       ├── app-gemini-cli.sh
+│       ├── app-gh-copilot.sh
 │       ├── mise.sh
 │       ├── select-dev-language.sh
 │       ├── cloud-tools.sh
@@ -205,7 +226,11 @@ omawsl/
 │   ├── app-vscode.sh
 │   ├── app-neovim.sh
 │   ├── app-opencode.sh
-│   └── app-cursor.sh
+│   ├── app-cursor.sh
+│   ├── app-claude-cli.sh
+│   ├── app-codex-cli.sh
+│   ├── app-gemini-cli.sh
+│   └── app-gh-copilot.sh
 ├── bin/
 │   └── omawsl
 └── docs/
@@ -229,14 +254,26 @@ Notes:
   expected no-op counts as a failure.
 - **Version guard is floor-only:** `check-version.sh` checks `VERSION_ID >= 24.04` with no
   ceiling, so later Ubuntu releases (26.04, 28.04, ...) pass without a code change. This is
-  what satisfies the "compatible with later Ubuntu versions" requirement.
+  what satisfies the "compatible with later Ubuntu versions" requirement. Unlike Omakub's actual
+  implementation (which shells out to `bc` for the floating-point comparison), this check is
+  done in pure bash/POSIX arithmetic on the major/minor parts — `bc` is not guaranteed present
+  on a minimal fresh image, and this is the very first gate in the whole run, before anything
+  has been `apt install`ed yet. Depending on an uninstalled tool to decide whether to start
+  installing tools is a chicken-and-egg risk not worth taking.
+- **WSL-generation guard:** in addition to confirming we're inside WSL at all, `check-version.sh`
+  specifically distinguishes WSL2 from WSL1 (e.g. via kernel version / `/proc/version`) and
+  hard-fails with an "upgrade to WSL2" message on WSL1. A WSL1 instance could otherwise pass a
+  looser "are we in WSL" check but has no systemd support and a fundamentally different
+  networking model — the Docker approach in §9 assumes WSL2 throughout.
 - **Migrations for omawsl's own breaking changes:** a `version` file at repo root holds a
   timestamp identifying the current omawsl version, matching Omakub's convention.
   `migrations/<timestamp>.sh` scripts hold one-off fixes for changes introduced by omawsl
   itself between releases (e.g. a config file that moved, a renamed mise tool). `bin/omawsl`
   compares the user's last-applied migration timestamp (stored under
   `~/.local/state/omawsl/version`) against `migrations/`, and runs only the ones newer than
-  that.
+  that. `install.sh` writes this state file itself on successful completion (§5, step 5) — a
+  fresh install already reflects current desired state, so without this the first-ever
+  `bin/omawsl migrate` would otherwise treat every historical migration as still pending.
 - Re-running the installer is always safe: either re-run `install.sh` top to bottom (idempotent
   by construction), or run `bin/omawsl migrate` for just the pending migrations.
 - **Error handling:** `install/terminal/*.sh` scripts are sourced (not sub-shelled) by
@@ -267,6 +304,9 @@ fi
 # 2. Install docker-ce via apt (idempotent)
 # ... standard Docker apt repo + install steps ...
 sudo usermod -aG docker "$USER"
+# Group membership changes don't apply to the *current* shell session — tell the user now,
+# so `docker ps` failing with a permission error right after install doesn't look like a bug:
+gum style --foreground 3 "Open a new terminal (or run 'newgrp docker') before using Docker without sudo."
 
 # 3. A script running inside the live WSL instance cannot restart the WSL VM itself.
 #    If systemd support was just enabled, stop here with clear instructions;
@@ -294,21 +334,40 @@ to the native-vs-Desktop choice and is not specifically mitigated by this design
 
 ## 10. Editor tooling
 
-All four are optional, selected via `OMAWSL_EDITORS` — no default is forced on the user,
+All eight are optional, selected via `OMAWSL_EDITORS` — no default is forced on the user,
 including VS Code, to stay neutral and let the picker reflect actual intent rather than an
 assumed default:
 
-- `app-vscode.sh` — checks for the `code` CLI via Win32 interop, ships
-  `.vscode/extensions.json` recommending the Remote-WSL extension, plus `configs/vscode.json`
-  for WSL-side default settings.
-- `app-neovim.sh` — Neovim + a LazyVim-based config, matching Omakub's actual approach.
-- `app-opencode.sh` — the opencode.ai terminal AI coding agent CLI.
-- `app-cursor.sh` — Cursor is a Windows-side GUI app (a VS Code fork), so this script doesn't
-  install anything inside WSL; it verifies Remote-WSL-equivalent support and surfaces the
-  relevant note in `docs/windows-setup.md`.
+- `app-vscode.sh` — checks for the `code` CLI via Win32 interop. **If VS Code isn't installed
+  on the Windows side yet** (a real, expected case — omawsl never auto-installs Windows
+  software, see §2), this is not a failure: the script still drops `.vscode/extensions.json`
+  and `configs/vscode.json` (inert until VS Code exists, and pick up automatically once it
+  does), skips the one step that needs the live `code` binary (installing the Remote-WSL
+  extension via `code --install-extension`), prints a message pointing at
+  `docs/windows-setup.md`, and lets the rest of the install continue. The same detect-and-defer
+  shape already used for Docker Desktop (§9) and the Windows Terminal theme sync (§11).
+- `app-neovim.sh` — Neovim + a LazyVim-based config, matching Omakub's actual approach. Purely
+  WSL-side, no Windows dependency, always installable regardless of what's on the Windows side.
+- `app-opencode.sh` — the opencode.ai terminal AI coding agent CLI. Purely WSL-side.
+- `app-cursor.sh` — Cursor is a Windows-side GUI app (a VS Code fork). Same detect-and-defer
+  treatment as `app-vscode.sh`: check for its CLI/interop, configure what can be configured
+  (shared settings.json keys, per §11) if present, otherwise skip gracefully with a
+  `docs/windows-setup.md` pointer.
+- `app-claude-cli.sh`, `app-codex-cli.sh`, `app-gemini-cli.sh` — Claude Code CLI, OpenAI Codex
+  CLI, Gemini CLI. Purely WSL-side terminal tools. Each installs via its own official standalone
+  installer where one exists; where the only distribution channel is npm, the script uses a
+  private `mise`-managed Node runtime internally to install it, rather than depending on
+  whether the user separately picked Node.js in the language picker (§12) — that picker is
+  about the user's own project runtime, not an implementation detail of an unrelated tool.
+- `app-gh-copilot.sh` — GitHub Copilot CLI, installed as a `gh` extension
+  (`gh extension install github/gh-copilot`). Depends only on `gh` itself, which
+  `app-github-cli.sh` already installs unconditionally regardless of any picker, so there's no
+  cross-picker dependency gap here. Actual usability still depends on the user having an
+  authenticated `gh` session and an active Copilot subscription — that's a runtime concern
+  documented in the README, not an install-time failure.
 
-Each of these scripts is skipped entirely if its editor wasn't selected — no partial setup, no
-extension/config writes for tools the user didn't ask for.
+Each of these scripts is skipped entirely if its editor/tool wasn't selected — no partial setup,
+no extension/config writes for tools the user didn't ask for.
 
 ## 11. Theming
 
@@ -354,6 +413,23 @@ source themes/$NAME/vscode.sh     # code --install-extension + sed-patch setting
 # docs/windows-setup.md rather than failing the whole command.
 ```
 
+Two implementation risks worth calling out explicitly, since this step touches a file the user
+depends on for their whole terminal experience:
+
+- **Don't assume the Windows username matches `$USER`.** The settings.json path is
+  `/mnt/c/Users/<Windows username>/...`, and it's common for the WSL Linux username and the
+  Windows account name to differ. The Windows profile path must be resolved dynamically (e.g.
+  via `cmd.exe /c echo %USERPROFILE%` or `wslpath`), never assembled by assuming the two
+  usernames match.
+- **Prefer `jq` over `sed` for this specific edit, and always back up first.** Omakub's own
+  `vscode.sh` uses a blind `sed` substitution, which is fine for a single-line
+  `"workbench.colorTheme": "..."` key — but Windows Terminal's `schemes` array is a nested
+  JSON structure where a naive `sed` is much more likely to corrupt the file. Use `jq` if
+  available (fall back to the documented manual step if not, rather than risking a `sed`
+  edit on a structure it's not suited for), and copy `settings.json` to `settings.json.bak`
+  before writing, since a corrupted settings.json breaks the user's whole terminal, not just
+  the theme.
+
 Because bat/eza/ripgrep/git-diff colors follow the terminal's own ANSI palette rather than
 having separate per-tool theme files, syncing the Windows Terminal color scheme is what makes
 those feel themed too — matching how Alacritty's palette does the same job in upstream Omakub.
@@ -365,6 +441,14 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   unchanged) plus Terraform and Azure CLI (new for omawsl). Nothing is pre-selected by
   default — a public tool should not surprise-install anything the user didn't explicitly ask
   for.
+- **Terraform and Azure CLI each require adding their own third-party apt repository and GPG
+  key** (HashiCorp's and Microsoft's respectively) — separate from Ubuntu's own mirrors, and
+  reachable/blockable independently of them. Because every script in this flow runs under
+  `set -e`, a single unreachable third-party repo here could otherwise cascade into failing
+  every *later* `apt install` step in the run, not just this one tool. `cloud-tools.sh` must
+  isolate these repo-add + `apt-get update` failures (e.g. check the exit code explicitly,
+  report just that tool as failed, and continue) rather than letting one blocked mirror take
+  down unrelated steps like Docker or the terminal app installs that run afterward.
 - **Storage** (`select-dev-storage.sh`): MySQL, Redis, PostgreSQL as Docker containers. Unlike
   Omakub (which pre-selects MySQL+Redis), nothing is pre-selected here — to stay maximally
   generic and not bias the picker toward any one storage solution.
@@ -398,15 +482,20 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   pending `migrations/*.sh` automatically. This is a deliberate improvement over upstream: in
   real Omakub, "Update > omakub" only runs `migrate.sh` — the `git pull` itself is never
   automated anywhere in its own tooling and is left as an implicit manual step. Combining pull +
-  migrate into one omawsl command removes that gap.
+  migrate into one omawsl command removes that gap. If the clone has local modifications (e.g.
+  someone hand-edited a config file directly inside `~/.local/share/omawsl` instead of through
+  a proper mechanism), `git pull` would conflict — detect a dirty working tree first and warn
+  with guidance rather than letting `git pull` fail confusingly or silently discard those edits.
 - `bin/omawsl migrate` — runs pending migrations only, without pulling (e.g. if the repo was
   already updated manually, or for testing a specific migration in isolation).
 - `bin/omawsl theme <name>` — applies one of the 10 ported themes across every installed
-  component; see §11.
+  component; see §11. Validates `<name>` against the known `themes/` subdirectories and errors
+  clearly on a typo/unknown name rather than silently no-op'ing.
 - `bin/omawsl uninstall <name>` — removes one installed component (a language/tool, a storage
   container, Docker itself, or an optional editor) via the matching `uninstall/*.sh` script.
   Scoped to exactly what omawsl can install (§7's `uninstall/` tree) — not a general
-  system-wide uninstaller.
+  system-wide uninstaller. Uninstalling something that was never installed is a no-op with an
+  informational message, not an error.
 - `bin/omawsl doctor` (or `status`) — reports what's installed/configured; doubles as a manual
   smoke test after install and a quick way to verify state without re-reading every script.
 
