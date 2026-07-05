@@ -218,6 +218,13 @@ if [[ "$NEEDS_RESTART" == "1" ]]; then
 fi
 ```
 
+Note: because `install/terminal/*.sh` scripts are *sourced* by `install/terminal.sh` (§8), this
+`exit 0` deliberately terminates the entire `install.sh` run, not just `docker.sh` — that is
+intentional here, not an oversight: the remaining steps have no useful work to do until after
+the WSL VM restart, and the user's shell session is about to be torn down by `wsl --shutdown`
+anyway. Re-running `install.sh` afterward resumes cleanly since step 1 becomes a no-op and
+every later step is idempotent regardless of whether it previously ran.
+
 Docker Desktop is not offered as an interactive choice. `docs/windows-setup.md` carries a
 one-line note that Docker Desktop + WSL integration is a fine alternative *if the user's
 organization already provides a license for it*, but it is not part of the automated flow.
