@@ -155,10 +155,30 @@ Selecting nothing in any of the three multi-selects is a valid, expected state, 
 no-op cleanly (skip their body, no partial writes) when their corresponding `OMAWSL_*` var is
 empty, rather than assuming at least one option was picked.
 
-Downstream scripts do simple membership checks against these vars, e.g.:
+**These are comma-delimited strings, not bash arrays.** Bash cannot `export` an array across a
+process boundary — only scalars — and since these values get written to
+`~/.local/state/omawsl/choices.env` and re-read later by entirely separate invocations
+(`bin/omawsl doctor`, `bin/omawsl install`, §14), they have to survive as plain strings
+regardless. `gum choose --no-limit` emits one selection per line, so each picker joins that into
+a single comma-separated string before storing it (e.g. `gum choose --no-limit ... | paste -sd,
+-`), giving `OMAWSL_LANGUAGES="Go,Python,Rust"`.
+
+Membership checks must wrap both sides in comma delimiters and match the whole token — not a
+bare substring check, which would be a real (if currently dormant) bug: nothing in the current
+option lists happens to collide, but a bare `*"Go"*` substring check would silently misfire the
+moment some future option's name contains "Go" as a substring of something longer:
 
 ```bash
-[[ "$OMAWSL_LANGUAGES" == *"Rust"* ]] && mise use --global rust@latest
+[[ ",$OMAWSL_LANGUAGES," == *",Rust,"* ]] && mise use --global rust@latest
+```
+
+Any script that needs to *iterate* over each selection individually (rather than just check
+membership) splits the string into a local array of its own — the stored value itself is never
+an array, only ever a delimited string:
+
+```bash
+IFS=',' read -ra languages <<< "$OMAWSL_LANGUAGES"
+for lang in "${languages[@]}"; do ...; done
 ```
 
 The one prompt outside this file is `install/identification.sh` (matching Omakub's real
