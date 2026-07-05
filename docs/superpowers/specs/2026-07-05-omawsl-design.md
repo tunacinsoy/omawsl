@@ -65,7 +65,7 @@ disposition:**
 | `themes/` | Ported, all 10 themes (§11) |
 | `migrations/` | Ported (§8) |
 | `uninstall/` | Ported, scoped to what omawsl actually installs (§14) |
-| `bin/omakub` + `bin/omakub-sub/*` (menu, theme, migrate, update, install-dev-editor, font, manual, header, uninstall) | Ported as `bin/omawsl` subcommands: `theme`, `migrate`, `update`, `doctor`, `uninstall` (§14). No interactive full-screen menu shell (`menu.sh`) — omawsl favors direct subcommands over a persistent TUI menu, since the whole install is meant to be a single unattended run rather than an ongoing control-panel experience. `font.sh`/`manual.sh` have no WSL-side equivalent (font install is a Windows-side doc step, §13; `README.md` covers what `manual.sh` would show). |
+| `bin/omakub` + `bin/omakub-sub/*` (menu, theme, migrate, update, install-dev-editor, font, manual, header, uninstall) | Ported as `bin/omawsl` subcommands: `theme`, `migrate`, `update`, `doctor`, `uninstall`, `install` (§14). `install` is a scoped, one-shot interactive picker (category → item, exits after installing) — the equivalent of Omakub's `install-dev-editor.sh`/`install.sh` menu items, generalized to every picker category. Not ported: Omakub's persistent looping control-panel shell (`menu.sh`'s Theme/Font/Update/Install/Uninstall/Manual/Quit home screen that returns to itself after each action) — every omawsl subcommand does its one job and exits, rather than returning to a home screen. `font.sh`/`manual.sh` have no WSL-side equivalent (font install is a Windows-side doc step, §13; `README.md` covers what `manual.sh` would show). |
 
 No Omakub concern is unaccounted for: everything is either ported (possibly adapted), or
 explicitly excluded with a stated reason above.
@@ -128,8 +128,8 @@ curl -fsSL https://raw.githubusercontent.com/tunacinsoy/omawsl/master/boot.sh | 
    historical migration is still pending.
 7. Final summary: alongside the pointer to `docs/windows-setup.md`, explicitly lists every
    step that was skipped/deferred because its Windows-side counterpart wasn't found (e.g. "VS
-   Code integration deferred — install VS Code, then run `bin/omawsl setup vscode`"), so this
-   isn't just a message that scrolled by mid-run and is easy to miss.
+   Code integration deferred — install VS Code, then run `bin/omawsl install editor vscode`"),
+   so this isn't just a message that scrolled by mid-run and is easy to miss.
 
 ## 6. First-run choices & pre-install checklist
 
@@ -171,7 +171,12 @@ and used to set `git config --global user.name`/`user.email`.
 `~/.local/state/omawsl/choices.env` in addition to exporting them as env vars for the current
 run. This is what makes it possible for `bin/omawsl doctor` (§14) to later know "the user asked
 for VS Code" even in a shell session long after the original `install.sh` run ended, without
-re-prompting.
+re-prompting. It's also what lets `bin/omawsl install` (§14) reuse these exact same picker
+screens later to add more languages/editors/storage on top of a previous run: each picker
+script (`select-dev-language.sh`, `select-dev-storage.sh`, the editors picker) accepts an
+optional pre-selected list (`gum choose --selected "$PREVIOUS"`), sourced from `choices.env`
+when invoked outside of first-run, so the user sees what's already installed pre-checked rather
+than starting from a blank slate.
 
 **`install/windows-prereq-checklist.sh` — a pre-install roadmap, not a vague "go do something."**
 Immediately after the picker and before any installation starts, this step looks at what was
@@ -543,18 +548,36 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   Scoped to exactly what omawsl can install (§7's `uninstall/` tree) — not a general
   system-wide uninstaller. Uninstalling something that was never installed is a no-op with an
   informational message, not an error.
-- `bin/omawsl setup <tool>` — directly (re-)runs a single `install/terminal/app-<tool>.sh`
-  script on demand, without replaying the whole first-run picker. This is the concrete answer
-  to "I just installed VS Code on Windows, now what do I run?" — `bin/omawsl setup vscode` —
-  and more generally lets a user add one editor/tool later without re-running all of
-  `install.sh`.
+- **`bin/omawsl install [category] [item]`** — add something new (or retry something deferred)
+  *without* rerunning `install.sh` or replaying the whole first-run picker. This is the direct
+  answer to "I only installed Python at first, now I want to add Go too" — or equally, "I just
+  installed VS Code on Windows, now what do I run?"
+  - **No args:** an interactive, one-shot picker — choose a category (Language/tool, Editors &
+    AI tooling, Storage), then that category's *exact same* `gum choose` screen used by
+    `first-run-choices.sh` (§6) reappears, with whatever's already installed pre-checked (read
+    from `~/.local/state/omawsl/choices.env`). The user can select more on top of what's already
+    there. On confirm, the result is fed through the same install scripts as first-run
+    (`select-dev-language.sh`, `select-dev-storage.sh`, the relevant `app-*.sh`) — already-
+    installed items are harmless no-ops (idempotent by construction, §8), newly-checked items
+    get installed, and anything that was previously deferred pending a Windows-side install
+    (§10) gets retried for free if its prerequisite is now met. `choices.env` is rewritten with
+    the resulting (possibly larger) selection afterward.
+  - **With args:** `bin/omawsl install language go`, `bin/omawsl install editor vscode` — skips
+    the interactive picker and directly installs/retries one named item non-interactively (e.g.
+    for scripting, or as the exact command `doctor`'s pending-items list, below, tells the user
+    to run).
+  - **Additive only, never removes anything** — switching focus from Python to Go means running
+    `bin/omawsl install language go`; Python stays installed until the user explicitly runs
+    `bin/omawsl uninstall python`. Reusing the same picker scripts means there's exactly one
+    place that knows how to install each language/editor/storage option, whether it's first-run
+    or added later — no duplicated install logic between the two paths.
 - `bin/omawsl doctor` (or `status`) — reports what's installed/configured; doubles as a manual
   smoke test after install and a quick way to verify state without re-reading every script.
   Reads `~/.local/state/omawsl/choices.env` (§6) and cross-checks it against what's actually
   detected: anything the user selected but that's still pending on a Windows-side install (e.g.
   VS Code selected but `code` still not reachable) is surfaced here every time `doctor` runs —
-  not just once in the original install's scrollback — along with the exact `bin/omawsl setup
-  <tool>` command to resolve it.
+  not just once in the original install's scrollback — along with the exact `bin/omawsl install
+  <category> <item>` command to resolve it.
 
 **Division of responsibility (omawsl vs. apt/mise/docker):** `bin/omawsl` owns exactly two
 things — omawsl's own scripts/configs (`update`, `migrate`), and re-running or removing what
