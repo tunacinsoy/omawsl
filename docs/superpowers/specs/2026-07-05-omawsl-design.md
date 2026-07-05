@@ -212,24 +212,34 @@ Before continuing, here's what the Windows side needs for what you picked:
   • VS Code — docs/windows-setup.md#vscode (3 steps: install, enable the WSL extension, verify `code` on PATH)
   • Docker  — heads up: this may need one WSL VM restart partway through (handled automatically, §9)
 
-None of this blocks the WSL-side install below — every step here can be done before or after,
-and anything Windows-side that isn't ready yet is safely skipped/deferred rather than failing.
+We RECOMMEND stopping here: go complete the steps above on the Windows side first, then run
+this script again. Nothing below strictly requires it — the WSL install will still run fine
+either way, safely skipping/deferring anything Windows-side that isn't ready yet rather than
+failing — but doing it in this order avoids extra back-and-forth later, and you won't have to
+remember to come back to it.
 
-Continue installing the WSL side now? [Y/n]
+Continue installing the WSL side now anyway? [y/N]
 ```
 
-If the user answers **no**, `install.sh` exits cleanly here — nothing has been installed yet at
-this point, so there's nothing to roll back. Because choices are already persisted (above), the
-user doesn't have to re-answer the first-run picker to pick back up: re-running `install.sh`
-(or, once implemented, a narrower resume path) continues from persisted state. Deliberately
-choosing this simple "exit and rerun later" behavior over a smarter "partially continue with
-only the WSL-only-independent steps" — the latter would add real branching complexity for a
-case (saying no) that should become rare once the checklist itself exists to set expectations
-upfront.
+The recommendation is stated plainly, not left to be inferred — this matters for anyone running
+the install while tired, distracted, or otherwise not in a state to weigh trade-offs carefully:
+the safe, recommended path should be obvious from the text alone, not something you only get to
+if you stop and think it through. The prompt's default is also flipped to match: **`[y/N]`**,
+not `[Y/n]`, so pressing Enter without reading closely does the recommended thing (exit and
+come back) rather than barrelling ahead.
 
-If the user answers **yes** (or the checklist had nothing to show), `install.sh` proceeds
-exactly as if this step weren't there — this is purely advisory, never a hard gate on anything
-the WSL-side steps actually need.
+If the user answers **no** (or just hits Enter), `install.sh` exits cleanly here — nothing has
+been installed yet at this point, so there's nothing to roll back. Because choices are already
+persisted (above), the user doesn't have to re-answer the first-run picker to pick back up:
+re-running `install.sh` (or, once implemented, a narrower resume path) continues from persisted
+state. Deliberately choosing this simple "exit and rerun later" behavior over a smarter
+"partially continue with only the WSL-only-independent steps" — the latter would add real
+branching complexity for a case (declining) that's meant to be the common path now, not an edge
+case to special-case around.
+
+If the user explicitly answers **yes** (or the checklist had nothing to show, in which case
+there's no prompt at all), `install.sh` proceeds exactly as if this step weren't there — this
+remains purely advisory, never a hard gate on anything the WSL-side steps actually need.
 
 ## 7. Directory structure
 
