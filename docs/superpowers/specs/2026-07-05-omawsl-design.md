@@ -32,6 +32,43 @@ and conventions.
   Omakub there is no `desktop.sh` at all — not disabled, simply absent.
 - Any automatic Windows-side software installation (winget, PowerShell package installs)
   triggered by the WSL installer. See §7.
+- Typora. Not a 37signals product and not named in the original exclusion list, but deliberately
+  dropped: there are many alternative markdown editors, and the user's own workflow keeps
+  markdown in a private repo rather than a dedicated third-party app.
+- `defaults/xcompose` — X11 compose-key mappings for typing special characters via key
+  sequences. This is a desktop/X11 input-method feature; Windows owns keyboard input for a WSL
+  session, so there is no WSL-side equivalent to configure.
+- `applications/` (Omakub's `About.sh`, `Activity.sh`, `Basecamp.sh`, `Docker.sh`, `HEY.sh`,
+  `Neovim.sh`, `Omakub.sh`, `WhatsApp.sh` + `icons/`) — these generate GNOME dock/app-launcher
+  shortcuts. Out of scope entirely under the no-desktop-layer exclusion above (and the
+  Basecamp/HEY ones doubly so, under the 37signals exclusion).
+- Omakub's broader post-install editor catalog (Doom Emacs, RubyMine, Windsurf, Zed, reachable
+  via its `install-dev-editor.sh` menu) — omawsl's editor scope is deliberately the four named
+  (VS Code, Neovim, opencode, Cursor), not an open catalog.
+
+**Exhaustiveness check — every top-level concern in upstream Omakub, and its omawsl
+disposition:**
+
+| Omakub concern | omawsl disposition |
+|---|---|
+| `boot.sh`, `install.sh`, `install/check-version.sh` | Ported (rebranded banner, floor-only version check) |
+| `install/desktop.sh` | Dropped — no desktop layer on WSL |
+| `install/identification.sh` | Ported (§6) |
+| `install/first-run-choices.sh` | Ported and extended (§6) |
+| `install/terminal.sh` + `install/terminal/*.sh` | Ported, extended with `cloud-tools.sh`, `app-vscode.sh`, `app-opencode.sh`, `app-cursor.sh` |
+| `configs/` (bashrc, inputrc, zellij.kdl, btop.conf, fastfetch.jsonc, vscode.json, neovim/) | Ported |
+| `configs/alacritty*` | Dropped — Windows Terminal replaces Alacritty |
+| `configs/typora/`, `configs/ulauncher.*` | Dropped — see exclusions above |
+| `configs/xcompose`, `defaults/xcompose` | Dropped — X11 input-method feature, N/A on WSL |
+| `defaults/bash` | Folded into `configs/bashrc` — no separate artifact needed |
+| `applications/` | Dropped entirely — GNOME dock/launcher integration, see exclusions above |
+| `themes/` | Ported, all 10 themes (§11) |
+| `migrations/` | Ported (§8) |
+| `uninstall/` | Ported, scoped to what omawsl actually installs (§14) |
+| `bin/omakub` + `bin/omakub-sub/*` (menu, theme, migrate, update, install-dev-editor, font, manual, header, uninstall) | Ported as `bin/omawsl` subcommands: `theme`, `migrate`, `update`, `doctor`, `uninstall` (§14). No interactive full-screen menu shell (`menu.sh`) — omawsl favors direct subcommands over a persistent TUI menu, since the whole install is meant to be a single unattended run rather than an ongoing control-panel experience. `font.sh`/`manual.sh` have no WSL-side equivalent (font install is a Windows-side doc step, §13; `README.md` covers what `manual.sh` would show). |
+
+No Omakub concern is unaccounted for: everything is either ported (possibly adapted), or
+explicitly excluded with a stated reason above.
 
 ## 3. Target environment & assumptions
 
@@ -50,7 +87,11 @@ curl -fsSL https://raw.githubusercontent.com/tunacinsoy/omawsl/master/boot.sh | 
 ```
 
 `boot.sh` (mirrors Omakub's `boot.sh`):
-1. Banner + confirmation prompt.
+1. Banner + confirmation prompt. The banner is an **omawsl-branded ASCII art logo**, not
+   Omakub's — this is purely cosmetic but deliberate: it's the first thing a user sees, and it
+   should read as omawsl's own tool, not a reskinned fork. The same banner is reused by
+   `bin/omawsl` (via a shared `header.sh`-equivalent) so the identity is consistent across the
+   initial install and later CLI use.
 2. `sudo apt-get update` and install `git` if missing.
 3. Clone `https://github.com/tunacinsoy/omawsl` into `~/.local/share/omawsl`.
 4. Support an `OMAWSL_REF` env var to check out a specific branch/tag instead of `master`
@@ -98,9 +139,11 @@ Downstream scripts do simple membership checks against these vars, e.g.:
 [[ "$OMAWSL_LANGUAGES" == *"Rust"* ]] && mise use --global rust@latest
 ```
 
-The one prompt outside this file is `set-git.sh`, which only asks for `git config --global
-user.name`/`user.email` if unset — matching Omakub, since it depends on machine state rather
-than being a first-run preference.
+The one prompt outside this file is `install/identification.sh` (matching Omakub's real
+filename and behavior — not a conditional `set-git.sh` as an earlier draft of this spec had
+it): it always prompts for full name and email at first run, pre-filled from `getent passwd`
+and any existing `git config` as defaults, exported as `OMAWSL_USER_NAME`/`OMAWSL_USER_EMAIL`
+and used to set `git config --global user.name`/`user.email`.
 
 ## 7. Directory structure
 
@@ -116,7 +159,7 @@ omawsl/
 │   └── terminal/
 │       ├── required/
 │       │   └── app-gum.sh
-│       ├── set-git.sh
+│       ├── identification.sh
 │       ├── a-shell.sh
 │       ├── apps-terminal.sh
 │       ├── app-btop.sh
@@ -155,6 +198,14 @@ omawsl/
 │   │   └── vscode.sh                       # also targets Cursor's settings.json if installed
 │   └── set-vscode-theme.sh                 # shared helper, ported from Omakub
 ├── migrations/
+├── uninstall/
+│   ├── dev-language.sh   # removes one mise-managed language/tool by name
+│   ├── storage.sh        # removes a storage container by name
+│   ├── docker.sh         # removes docker-ce + containers/images/volumes it created
+│   ├── app-vscode.sh
+│   ├── app-neovim.sh
+│   ├── app-opencode.sh
+│   └── app-cursor.sh
 ├── bin/
 │   └── omawsl
 └── docs/
@@ -343,12 +394,30 @@ those feel themed too — matching how Alacritty's palette does the same job in 
 
 ## 14. Post-install CLI (`bin/omawsl`)
 
-- `bin/omawsl migrate` — runs pending `migrations/*.sh` scripts newer than the last-applied
-  version.
+- `bin/omawsl update` — **self-update**: `git pull` inside `~/.local/share/omawsl`, then runs
+  pending `migrations/*.sh` automatically. This is a deliberate improvement over upstream: in
+  real Omakub, "Update > omakub" only runs `migrate.sh` — the `git pull` itself is never
+  automated anywhere in its own tooling and is left as an implicit manual step. Combining pull +
+  migrate into one omawsl command removes that gap.
+- `bin/omawsl migrate` — runs pending migrations only, without pulling (e.g. if the repo was
+  already updated manually, or for testing a specific migration in isolation).
 - `bin/omawsl theme <name>` — applies one of the 10 ported themes across every installed
   component; see §11.
+- `bin/omawsl uninstall <name>` — removes one installed component (a language/tool, a storage
+  container, Docker itself, or an optional editor) via the matching `uninstall/*.sh` script.
+  Scoped to exactly what omawsl can install (§7's `uninstall/` tree) — not a general
+  system-wide uninstaller.
 - `bin/omawsl doctor` (or `status`) — reports what's installed/configured; doubles as a manual
   smoke test after install and a quick way to verify state without re-reading every script.
+
+**Division of responsibility (omawsl vs. apt/mise/docker):** `bin/omawsl` owns exactly two
+things — omawsl's own scripts/configs (`update`, `migrate`), and re-running or removing what
+*it* installed (`theme`, `uninstall`). It does **not** wrap or replace `sudo apt update && sudo
+apt upgrade`, `mise upgrade`, or `docker image pull` — those remain the user's own commands for
+keeping installed packages, language versions, and container images current, exactly as in
+upstream Omakub (confirmed: its own `update.sh` does not touch apt, mise, or docker upgrades
+either). This keeps a clean boundary: omawsl updates *itself*; the underlying package managers
+update *what it installed*. There is no dual/competing update path for the same thing.
 
 ## 15. Testing & verification
 
@@ -360,3 +429,13 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   the relevant `OMAWSL_*` vars pre-set) for faster iteration than a full fresh-VM run every
   time.
 - `bin/omawsl doctor` serves as the repeatable smoke test after any install or migration run.
+
+## 16. Documentation requirements
+
+`README.md` must include an explicit **"What omawsl deliberately excludes"** section (not just
+a features list) so a new user has a clear, accurate picture of what to expect and doesn't
+assume gaps are oversights. It should name, at minimum: 37signals commercial products (HEY,
+Basecamp), the Win11/GNOME desktop-app layer (Spotify, Signal, GNOME, Tactile, Ulauncher,
+Typora), and any automatic Windows-side software installation — each with the one-line reason
+already established in §2. This list should stay in sync with §2 as the source of truth if the
+scope ever changes.
