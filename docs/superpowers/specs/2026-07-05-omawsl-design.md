@@ -1,0 +1,285 @@
+# omawsl — Design Spec
+
+Date: 2026-07-05
+Status: Approved for planning
+
+## 1. Purpose
+
+omawsl is a single-script installer that turns a fresh WSL2 Ubuntu install into a fully
+configured development environment, providing the same experience that
+[Omakub](https://github.com/basecamp/omakub) provides for bare-metal Ubuntu. It exists to give
+a seamless transition path from an existing native-Ubuntu Omakub setup to WSL2 on Windows 11,
+without hand-reassembling dotfiles and tools.
+
+Reference architecture: verified against the actual `basecamp/omakub` repository
+(`install.sh`, `boot.sh`, `install/terminal/*.sh`, `configs/`, `migrations/`) as of this writing.
+Unless a decision below explicitly diverges from it, omawsl mirrors Omakub's proven structure
+and conventions.
+
+## 2. Scope
+
+**In scope:**
+- Fully automated WSL/Linux-side setup: shell, terminal tools, editors, language runtimes,
+  cloud CLIs, containerized databases.
+- Documented (not automated) Windows-side setup: Windows Terminal profile/theme, font,
+  optional winget helper script.
+- Idempotent re-runs and forward compatibility with Ubuntu releases after 24.04.
+
+**Out of scope (explicitly excluded):**
+- 37signals commercial products (HEY, Basecamp).
+- The Windows desktop-app layer: Spotify, Signal, and Linux-desktop-only concepts that don't
+  apply to WSL (GNOME, Tactile, Ulauncher). WSL has no desktop environment of its own, so unlike
+  Omakub there is no `desktop.sh` at all — not disabled, simply absent.
+- Any automatic Windows-side software installation (winget, PowerShell package installs)
+  triggered by the WSL installer. See §7.
+
+## 3. Target environment & assumptions
+
+- Fresh WSL2 Ubuntu install (26.04 baseline, but the version guard is floor-only — see §8 — so
+  later releases pass automatically).
+- User already has a username/password set and is looking at a bash prompt at time 0.
+- Only bash + coreutils are guaranteed present; `git`/`curl` may not be installed yet.
+- Some target machines sit behind a corporate firewall where installing software on the Windows
+  host requires an IT ticket; others are personal machines with no such restriction. This drives
+  §6 and §7.
+
+## 4. Bootstrap
+
+```
+curl -fsSL https://raw.githubusercontent.com/tunacinsoy/omawsl/master/boot.sh | bash
+```
+
+`boot.sh` (mirrors Omakub's `boot.sh`):
+1. Banner + confirmation prompt.
+2. `sudo apt-get update` and install `git` if missing.
+3. Clone `https://github.com/tunacinsoy/omawsl` into `~/.local/share/omawsl`.
+4. Support an `OMAWSL_REF` env var to check out a specific branch/tag instead of `master`
+   (for testing changes before merge).
+5. Exec `install.sh` from the clone.
+
+## 5. Orchestration flow
+
+`install.sh` runs, in order:
+
+1. **`install/check-version.sh`** — verifies Ubuntu (floor-only version check, see §8),
+   x86_64/arm64 architecture, and that we are actually inside WSL2 (checks
+   `$WSL_DISTRO_NAME` / `/proc/sys/fs/binfmt_misc/WSLInterop`). Hard-fails with a clear message
+   otherwise.
+2. **`install/first-run-choices.sh`** — every interactive prompt happens here, up front, via
+   `gum`. Results are exported as `OMAWSL_*` env vars so the remainder of the run is
+   unattended. See §6.
+3. **`install/terminal.sh`** — sources every script under `install/terminal/*.sh` in a fixed
+   order. Each script is idempotent and consults the `OMAWSL_*` flags where relevant.
+4. Final summary, printed with a pointer to `docs/windows-setup.md` for the manual
+   Windows-side steps.
+
+## 6. First-run choices
+
+All prompts live in `install/first-run-choices.sh`, mirroring Omakub's
+`OMAKUB_FIRST_RUN_*` convention with an `OMAWSL_` prefix:
+
+| Prompt | Type | Options | Default | Env var |
+|---|---|---|---|---|
+| Connectivity | single-select | "Corporate / restricted network", "Personal / unrestricted" | none | `OMAWSL_NETWORK_MODE` |
+| Editor add-ons | multi-select | Neovim, opencode, Cursor (VS Code is always on, not shown as a choice) | none selected | `OMAWSL_EDITORS` |
+| Languages & cloud tools | multi-select | Ruby on Rails, Node.js, Go, PHP, Python, Elixir, Rust, Java, Terraform, Azure CLI | none selected | `OMAWSL_LANGUAGES` |
+| Storage | multi-select | MySQL, Redis, PostgreSQL | MySQL, Redis | `OMAWSL_STORAGE` |
+
+**`OMAWSL_NETWORK_MODE` — reserved flag, no consumer yet.** This is intentional, not dead
+code: it is captured now because future omawsl versions are expected to need it (e.g. gating a
+raw `curl | bash` binary install behind a "corporate networks may block this" fallback path).
+It is asked at first run and stored so that behavior can become network-mode-aware later
+without a breaking change to the prompt flow. As of this version, no install step branches on
+it.
+
+Downstream scripts do simple membership checks against these vars, e.g.:
+
+```bash
+[[ "$OMAWSL_LANGUAGES" == *"Rust"* ]] && mise use --global rust@latest
+```
+
+The one prompt outside this file is `set-git.sh`, which only asks for `git config --global
+user.name`/`user.email` if unset — matching Omakub, since it depends on machine state rather
+than being a first-run preference.
+
+## 7. Directory structure
+
+```
+omawsl/
+├── boot.sh
+├── install.sh
+├── version
+├── install/
+│   ├── check-version.sh
+│   ├── first-run-choices.sh
+│   ├── terminal.sh
+│   └── terminal/
+│       ├── required/
+│       │   └── app-gum.sh
+│       ├── set-git.sh
+│       ├── a-shell.sh
+│       ├── apps-terminal.sh
+│       ├── app-btop.sh
+│       ├── app-fastfetch.sh
+│       ├── app-lazygit.sh
+│       ├── app-lazydocker.sh
+│       ├── app-github-cli.sh
+│       ├── app-zellij.sh
+│       ├── app-vscode.sh
+│       ├── app-neovim.sh
+│       ├── app-opencode.sh
+│       ├── app-cursor.sh
+│       ├── mise.sh
+│       ├── select-dev-language.sh
+│       ├── cloud-tools.sh
+│       ├── select-dev-storage.sh
+│       ├── docker.sh
+│       └── libraries.sh
+├── configs/
+│   ├── bashrc
+│   ├── inputrc
+│   ├── zellij.kdl
+│   ├── btop.conf
+│   ├── fastfetch.jsonc
+│   └── vscode.json
+├── windows/
+│   ├── windows-terminal.json
+│   ├── fonts/
+│   └── setup.ps1
+├── migrations/
+├── bin/
+│   └── omawsl
+└── docs/
+    ├── windows-setup.md
+    └── superpowers/specs/
+```
+
+Notes:
+- No `configs/alacritty` — Windows Terminal is the terminal emulator on this stack, so an
+  Alacritty config has no consumer.
+- `windows/` is documentation and optional assets only. Nothing under it is ever invoked by
+  `install.sh`.
+- Each `install/terminal/*.sh` is self-contained and idempotent: `apt install` no-ops on
+  already-installed packages, `cp` deterministically overwrites configs, `mise use` re-pins
+  versions harmlessly, and container creation is guarded by a name-existence check.
+
+## 8. Idempotency, versioning, migrations
+
+- **Idempotent by construction:** every install step uses primitives that are safe to
+  re-run (see §7 notes). `set -e` is set in every script; no step is written such that an
+  expected no-op counts as a failure.
+- **Version guard is floor-only:** `check-version.sh` checks `VERSION_ID >= 24.04` with no
+  ceiling, so later Ubuntu releases (26.04, 28.04, ...) pass without a code change. This is
+  what satisfies the "compatible with later Ubuntu versions" requirement.
+- **Migrations for omawsl's own breaking changes:** a `version` file at repo root holds a
+  timestamp identifying the current omawsl version, matching Omakub's convention.
+  `migrations/<timestamp>.sh` scripts hold one-off fixes for changes introduced by omawsl
+  itself between releases (e.g. a config file that moved, a renamed mise tool). `bin/omawsl`
+  compares the user's last-applied migration timestamp (stored under
+  `~/.local/state/omawsl/version`) against `migrations/`, and runs only the ones newer than
+  that.
+- Re-running the installer is always safe: either re-run `install.sh` top to bottom (idempotent
+  by construction), or run `bin/omawsl migrate` for just the pending migrations.
+- **Error handling:** `install/terminal/*.sh` scripts are sourced (not sub-shelled) by
+  `install/terminal.sh`, so a failure stops the whole run immediately rather than continuing
+  with a partially-configured system. On failure, the script name and a "fix the issue and
+  re-run install.sh" message are printed — no automatic rollback, matching Omakub's own
+  fix-and-re-run philosophy rather than a transactional model.
+
+## 9. Docker
+
+Docker Engine is installed **natively inside WSL, unconditionally** — this is not gated by
+`OMAWSL_NETWORK_MODE`. Rationale: `docker-ce` via `apt` is Apache-2.0 licensed and free
+regardless of company size, sidestepping Docker Desktop's paid-subscription threshold for
+larger companies entirely — not just the "IT ticket to install Windows software" concern.
+Functionally, WSL2's automatic localhost port-forwarding means containers are reachable from
+the Windows side exactly as they would be under Docker Desktop, so there's no seamlessness
+gap for typical dev workloads (`docker compose up`, exposed ports, volumes).
+
+`docker.sh` behavior:
+
+```bash
+# 1. Ensure WSL systemd support is on (idempotent: no-op if already set)
+if ! grep -q "^systemd=true" /etc/wsl.conf 2>/dev/null; then
+  printf '[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
+  NEEDS_RESTART=1
+fi
+
+# 2. Install docker-ce via apt (idempotent)
+# ... standard Docker apt repo + install steps ...
+sudo usermod -aG docker "$USER"
+
+# 3. A script running inside the live WSL instance cannot restart the WSL VM itself.
+#    If systemd support was just enabled, stop here with clear instructions;
+#    re-running install.sh afterward picks up cleanly since step 1 becomes a no-op.
+if [[ "$NEEDS_RESTART" == "1" ]]; then
+  gum style --foreground 3 "WSL systemd support was just enabled. Run 'wsl --shutdown' from Windows (PowerShell/cmd), reopen this terminal, then re-run install.sh to finish Docker setup."
+  exit 0
+fi
+```
+
+Docker Desktop is not offered as an interactive choice. `docs/windows-setup.md` carries a
+one-line note that Docker Desktop + WSL integration is a fine alternative *if the user's
+organization already provides a license for it*, but it is not part of the automated flow.
+
+A corporate proxy/TLS-inspecting firewall that blocks package mirrors or container registries
+would affect this path the same way it would affect Docker Desktop — that risk is orthogonal
+to the native-vs-Desktop choice and is not specifically mitigated by this design.
+
+## 10. Editor tooling
+
+- **VS Code (Remote-WSL) is always on**, not a menu choice: `app-vscode.sh` checks for the
+  `code` CLI via Win32 interop and ships `.vscode/extensions.json` recommending the Remote-WSL
+  extension, plus `configs/vscode.json` for WSL-side default settings.
+- **Neovim, opencode, Cursor are optional**, selected via `OMAWSL_EDITORS`:
+  - `app-neovim.sh` — Neovim + a LazyVim-based config, matching Omakub's actual approach.
+  - `app-opencode.sh` — the opencode.ai terminal AI coding agent CLI.
+  - `app-cursor.sh` — Cursor is a Windows-side GUI app (a VS Code fork), so this script doesn't
+    install anything inside WSL; it verifies Remote-WSL-equivalent support and surfaces the
+    relevant note in `docs/windows-setup.md`.
+
+## 11. Languages, cloud tools, storage
+
+- **Languages/tools** (`select-dev-language.sh` + `cloud-tools.sh`), all via `mise` where
+  supported: Ruby on Rails, Node.js, Go, PHP, Python, Elixir, Rust, Java (Omakub's full list,
+  unchanged) plus Terraform and Azure CLI (new for omawsl). Nothing is pre-selected by
+  default — a public tool should not surprise-install anything the user didn't explicitly ask
+  for.
+- **Storage** (`select-dev-storage.sh`): MySQL, Redis, PostgreSQL as Docker containers,
+  mirroring Omakub exactly, with MySQL and Redis pre-selected.
+
+## 12. Windows-side deliverables (manual only)
+
+- `docs/windows-setup.md` — step-by-step walkthrough: install Windows Terminal (Store, or "ask
+  IT" note if blocked), install a Nerd Font from `windows/fonts/` (no admin rights needed),
+  merge `windows/windows-terminal.json` into Windows Terminal's `settings.json`, set the WSL
+  profile as default. Includes the Docker Desktop alternative note from §9 and the Cursor note
+  from §10.
+- `windows/setup.ps1` — optional, reviewed-before-run helper for winget installs, for
+  personal/unrestricted machines where the user wants one command instead of following the doc
+  by hand. Never invoked automatically by `install.sh` or `boot.sh`.
+- No clipboard/X-server setup is needed: WSL2 + WSLg handle clipboard and GUI app interop
+  automatically on Windows 11. The doc notes this works out of the box.
+- There is no ordering dependency between the Windows-side doc and the WSL installer — they
+  are independent tracks. The one exception: if a user manually opts into the Docker Desktop
+  alternative, they need to complete that Windows-side install themselves before `docker`
+  becomes available via interop; this is a documented manual choice, not something omawsl
+  detects or blocks on.
+
+## 13. Post-install CLI (`bin/omawsl`)
+
+- `bin/omawsl migrate` — runs pending `migrations/*.sh` scripts newer than the last-applied
+  version.
+- `bin/omawsl doctor` (or `status`) — reports what's installed/configured; doubles as a manual
+  smoke test after install and a quick way to verify state without re-reading every script.
+
+## 14. Testing & verification
+
+- No CI/hardware exists in this environment to run a real WSL instance, so verification is
+  manual: after implementation, test on an actual fresh WSL2 Ubuntu instance (or a disposable
+  one via `wsl --install -d Ubuntu` + `wsl --unregister` to reset), running the real `boot.sh`
+  one-liner end to end.
+- Each `install/terminal/*.sh` script should be runnable in isolation (source it directly with
+  the relevant `OMAWSL_*` vars pre-set) for faster iteration than a full fresh-VM run every
+  time.
+- `bin/omawsl doctor` serves as the repeatable smoke test after any install or migration run.
