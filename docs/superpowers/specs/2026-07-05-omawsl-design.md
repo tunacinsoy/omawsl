@@ -31,7 +31,7 @@ and conventions.
   apply to WSL (GNOME, Tactile, Ulauncher). WSL has no desktop environment of its own, so unlike
   Omakub there is no `desktop.sh` at all — not disabled, simply absent.
 - Any automatic Windows-side software installation (winget, PowerShell package installs)
-  triggered by the WSL installer. See §7.
+  triggered by the WSL installer. See §13.
 - Typora. Not a 37signals product and not named in the original exclusion list, but deliberately
   dropped: there are many alternative markdown editors, and the user's own workflow keeps
   markdown in a private repo rather than a dedicated third-party app.
@@ -43,8 +43,8 @@ and conventions.
   shortcuts. Out of scope entirely under the no-desktop-layer exclusion above (and the
   Basecamp/HEY ones doubly so, under the 37signals exclusion).
 - Omakub's broader post-install editor catalog (Doom Emacs, RubyMine, Windsurf, Zed, reachable
-  via its `install-dev-editor.sh` menu) — omawsl's editor scope is deliberately the four named
-  (VS Code, Neovim, opencode, Cursor), not an open catalog.
+  via its `install-dev-editor.sh` menu) — omawsl's editor/AI-tooling scope is deliberately the
+  eight named in §6, not an open catalog.
 
 **Exhaustiveness check — every top-level concern in upstream Omakub, and its omawsl
 disposition:**
@@ -117,16 +117,21 @@ curl -fsSL https://raw.githubusercontent.com/tunacinsoy/omawsl/master/boot.sh | 
    still being idempotently sourced again as part of `install/terminal.sh`'s normal pass.)
 3. **`install/first-run-choices.sh`** — every interactive prompt happens here, up front, via
    `gum`. Results are exported as `OMAWSL_*` env vars so the remainder of the run is
-   unattended. See §6.
-4. **`install/terminal.sh`** — sources every script under `install/terminal/*.sh` in a fixed
+   unattended, and also persisted to `~/.local/state/omawsl/choices.env` so they're still
+   queryable after this run ends. See §6.
+4. **`install/windows-prereq-checklist.sh`** — a pre-install advisory step, run immediately
+   after the picker and before any installation happens. See §6.
+5. **`install/terminal.sh`** — sources every script under `install/terminal/*.sh` in a fixed
    order. Each script is idempotent and consults the `OMAWSL_*` flags where relevant.
-5. On successful completion, write `~/.local/state/omawsl/version` with the repo's current
+6. On successful completion, write `~/.local/state/omawsl/version` with the repo's current
    `version` timestamp (see §8) — this is what keeps a fresh install from later thinking every
    historical migration is still pending.
-6. Final summary, printed with a pointer to `docs/windows-setup.md` for the manual
-   Windows-side steps.
+7. Final summary: alongside the pointer to `docs/windows-setup.md`, explicitly lists every
+   step that was skipped/deferred because its Windows-side counterpart wasn't found (e.g. "VS
+   Code integration deferred — install VS Code, then run `bin/omawsl setup vscode`"), so this
+   isn't just a message that scrolled by mid-run and is easy to miss.
 
-## 6. First-run choices
+## 6. First-run choices & pre-install checklist
 
 All prompts live in `install/first-run-choices.sh`, mirroring Omakub's
 `OMAKUB_FIRST_RUN_*` convention with an `OMAWSL_` prefix:
@@ -161,6 +166,45 @@ filename and behavior — not a conditional `set-git.sh` as an earlier draft of 
 it): it always prompts for full name and email at first run, pre-filled from `getent passwd`
 and any existing `git config` as defaults, exported as `OMAWSL_USER_NAME`/`OMAWSL_USER_EMAIL`
 and used to set `git config --global user.name`/`user.email`.
+
+**Choices are persisted, not just exported.** `first-run-choices.sh` writes its results to
+`~/.local/state/omawsl/choices.env` in addition to exporting them as env vars for the current
+run. This is what makes it possible for `bin/omawsl doctor` (§14) to later know "the user asked
+for VS Code" even in a shell session long after the original `install.sh` run ended, without
+re-prompting.
+
+**`install/windows-prereq-checklist.sh` — a pre-install roadmap, not a vague "go do something."**
+Immediately after the picker and before any installation starts, this step looks at what was
+just selected and prints a checklist covering *only* the Windows-side prerequisites relevant to
+those specific choices — nothing if none of the selections have a Windows-side component. The
+guiding principle: whenever omawsl needs the user to do something themselves, they should know
+exactly what, not be told to "go install X and come back." Each line is a concrete,
+numbered-step pointer into `docs/windows-setup.md` (§13), not a one-liner:
+
+```
+Before continuing, here's what the Windows side needs for what you picked:
+
+  • VS Code — docs/windows-setup.md#vscode (3 steps: install, enable the WSL extension, verify `code` on PATH)
+  • Docker  — heads up: this may need one WSL VM restart partway through (handled automatically, §9)
+
+None of this blocks the WSL-side install below — every step here can be done before or after,
+and anything Windows-side that isn't ready yet is safely skipped/deferred rather than failing.
+
+Continue installing the WSL side now? [Y/n]
+```
+
+If the user answers **no**, `install.sh` exits cleanly here — nothing has been installed yet at
+this point, so there's nothing to roll back. Because choices are already persisted (above), the
+user doesn't have to re-answer the first-run picker to pick back up: re-running `install.sh`
+(or, once implemented, a narrower resume path) continues from persisted state. Deliberately
+choosing this simple "exit and rerun later" behavior over a smarter "partially continue with
+only the WSL-only-independent steps" — the latter would add real branching complexity for a
+case (saying no) that should become rare once the checklist itself exists to set expectations
+upfront.
+
+If the user answers **yes** (or the checklist had nothing to show), `install.sh` proceeds
+exactly as if this step weren't there — this is purely advisory, never a hard gate on anything
+the WSL-side steps actually need.
 
 ## 7. Directory structure
 
@@ -271,7 +315,7 @@ Notes:
   itself between releases (e.g. a config file that moved, a renamed mise tool). `bin/omawsl`
   compares the user's last-applied migration timestamp (stored under
   `~/.local/state/omawsl/version`) against `migrations/`, and runs only the ones newer than
-  that. `install.sh` writes this state file itself on successful completion (§5, step 5) — a
+  that. `install.sh` writes this state file itself on successful completion (§5, step 6) — a
   fresh install already reflects current desired state, so without this the first-ever
   `bin/omawsl migrate` would otherwise treat every historical migration as still pending.
 - Re-running the installer is always safe: either re-run `install.sh` top to bottom (idempotent
@@ -459,7 +503,10 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   IT" note if blocked), install a Nerd Font from `windows/fonts/` (no admin rights needed),
   merge `windows/windows-terminal.json` into Windows Terminal's `settings.json`, set the WSL
   profile as default. Includes the Docker Desktop alternative note from §9 and the Cursor note
-  from §10.
+  from §10. Opens with a **quick-reference table** (picker option → Windows prerequisite →
+  doc section, numbered steps) — this is the doc that `install/windows-prereq-checklist.sh`
+  (§6) and every detect-and-defer script (§10) point back to, so it needs to answer "what
+  exactly do I do" on its own, not just "install VS Code" with no further detail.
 - `windows/setup.ps1` — optional, reviewed-before-run helper for winget installs, for
   personal/unrestricted machines where the user wants one command instead of following the doc
   by hand. Never invoked automatically by `install.sh` or `boot.sh`.
@@ -496,8 +543,18 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   Scoped to exactly what omawsl can install (§7's `uninstall/` tree) — not a general
   system-wide uninstaller. Uninstalling something that was never installed is a no-op with an
   informational message, not an error.
+- `bin/omawsl setup <tool>` — directly (re-)runs a single `install/terminal/app-<tool>.sh`
+  script on demand, without replaying the whole first-run picker. This is the concrete answer
+  to "I just installed VS Code on Windows, now what do I run?" — `bin/omawsl setup vscode` —
+  and more generally lets a user add one editor/tool later without re-running all of
+  `install.sh`.
 - `bin/omawsl doctor` (or `status`) — reports what's installed/configured; doubles as a manual
   smoke test after install and a quick way to verify state without re-reading every script.
+  Reads `~/.local/state/omawsl/choices.env` (§6) and cross-checks it against what's actually
+  detected: anything the user selected but that's still pending on a Windows-side install (e.g.
+  VS Code selected but `code` still not reachable) is surfaced here every time `doctor` runs —
+  not just once in the original install's scrollback — along with the exact `bin/omawsl setup
+  <tool>` command to resolve it.
 
 **Division of responsibility (omawsl vs. apt/mise/docker):** `bin/omawsl` owns exactly two
 things — omawsl's own scripts/configs (`update`, `migrate`), and re-running or removing what
@@ -528,3 +585,11 @@ Basecamp), the Win11/GNOME desktop-app layer (Spotify, Signal, GNOME, Tactile, U
 Typora), and any automatic Windows-side software installation — each with the one-line reason
 already established in §2. This list should stay in sync with §2 as the source of truth if the
 scope ever changes.
+
+**Guiding principle for anything that asks the user to act:** every place omawsl needs the user
+to do something themselves — the pre-install checklist (§6), a detect-and-defer skip message
+(§10), the end-of-run summary (§5), `bin/omawsl doctor`'s pending-items list (§14) — must state
+the concrete, numbered steps and point at the exact doc section covering them, never a vague
+"go install X and come back." The corresponding section of `docs/windows-setup.md` is the
+source of truth those numbered steps come from; every pointer elsewhere in the tool links into
+it rather than restating or paraphrasing it.
