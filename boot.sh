@@ -6,14 +6,17 @@ OMAWSL_HOME="${OMAWSL_HOME:-$HOME/.local/share/omawsl}"
 OMAWSL_REF="${OMAWSL_REF:-master}"
 
 omawsl_boot() {
+  # Plain bordered text, not a hand-fabricated block-letter font: an earlier
+  # draft of this banner used a figlet-style ASCII-art rendering that was
+  # never actually verified to spell "omawsl" - a real user running this for
+  # real caught it rendering as something unreadable. A bordered plain-text
+  # banner has no font-rendering ambiguity to get wrong.
   cat <<'BANNER'
-   ____  __  __    ___          _
-  / __ \|  \/  |  /   |_      _(_)________ ___
- / / / /| |\/| | / /| \ \ /\ / / / ___/ __ `__ \
-/ /_/ / | |  | |/ ___ |\ V  V / (__  ) / / / / /
-\____/  |_|  |_/_/  |_| \_/\_/_/____/_/ /_/ /_/
+================================================
+                 o m a w s l
+================================================
 
-omawsl: bring your WSL2 Ubuntu install up to Omakub-parity in one run.
+Bring your WSL2 Ubuntu install up to Omakub-parity in one run.
 BANNER
 
   if [[ "${OMAWSL_ASSUME_YES:-}" != "1" ]]; then
