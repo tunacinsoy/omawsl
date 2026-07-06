@@ -1642,29 +1642,41 @@ Expected: FAILs (`No such file or directory`).
 
 - [ ] **Step 3: Write `install.sh`**
 
+**Important — a real bug found and fixed during Task 11:** `install/terminal/a-shell.sh` and
+`install/terminal/identification.sh` each set their own top-level `SCRIPT_DIR` variable when
+sourced. Since `source` shares the calling shell's variable namespace, if `install.sh` also used
+a plain `SCRIPT_DIR` name for its own top-level directory, calling `omawsl_run_terminal_scripts`
+(which sources those two scripts) would silently clobber `install.sh`'s own `SCRIPT_DIR` to
+whichever child script sourced last set it — breaking `omawsl_write_version_state`'s later
+`cp "$SCRIPT_DIR/version"` call, since by then `$SCRIPT_DIR` would point at `install/terminal`,
+not the repo root. `install/terminal.sh` (Task 11) hit this exact collision and fixed it by
+renaming its own variable to `OMAWSL_INSTALL_DIR`. Do the same thing here, one level up: use
+`OMAWSL_ROOT_DIR` (a distinct name from Task 11's `OMAWSL_INSTALL_DIR`, since this script lives
+at the repo root, not inside `install/`) for every reference below — never `SCRIPT_DIR`.
+
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OMAWSL_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=install/lib.sh
-source "$SCRIPT_DIR/install/lib.sh"
+source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=install/check-version.sh
-source "$SCRIPT_DIR/install/check-version.sh"
+source "$OMAWSL_ROOT_DIR/install/check-version.sh"
 # shellcheck source=install/terminal/required/app-gum.sh
-source "$SCRIPT_DIR/install/terminal/required/app-gum.sh"
+source "$OMAWSL_ROOT_DIR/install/terminal/required/app-gum.sh"
 # shellcheck source=install/first-run-choices.sh
-source "$SCRIPT_DIR/install/first-run-choices.sh"
+source "$OMAWSL_ROOT_DIR/install/first-run-choices.sh"
 # shellcheck source=install/windows-prereq-checklist.sh
-source "$SCRIPT_DIR/install/windows-prereq-checklist.sh"
+source "$OMAWSL_ROOT_DIR/install/windows-prereq-checklist.sh"
 # shellcheck source=install/terminal.sh
-source "$SCRIPT_DIR/install/terminal.sh"
+source "$OMAWSL_ROOT_DIR/install/terminal.sh"
 
 omawsl_write_version_state() {
   local dir; dir="$(omawsl_choices_dir)"
   mkdir -p "$dir"
-  cp "$SCRIPT_DIR/version" "$dir/version"
+  cp "$OMAWSL_ROOT_DIR/version" "$dir/version"
 }
 
 omawsl_install() {
