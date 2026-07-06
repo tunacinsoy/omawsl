@@ -5,6 +5,27 @@ OMAWSL_REPO="https://github.com/tunacinsoy/omawsl"
 OMAWSL_HOME="${OMAWSL_HOME:-$HOME/.local/share/omawsl}"
 OMAWSL_REF="${OMAWSL_REF:-master}"
 
+# omawsl_clone_failure_help
+# Printed when `git clone`/`git pull` fails for any reason, instead of
+# letting git's own (potentially confusing) error propagate on its own.
+# Points at the two most likely causes with a concrete next step each,
+# rather than a vague "something went wrong."
+omawsl_clone_failure_help() {
+  cat <<'EOF'
+
+omawsl: couldn't reach the omawsl repository on GitHub.
+
+This is almost always one of:
+  1. No internet connection right now - check your network and try again.
+  2. You're on a corporate/restricted network that blocks github.com -
+     ask your IT team to allow it, or run this from an unrestricted
+     network instead.
+
+If neither applies, GitHub itself may be having an outage - check
+https://www.githubstatus.com and try again shortly.
+EOF
+}
+
 omawsl_boot() {
   # Plain bordered text, not a hand-fabricated block-letter font: an earlier
   # draft of this banner used a figlet-style ASCII-art rendering that was
@@ -30,9 +51,15 @@ BANNER
 
   if [[ -d "$OMAWSL_HOME/.git" ]]; then
     echo "omawsl: existing checkout found at $OMAWSL_HOME, pulling latest instead of re-cloning."
-    git -C "$OMAWSL_HOME" pull
+    if ! git -C "$OMAWSL_HOME" pull; then
+      omawsl_clone_failure_help
+      exit 1
+    fi
   else
-    git clone "$OMAWSL_REPO" "$OMAWSL_HOME"
+    if ! git clone "$OMAWSL_REPO" "$OMAWSL_HOME"; then
+      omawsl_clone_failure_help
+      exit 1
+    fi
   fi
 
   if [[ "$OMAWSL_REF" != "master" ]]; then

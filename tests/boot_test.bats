@@ -58,3 +58,19 @@ setup() {
   [[ "$(stub_calls)" != *"git clone"* ]]
   [[ "$(stub_calls)" != *"apt-get"* ]]
 }
+
+@test "shows a clear troubleshooting message and exits when the clone fails" {
+  git() {
+    echo "git $*" >> "$STUB_LOG"
+    if [[ "$1" == "clone" ]]; then
+      return 1
+    fi
+  }
+  export -f git
+
+  run bash "$REPO_ROOT/boot.sh"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"couldn't reach the omawsl repository"* ]]
+  [[ "$output" == *"corporate/restricted network"* ]]
+  [[ "$output" != *"FAKE_INSTALL_SH_RAN"* ]]
+}
