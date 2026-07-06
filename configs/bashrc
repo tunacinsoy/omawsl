@@ -11,8 +11,22 @@ HISTFILESIZE=20000
 shopt -s histappend
 shopt -s checkwinsize
 
-export EDITOR=nvim
-export VISUAL=nvim
+# Neovim is the only one of omawsl's 8 optional editor/AI-tool choices that's
+# a general-purpose terminal text editor suited to $EDITOR/$VISUAL (VS
+# Code/Cursor are GUI apps, the rest are AI coding agents, not blocking
+# terminal editors) - so there's no real "which one is preferred" choice to
+# make here, just whether nvim was installed at all. Falls back to nano
+# (confirmed part of Ubuntu's base install, not something omawsl installs
+# itself) so $EDITOR always points at something that exists, matching the
+# same `command -v X &>/dev/null` guard already used below for every other
+# optional tool in this file.
+if command -v nvim &>/dev/null; then
+  export EDITOR=nvim
+  export VISUAL=nvim
+else
+  export EDITOR=nano
+  export VISUAL=nano
+fi
 
 if [ -f ~/.inputrc ]; then
   export INPUTRC=~/.inputrc
