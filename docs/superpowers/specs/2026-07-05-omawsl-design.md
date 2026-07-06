@@ -325,6 +325,14 @@ Notes:
 - Each `install/terminal/*.sh` is self-contained and idempotent: `apt install` no-ops on
   already-installed packages, `cp` deterministically overwrites configs, `mise use` re-pins
   versions harmlessly, and container creation is guarded by a name-existence check.
+- **`configs/zellij.kdl`'s keybindings are not verified to survive the terminal-emulator swap
+  as-is.** This file is ported wholesale from Omakub on the assumption that copying it is
+  sufficient, but that assumption has not actually been checked against its real contents.
+  Omakub pairs zellij with Alacritty, which passes almost every keystroke through untouched;
+  Windows Terminal has its own default keybindings (new tab, split pane, copy/paste, command
+  palette, zoom, settings, ...) that can intercept a chord before zellij ever sees it, if the
+  two happen to collide. This is a real, unverified risk, not a formality — see §13 for the fix
+  and §15 for how it gets confirmed rather than assumed.
 
 ## 8. Idempotency, versioning, migrations
 
@@ -542,6 +550,15 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   doc section, numbered steps) — this is the doc that `install/windows-prereq-checklist.sh`
   (§6) and every detect-and-defer script (§10) point back to, so it needs to answer "what
   exactly do I do" on its own, not just "install VS Code" with no further detail.
+- **`windows/windows-terminal.json` must resolve zellij keybinding collisions, not just carry a
+  color scheme.** Before this file is finalized, Omakub's actual `configs/zellij.kdl`
+  keybinding scheme (new pane, new tab, close pane, etc. — see §7) must be diffed against
+  Windows Terminal's default keybindings. Any default WT shortcut that would intercept a chord
+  zellij expects to receive gets unbound/remapped right here, in the same settings fragment the
+  user already merges in per this doc — so zellij gets first claim on that chord instead of
+  Windows Terminal swallowing it first. Anything that genuinely can't be freed up without
+  breaking something else is called out explicitly in this doc (which key changed and why),
+  rather than silently diverging from Omakub or asserting an untested "identical to Omakub."
 - `windows/setup.ps1` — optional, reviewed-before-run helper for winget installs, for
   personal/unrestricted machines where the user wants one command instead of following the doc
   by hand. Never invoked automatically by `install.sh` or `boot.sh`.
@@ -628,6 +645,12 @@ update *what it installed*. There is no dual/competing update path for the same 
   the relevant `OMAWSL_*` vars pre-set) for faster iteration than a full fresh-VM run every
   time.
 - `bin/omawsl doctor` serves as the repeatable smoke test after any install or migration run.
+- **Zellij keybindings must be manually exercised through actual Windows Terminal**, not just
+  assumed because `configs/zellij.kdl` was copied successfully (§7, §13). Every binding in the
+  ported keymap (new pane, new tab, close pane, and the rest) needs to be pressed for real on a
+  live WSL instance and confirmed to reach zellij rather than being intercepted by Windows
+  Terminal — copying a config file correctly is not evidence that the keys it binds actually
+  arrive.
 
 ## 16. Documentation requirements
 
