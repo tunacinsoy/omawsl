@@ -74,3 +74,21 @@ setup() {
   [[ "$output" == *"corporate/restricted network"* ]]
   [[ "$output" != *"FAKE_INSTALL_SH_RAN"* ]]
 }
+
+@test "shows a clear troubleshooting message and exits when the pull fails" {
+  mkdir -p "$OMAWSL_HOME/.git"
+
+  git() {
+    echo "git $*" >> "$STUB_LOG"
+    if [[ "$1" == "-C" && "$3" == "pull" ]]; then
+      return 1
+    fi
+  }
+  export -f git
+
+  run bash "$REPO_ROOT/boot.sh"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"couldn't reach the omawsl repository"* ]]
+  [[ "$output" == *"corporate/restricted network"* ]]
+  [[ "$output" != *"FAKE_INSTALL_SH_RAN"* ]]
+}
