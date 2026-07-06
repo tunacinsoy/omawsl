@@ -139,6 +139,7 @@ All prompts live in `install/first-run-choices.sh`, mirroring Omakub's
 | Prompt | Type | Options | Default | Env var |
 |---|---|---|---|---|
 | Connectivity | single-select | "Corporate / restricted network", "Personal / unrestricted" | none | `OMAWSL_NETWORK_MODE` |
+| Docker backend | single-select | "Docker Engine only, inside WSL (recommended)", "Docker Desktop for Windows" | Engine-only | `OMAWSL_DOCKER_MODE` |
 | Editors & AI tooling | multi-select | VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI, GitHub Copilot CLI, Gemini CLI | none selected | `OMAWSL_EDITORS` |
 | Languages & cloud tools | multi-select | Ruby on Rails, Node.js, Go, PHP, Python, Elixir, Rust, Java, Terraform, Azure CLI | none selected | `OMAWSL_LANGUAGES` |
 | Storage | multi-select | MySQL, Redis, PostgreSQL | none selected | `OMAWSL_STORAGE` |
@@ -149,6 +150,13 @@ raw `curl | bash` binary install behind a "corporate networks may block this" fa
 It is asked at first run and stored so that behavior can become network-mode-aware later
 without a breaking change to the prompt flow. As of this version, no install step branches on
 it.
+
+**`OMAWSL_DOCKER_MODE` does have an immediate consumer: `docker.sh` (§9).** Unlike the
+Docker-Desktop-vs-Engine branch this spec had at one point and then removed in favor of an
+unconditional native install, this is a deliberate, explicit opt-in for people who specifically
+want Docker Desktop (an org license already covers it, they want its GUI/Kubernetes toggle,
+etc.) — not a silent assumption either way. Engine-only stays the pre-highlighted default since
+it works everywhere with no Windows-side dependency.
 
 Selecting nothing in any of the three multi-selects is a valid, expected state, not an error —
 `select-dev-language.sh`, `select-dev-storage.sh`, and every `app-*.sh` editor/tool script must
@@ -210,7 +218,8 @@ numbered-step pointer into `docs/windows-setup.md` (§13), not a one-liner:
 Before continuing, here's what the Windows side needs for what you picked:
 
   • VS Code — docs/windows-setup.md#vscode (3 steps: install, enable the WSL extension, verify `code` on PATH)
-  • Docker  — heads up: this may need one WSL VM restart partway through (handled automatically, §9)
+  • Docker  — you chose Docker Desktop: docs/windows-setup.md#docker-desktop (install it, enable WSL
+              integration for this distro, verify `docker` is reachable)
 
 We RECOMMEND stopping here: go complete the steps above on the Windows side first, then run
 this script again. Nothing below strictly requires it — the WSL install will still run fine
@@ -220,6 +229,11 @@ remember to come back to it.
 
 Continue installing the WSL side now anyway? [y/N]
 ```
+
+The Docker line only appears at all if `OMAWSL_DOCKER_MODE` is Docker Desktop *and* it isn't
+already detected (§9) — if Engine-only was chosen (the default), the only Docker-related note
+is the unrelated "may need one WSL VM restart" heads-up from the systemd step, not a Windows
+prerequisite at all.
 
 The recommendation is stated plainly, not left to be inferred — this matters for anyone running
 the install while tired, distracted, or otherwise not in a state to weigh trade-offs carefully:
@@ -371,15 +385,17 @@ Notes:
 
 ## 9. Docker
 
-Docker Engine is installed **natively inside WSL, unconditionally** — this is not gated by
-`OMAWSL_NETWORK_MODE`. Rationale: `docker-ce` via `apt` is Apache-2.0 licensed and free
-regardless of company size, sidestepping Docker Desktop's paid-subscription threshold for
-larger companies entirely — not just the "IT ticket to install Windows software" concern.
-Functionally, WSL2's automatic localhost port-forwarding means containers are reachable from
-the Windows side exactly as they would be under Docker Desktop, so there's no seamlessness
-gap for typical dev workloads (`docker compose up`, exposed ports, volumes).
+`docker.sh` branches on `OMAWSL_DOCKER_MODE` (§6) — two real paths, not a silent assumption
+either way:
 
-`docker.sh` behavior:
+**Engine-only (the pre-highlighted default).** Docker Engine installs **natively inside WSL**,
+no Windows-side dependency at all. Rationale for why this stays the recommended default:
+`docker-ce` via `apt` is Apache-2.0 licensed and free regardless of company size, sidestepping
+Docker Desktop's paid-subscription threshold for larger companies entirely — not just the "IT
+ticket to install Windows software" concern. Functionally, WSL2's automatic localhost
+port-forwarding means containers are reachable from the Windows side exactly as they would be
+under Docker Desktop, so there's no seamlessness gap for typical dev workloads (`docker compose
+up`, exposed ports, volumes).
 
 ```bash
 # 1. Ensure WSL systemd support is on (idempotent: no-op if already set)
@@ -395,7 +411,12 @@ sudo usermod -aG docker "$USER"
 # so `docker ps` failing with a permission error right after install doesn't look like a bug:
 gum style --foreground 3 "Open a new terminal (or run 'newgrp docker') before using Docker without sudo."
 
-# 3. A script running inside the live WSL instance cannot restart the WSL VM itself.
+# 3. If Docker Desktop's docker.exe is ALSO reachable via /mnt/c interop (a real case: seen on
+#    an actual test machine during this project's own design review), make sure the natively
+#    installed docker wins on PATH rather than leaving two "docker"s ambiguously reachable.
+#    Check `which -a docker` and reorder/warn rather than silently leaving it to chance.
+
+# 4. A script running inside the live WSL instance cannot restart the WSL VM itself.
 #    If systemd support was just enabled, stop here with clear instructions;
 #    re-running install.sh afterward picks up cleanly since step 1 becomes a no-op.
 if [[ "$NEEDS_RESTART" == "1" ]]; then
@@ -411,13 +432,23 @@ the WSL VM restart, and the user's shell session is about to be torn down by `ws
 anyway. Re-running `install.sh` afterward resumes cleanly since step 1 becomes a no-op and
 every later step is idempotent regardless of whether it previously ran.
 
-Docker Desktop is not offered as an interactive choice. `docs/windows-setup.md` carries a
-one-line note that Docker Desktop + WSL integration is a fine alternative *if the user's
-organization already provides a license for it*, but it is not part of the automated flow.
+**Docker Desktop (explicit opt-in).** If the user deliberately chooses this — an org license
+already covers it, they want its GUI/Kubernetes toggle, whatever the reason — `docker.sh` does
+**not** install `docker-ce` at all. It checks whether `docker` is already reachable via Docker
+Desktop's WSL integration, the same detect-and-defer pattern already used for VS Code/Cursor
+(§10):
+- **Detected:** nothing to do, already good.
+- **Not detected:** this is exactly the kind of genuine Windows-side prerequisite
+  `install/windows-prereq-checklist.sh` (§6) surfaces up front — "install Docker Desktop, enable
+  WSL integration for this distro" — with the same "we recommend stopping here" framing used
+  for every other Windows-side prerequisite, and the same non-blocking skip if the user proceeds
+  anyway without having done it yet. `docs/windows-setup.md` carries the full numbered steps
+  (§13), including a note that this may need IT approval in corporate mode, matching the
+  wording already used for Windows Terminal.
 
 A corporate proxy/TLS-inspecting firewall that blocks package mirrors or container registries
-would affect this path the same way it would affect Docker Desktop — that risk is orthogonal
-to the native-vs-Desktop choice and is not specifically mitigated by this design.
+would affect either path the same way — that risk is orthogonal to the Engine-vs-Desktop choice
+and is not specifically mitigated by this design.
 
 ## 10. Editor tooling
 
@@ -545,11 +576,14 @@ those feel themed too — matching how Alacritty's palette does the same job in 
 - `docs/windows-setup.md` — step-by-step walkthrough: install Windows Terminal (Store, or "ask
   IT" note if blocked), install a Nerd Font from `windows/fonts/` (no admin rights needed),
   merge `windows/windows-terminal.json` into Windows Terminal's `settings.json`, set the WSL
-  profile as default. Includes the Docker Desktop alternative note from §9 and the Cursor note
-  from §10. Opens with a **quick-reference table** (picker option → Windows prerequisite →
-  doc section, numbered steps) — this is the doc that `install/windows-prereq-checklist.sh`
-  (§6) and every detect-and-defer script (§10) point back to, so it needs to answer "what
-  exactly do I do" on its own, not just "install VS Code" with no further detail.
+  profile as default. Includes a full numbered `#docker-desktop` section (install Docker
+  Desktop, enable WSL integration for this distro, verify `docker` is reachable, with an "ask
+  IT" note in corporate mode matching the Windows Terminal wording) for anyone who chose that
+  path in §9, and the Cursor note from §10. Opens with a **quick-reference table** (picker
+  option → Windows prerequisite → doc section, numbered steps) — this is the doc that
+  `install/windows-prereq-checklist.sh` (§6) and every detect-and-defer script (§9, §10) point
+  back to, so it needs to answer "what exactly do I do" on its own, not just "install VS Code"
+  with no further detail.
 - **`windows/windows-terminal.json` must resolve zellij keybinding collisions, not just carry a
   color scheme.** Before this file is finalized, Omakub's actual `configs/zellij.kdl`
   keybinding scheme (new pane, new tab, close pane, etc. — see §7) must be diffed against
@@ -565,10 +599,11 @@ those feel themed too — matching how Alacritty's palette does the same job in 
 - No clipboard/X-server setup is needed: WSL2 + WSLg handle clipboard and GUI app interop
   automatically on Windows 11. The doc notes this works out of the box.
 - There is no ordering dependency between the Windows-side doc and the WSL installer — they
-  are independent tracks. The one exception: if a user manually opts into the Docker Desktop
-  alternative, they need to complete that Windows-side install themselves before `docker`
-  becomes available via interop; this is a documented manual choice, not something omawsl
-  detects or blocks on.
+  are independent tracks. The one exception: if a user chooses Docker Desktop in §9's prompt,
+  they need to complete that Windows-side install themselves before `docker` becomes available
+  via interop — but unlike a purely manual choice, `docker.sh` *does* detect whether it's there
+  yet and surfaces it through the same checklist/deferral machinery as every other Windows-side
+  prerequisite (§6, §9), rather than silently assuming either way.
 - **Exception:** `bin/omawsl theme <name>` (§11) *does* automatically edit Windows Terminal's
   settings.json across the `/mnt/c` mount. This is treated as categorically different from the
   "no automatic Windows-side installs" rule — it's a local JSON edit to an already-installed
@@ -622,9 +657,10 @@ those feel themed too — matching how Alacritty's palette does the same job in 
   smoke test after install and a quick way to verify state without re-reading every script.
   Reads `~/.local/state/omawsl/choices.env` (§6) and cross-checks it against what's actually
   detected: anything the user selected but that's still pending on a Windows-side install (e.g.
-  VS Code selected but `code` still not reachable) is surfaced here every time `doctor` runs —
-  not just once in the original install's scrollback — along with the exact `bin/omawsl install
-  <category> <item>` command to resolve it.
+  VS Code selected but `code` still not reachable, or Docker Desktop mode chosen but `docker`
+  still not reachable via interop, §9) is surfaced here every time `doctor` runs — not just once
+  in the original install's scrollback — along with the exact `bin/omawsl install <category>
+  <item>` command to resolve it.
 
 **Division of responsibility (omawsl vs. apt/mise/docker):** `bin/omawsl` owns exactly two
 things — omawsl's own scripts/configs (`update`, `migrate`), and re-running or removing what
