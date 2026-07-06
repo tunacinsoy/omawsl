@@ -1,0 +1,6 @@
+# omawsl inputrc - readline configuration for more usable bash history search.
+set completion-ignore-case on
+set show-all-if-ambiguous on
+set colored-stats on
+"\e[A": history-search-backward
+"\e[B": history-search-forward
