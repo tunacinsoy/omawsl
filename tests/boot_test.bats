@@ -56,4 +56,5 @@ setup() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"Aborted"* ]]
   [[ "$(stub_calls)" != *"git clone"* ]]
+  [[ "$(stub_calls)" != *"apt-get"* ]]
 }
