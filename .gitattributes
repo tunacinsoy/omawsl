@@ -1,0 +1,7 @@
+# Force LF line endings for all text files, regardless of the cloning
+# environment's core.autocrlf setting. Without this, a fresh clone on
+# Windows with the common core.autocrlf=true default corrupts every bash
+# script with CRLF line endings, breaking them outright (e.g.
+# "$'\r': command not found") - discovered when merging Phase 1 into
+# master produced exactly that failure in this checkout.
+* text=auto eol=lf
