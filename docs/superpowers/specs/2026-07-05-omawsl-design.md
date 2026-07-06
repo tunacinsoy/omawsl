@@ -669,3 +669,24 @@ the concrete, numbered steps and point at the exact doc section covering them, n
 "go install X and come back." The corresponding section of `docs/windows-setup.md` is the
 source of truth those numbered steps come from; every pointer elsewhere in the tool links into
 it rather than restating or paraphrasing it.
+
+**`README.md` must include a "Before you begin" section** covering the layer *before* time 0,
+since `install/windows-prereq-checklist.sh` (§6) only reacts *after* someone has already
+reached a fresh WSL bash prompt and made their picker choices — this section is what gets a
+brand-new user there in the first place, and optionally further than that:
+
+1. **Get to time 0** — a couple of lines plus the one-line command (`wsl --install -d Ubuntu`)
+   for anyone who doesn't have WSL2/Ubuntu yet, linking out to Microsoft's own WSL install docs
+   for troubleshooting (BIOS virtualization, Windows version requirements, etc.). That's a
+   moving target across Windows versions; Microsoft's own docs are the authoritative source, and
+   omawsl should not try to maintain a parallel copy of OS-level install troubleshooting.
+2. **Optional proactive prep** — "If you already know you'll want VS Code / Cursor / Docker
+   Desktop, installing them now means the pre-install checklist (§6) will have nothing to flag."
+   This reuses the *exact same* quick-reference table already required in `docs/windows-setup.md`
+   (§13) — framed here as "do it now" instead of "you'll be told about it mid-run." One
+   canonical table, referenced from both moments, never duplicated content.
+3. **Run it** — the actual `boot.sh` one-liner (§4).
+
+This keeps the "seamless, uninterrupted" goal consistent regardless of how a user arrives:
+proactive guidance for someone who reads the README first, reactive guidance (§6) for someone
+who just runs the one-liner straight away without reading anything first.
