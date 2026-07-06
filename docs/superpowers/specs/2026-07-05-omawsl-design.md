@@ -300,7 +300,8 @@ omawsl/
 │   ├── fastfetch.jsonc
 │   └── vscode.json
 ├── windows/
-│   ├── windows-terminal.json
+│   ├── windows-terminal.json            # Nerd Font profile fragment (enhanced option)
+│   ├── windows-terminal-fallback.json   # Cascadia Mono profile fragment (zero install, §13)
 │   ├── fonts/
 │   └── setup.ps1
 ├── themes/
@@ -574,23 +575,39 @@ those feel themed too — matching how Alacritty's palette does the same job in 
 ## 13. Windows-side deliverables (manual, except theme sync)
 
 - `docs/windows-setup.md` — step-by-step walkthrough: install Windows Terminal (Store, or "ask
-  IT" note if blocked), install a Nerd Font from `windows/fonts/` (no admin rights needed),
-  merge `windows/windows-terminal.json` into Windows Terminal's `settings.json`, set the WSL
-  profile as default. Includes a full numbered `#docker-desktop` section (install Docker
-  Desktop, enable WSL integration for this distro, verify `docker` is reachable, with an "ask
-  IT" note in corporate mode matching the Windows Terminal wording) for anyone who chose that
-  path in §9, and the Cursor note from §10. Opens with a **quick-reference table** (picker
-  option → Windows prerequisite → doc section, numbered steps) — this is the doc that
-  `install/windows-prereq-checklist.sh` (§6) and every detect-and-defer script (§9, §10) point
-  back to, so it needs to answer "what exactly do I do" on its own, not just "install VS Code"
-  with no further detail.
-- **`windows/windows-terminal.json` must resolve zellij keybinding collisions, not just carry a
-  color scheme.** Before this file is finalized, Omakub's actual `configs/zellij.kdl`
-  keybinding scheme (new pane, new tab, close pane, etc. — see §7) must be diffed against
-  Windows Terminal's default keybindings. Any default WT shortcut that would intercept a chord
-  zellij expects to receive gets unbound/remapped right here, in the same settings fragment the
-  user already merges in per this doc — so zellij gets first claim on that chord instead of
-  Windows Terminal swallowing it first. Anything that genuinely can't be freed up without
+  IT" note if blocked), set the WSL profile as default. Includes a full numbered `#docker-desktop`
+  section (install Docker Desktop, enable WSL integration for this distro, verify `docker` is
+  reachable, with an "ask IT" note in corporate mode matching the Windows Terminal wording) for
+  anyone who chose that path in §9, and the Cursor note from §10. Opens with a
+  **quick-reference table** (picker option → Windows prerequisite → doc section, numbered
+  steps) — this is the doc that `install/windows-prereq-checklist.sh` (§6) and every
+  detect-and-defer script (§9, §10) point back to, so it needs to answer "what exactly do I do"
+  on its own, not just "install VS Code" with no further detail.
+- **Font: two complete, ready-made options, not "install this or get a broken terminal."**
+  Installing a Nerd Font (from `windows/fonts/`) is genuinely optional, not just admin-right-free
+  in the common case (right-click → Install, no admin needed) — some corporate Group Policy
+  configurations lock down even per-user font installation, and regardless, not everyone wants
+  the extra step. So the doc presents two complete paths side by side:
+  - **Nerd Font (enhanced):** install the font, then merge `windows/windows-terminal.json` into
+    Windows Terminal's `settings.json` — full icon-glyph rendering (fastfetch's logo/icons,
+    any powerline-style separators).
+  - **Cascadia Mono (zero install):** merge `windows/windows-terminal-fallback.json` instead —
+    nothing to install, since Cascadia Mono/Code ships bundled with Windows Terminal itself.
+    Some icon glyphs won't render (shown as boxes/tofu rather than icons); everything else stays
+    fully readable and functional. This trade-off is stated plainly in the doc, not left as a
+    silent surprise.
+  Deliberately not gated by `OMAWSL_NETWORK_MODE` — presenting both options plainly and letting
+  the user pick based on their own knowledge of their machine's restrictions is simpler than
+  auto-detecting or branching on network mode for what's really just two documented choices.
+- **Both `windows/windows-terminal.json` and `windows-terminal-fallback.json` must resolve
+  zellij keybinding collisions, not just carry a font/color scheme.** Keybindings are
+  independent of which font variant the user merged in, so the fix belongs in both files
+  identically. Before either is finalized, Omakub's actual `configs/zellij.kdl` keybinding
+  scheme (new pane, new tab, close pane, etc. — see §7) must be diffed against Windows
+  Terminal's default keybindings. Any default WT shortcut that would intercept a chord zellij
+  expects to receive gets unbound/remapped right here, in the same settings fragment the user
+  already merges in per this doc — so zellij gets first claim on that chord instead of Windows
+  Terminal swallowing it first. Anything that genuinely can't be freed up without
   breaking something else is called out explicitly in this doc (which key changed and why),
   rather than silently diverging from Omakub or asserting an untested "identical to Omakub."
 - `windows/setup.ps1` — optional, reviewed-before-run helper for winget installs, for
