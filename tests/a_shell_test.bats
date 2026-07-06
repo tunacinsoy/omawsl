@@ -27,7 +27,7 @@ setup() {
   export HOME="$BATS_TEST_TMPDIR/home_no_nvim"
   mkdir -p "$HOME"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
-  run bash -i -c 'echo "$EDITOR:$VISUAL"'
+  run env PATH="/usr/bin:/bin" bash -i -c 'echo "$EDITOR:$VISUAL"'
   [ "$status" -eq 0 ]
   [[ "$output" == *"nano:nano"* ]]
 }
