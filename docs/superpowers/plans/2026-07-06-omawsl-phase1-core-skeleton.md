@@ -351,6 +351,14 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
 }
+
+@test "omawsl_save_choice + omawsl_load_choice: round-trips a value containing quotes and backslashes without executing it" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_USER_NAME 'O"Brien $(touch '"$BATS_TEST_TMPDIR"'/pwned) \done'
+  run omawsl_load_choice OMAWSL_USER_NAME
+  [ "$output" = 'O"Brien $(touch '"$BATS_TEST_TMPDIR"'/pwned) \done' ]
+  [ ! -e "$BATS_TEST_TMPDIR/pwned" ]
+}
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -421,7 +429,9 @@ omawsl_choices_dir() {
 # omawsl_save_choice <key> <value>
 # Persists one KEY="value" line to choices.env, replacing any prior line for
 # that key. Idempotent: calling it again with the same key overwrites rather
-# than duplicating.
+# than duplicating. Escapes backslashes and double-quotes in the value so a
+# name/choice containing either round-trips correctly (backslash first, then
+# quote, so the escaping is reversible on read).
 omawsl_save_choice() {
   local key="$1" value="$2"
   local dir; dir="$(omawsl_choices_dir)"
@@ -430,21 +440,33 @@ omawsl_save_choice() {
   touch "$file"
   local tmp; tmp="$(mktemp)"
   grep -v "^${key}=" "$file" > "$tmp" 2>/dev/null || true
-  printf '%s="%s"\n' "$key" "$value" >> "$tmp"
+  local escaped="${value//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  printf '%s="%s"\n' "$key" "$escaped" >> "$tmp"
   mv "$tmp" "$file"
 }
 
 # omawsl_load_choice <key>
 # Prints the persisted value for key, or an empty string if never set.
+# Deliberately does NOT `source` choices.env: that would execute the file's
+# content as shell code, so a persisted value containing `$`, backticks, or
+# `"` (e.g. from a user's own name/email, via identification.sh) could
+# inject arbitrary commands on read. Extracts the value with grep + pure
+# string manipulation instead - never eval'd, never sourced - and reverses
+# the escaping omawsl_save_choice applied (quote-escape first, then
+# backslash, the opposite order from encoding).
 omawsl_load_choice() {
   local key="$1"
   local file; file="$(omawsl_choices_dir)/choices.env"
   [[ -f "$file" ]] || { echo ""; return 0; }
-  (
-    # shellcheck disable=SC1090
-    source "$file"
-    echo "${!key:-}"
-  )
+  local line
+  line="$(grep "^${key}=" "$file" | tail -n1)"
+  [[ -z "$line" ]] && { echo ""; return 0; }
+  line="${line#*=\"}"
+  line="${line%\"}"
+  line="${line//\\\"/\"}"
+  line="${line//\\\\/\\}"
+  echo "$line"
 }
 ```
 
@@ -1855,7 +1877,16 @@ BANNER
     git -C "$OMAWSL_HOME" checkout "$OMAWSL_REF"
   fi
 
-  exec "$OMAWSL_HOME/install.sh"
+  # Invoke via `bash` explicitly rather than relying on the file's own
+  # executable bit: this repo is authored on Windows, where git does not
+  # reliably track the executable bit on checkout into WSL2's ext4 - a
+  # plain `exec "$OMAWSL_HOME/install.sh"` would fail with "Permission
+  # denied" the first time this actually runs for real, since the
+  # committed file has no +x bit. Caught by the final whole-branch review,
+  # not by any per-task test, since every test fabricates its own
+  # already-executable stand-in install.sh rather than exec'ing the real
+  # committed file.
+  exec bash "$OMAWSL_HOME/install.sh"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
