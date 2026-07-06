@@ -36,7 +36,16 @@ BANNER
     git -C "$OMAWSL_HOME" checkout "$OMAWSL_REF"
   fi
 
-  exec "$OMAWSL_HOME/install.sh"
+  # Invoke via `bash` explicitly rather than relying on the file's own
+  # executable bit: this repo is authored on Windows, where git does not
+  # reliably track the executable bit on checkout into WSL2's ext4 - a
+  # plain `exec "$OMAWSL_HOME/install.sh"` would fail with "Permission
+  # denied" the first time this actually runs for real, since the
+  # committed file has no +x bit. Caught by the final whole-branch review,
+  # not by any per-task test, since every test fabricates its own
+  # already-executable stand-in install.sh rather than exec'ing the real
+  # committed file.
+  exec bash "$OMAWSL_HOME/install.sh"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

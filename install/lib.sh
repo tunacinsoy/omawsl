@@ -55,7 +55,9 @@ omawsl_choices_dir() {
 # omawsl_save_choice <key> <value>
 # Persists one KEY="value" line to choices.env, replacing any prior line for
 # that key. Idempotent: calling it again with the same key overwrites rather
-# than duplicating.
+# than duplicating. Escapes backslashes and double-quotes in the value so a
+# name/choice containing either round-trips correctly (backslash first, then
+# quote, so the escaping is reversible on read).
 omawsl_save_choice() {
   local key="$1" value="$2"
   local dir; dir="$(omawsl_choices_dir)"
@@ -64,19 +66,31 @@ omawsl_save_choice() {
   touch "$file"
   local tmp; tmp="$(mktemp)"
   grep -v "^${key}=" "$file" > "$tmp" 2>/dev/null || true
-  printf '%s="%s"\n' "$key" "$value" >> "$tmp"
+  local escaped="${value//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+  printf '%s="%s"\n' "$key" "$escaped" >> "$tmp"
   mv "$tmp" "$file"
 }
 
 # omawsl_load_choice <key>
 # Prints the persisted value for key, or an empty string if never set.
+# Deliberately does NOT `source` choices.env: that would execute the file's
+# content as shell code, so a persisted value containing `$`, backticks, or
+# `"` (e.g. from a user's own name/email, via identification.sh) could
+# inject arbitrary commands on read. Extracts the value with grep + pure
+# string manipulation instead - never eval'd, never sourced - and reverses
+# the escaping omawsl_save_choice applied (quote-escape first, then
+# backslash, the opposite order from encoding).
 omawsl_load_choice() {
   local key="$1"
   local file; file="$(omawsl_choices_dir)/choices.env"
   [[ -f "$file" ]] || { echo ""; return 0; }
-  (
-    # shellcheck disable=SC1090
-    source "$file"
-    echo "${!key:-}"
-  )
+  local line
+  line="$(grep "^${key}=" "$file" | tail -n1)"
+  [[ -z "$line" ]] && { echo ""; return 0; }
+  line="${line#*=\"}"
+  line="${line%\"}"
+  line="${line//\\\"/\"}"
+  line="${line//\\\\/\\}"
+  echo "$line"
 }

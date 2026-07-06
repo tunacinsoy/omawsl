@@ -101,3 +101,11 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$output" = "" ]
 }
+
+@test "omawsl_save_choice + omawsl_load_choice: round-trips a value containing quotes and backslashes without executing it" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_USER_NAME 'O"Brien $(touch '"$BATS_TEST_TMPDIR"'/pwned) \done'
+  run omawsl_load_choice OMAWSL_USER_NAME
+  [ "$output" = 'O"Brien $(touch '"$BATS_TEST_TMPDIR"'/pwned) \done' ]
+  [ ! -e "$BATS_TEST_TMPDIR/pwned" ]
+}
