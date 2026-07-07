@@ -103,7 +103,12 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"sudo install -m 0755 -d $keyrings_dir"* ]]
   [[ "$(stub_calls)" == *"curl -fsSL https://download.docker.com/linux/ubuntu/gpg"* ]]
-  [[ "$(stub_calls)" == *"sudo gpg --dearmor -o $keyrings_dir/docker.gpg"* ]]
+  # --yes: without it, gpg interactively prompts "File exists. Overwrite?"
+  # whenever the keyring file is already there from an earlier attempt
+  # (e.g. a prior run that got the key but failed later) - confirmed on a
+  # real WSL2 run, where this hung the whole non-interactive install
+  # waiting for input that would never come.
+  [[ "$(stub_calls)" == *"sudo gpg --yes --dearmor -o $keyrings_dir/docker.gpg"* ]]
   [[ "$(stub_calls)" == *"sudo tee $sources_file"* ]]
   [[ "$(stub_calls)" == *"sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"* ]]
 }

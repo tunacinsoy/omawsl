@@ -43,7 +43,7 @@ omawsl_install_terraform() {
   {
     if [[ ! -f "$apt_sources_file" ]]; then
       sudo install -m 0755 -d "$keyrings_dir" &&
-      curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o "$keyrings_dir/hashicorp.gpg" &&
+      curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --yes --dearmor -o "$keyrings_dir/hashicorp.gpg" &&
       sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/hashicorp.gpg] https://apt.releases.hashicorp.com $(. /etc/os-release && echo "$VERSION_CODENAME") main" &&
       sudo apt-get update -qq
     fi &&
@@ -81,7 +81,7 @@ omawsl_install_azure_cli() {
   {
     if [[ ! -f "$apt_sources_file" ]]; then
       sudo install -m 0755 -d "$keyrings_dir" &&
-      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o "$keyrings_dir/microsoft.gpg" &&
+      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --yes --dearmor -o "$keyrings_dir/microsoft.gpg" &&
       sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(. /etc/os-release && echo "$VERSION_CODENAME") main" &&
       sudo apt-get update -qq
     fi &&

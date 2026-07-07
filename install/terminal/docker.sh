@@ -68,7 +68,7 @@ omawsl_install_docker_ce() {
 
   if [[ ! -f "$apt_sources_file" ]]; then
     sudo install -m 0755 -d "$keyrings_dir"
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o "$keyrings_dir/docker.gpg"
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --yes --dearmor -o "$keyrings_dir/docker.gpg"
     sudo chmod a+r "$keyrings_dir/docker.gpg"
     echo "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
       | sudo tee "$apt_sources_file" >/dev/null

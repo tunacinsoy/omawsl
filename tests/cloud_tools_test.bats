@@ -34,7 +34,11 @@ setup() {
   run omawsl_install_terraform "$sources_file" "$keyrings_dir"
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"curl -fsSL https://apt.releases.hashicorp.com/gpg"* ]]
-  [[ "$(stub_calls)" == *"sudo gpg --dearmor -o $keyrings_dir/hashicorp.gpg"* ]]
+  # --yes: without it, gpg interactively prompts "File exists. Overwrite?"
+  # whenever the keyring is already there from an earlier attempt (e.g.
+  # a prior run that fetched the key but failed later) - confirmed on a
+  # real WSL2 run, where this hung the whole non-interactive install.
+  [[ "$(stub_calls)" == *"sudo gpg --yes --dearmor -o $keyrings_dir/hashicorp.gpg"* ]]
   [[ "$(stub_calls)" == *"sudo tee $sources_file"* ]]
   [[ "$(stub_calls)" == *"sudo apt-get install -y terraform"* ]]
 }
@@ -106,7 +110,7 @@ setup() {
   run omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"curl -fsSL https://packages.microsoft.com/keys/microsoft.asc"* ]]
-  [[ "$(stub_calls)" == *"sudo gpg --dearmor -o $keyrings_dir/microsoft.gpg"* ]]
+  [[ "$(stub_calls)" == *"sudo gpg --yes --dearmor -o $keyrings_dir/microsoft.gpg"* ]]
   [[ "$(stub_calls)" == *"sudo tee $sources_file"* ]]
   [[ "$(stub_calls)" == *"sudo apt-get install -y azure-cli"* ]]
 }
