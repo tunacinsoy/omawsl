@@ -20,12 +20,19 @@ the next phase's plan.
    apt, native build libraries). 51 bats tests, verified end-to-end against a real WSL2
    Ubuntu 26.04 instance.
 
-2. **Docker + storage — not yet planned.**
-   `OMAWSL_DOCKER_MODE` (Engine-only via native `docker-ce`, pre-highlighted default, vs.
-   Docker Desktop as an explicit opt-in with detect-and-defer), systemd-support handling,
-   the Docker-Desktop/native-engine PATH-collision guard, and the three storage containers
-   (MySQL, Redis, PostgreSQL). This phase is expected to populate the first real items in
-   `install/windows-prereq-checklist.sh`'s checklist (Docker Desktop, if chosen).
+2. **Docker + storage — DONE, merged to `master`.**
+   Plan: `docs/superpowers/plans/2026-07-07-omawsl-phase2-docker-storage.md`
+   `docker.sh` (`OMAWSL_DOCKER_MODE` branch: Engine-only native `docker-ce` install with
+   systemd-support handling and a Docker-Desktop/native-engine PATH-collision guard, vs.
+   Docker Desktop detect-and-defer), the first real item in
+   `install/windows-prereq-checklist.sh`'s checklist (Docker Desktop, when chosen and not
+   yet reachable), and `select-dev-storage.sh` (MySQL/Redis/PostgreSQL as idempotent Docker
+   containers). 75 bats tests, all passing. Implemented via subagent-driven-development;
+   task-by-task review plus a final whole-branch review caught a cross-task integration gap
+   (storage crashing instead of deferring when Docker Desktop mode's `docker` isn't yet
+   reachable) before merge. Manual end-to-end verification against a real WSL2 instance
+   (real `sudo`, `docker-ce` install, container creation, a `wsl --shutdown` restart) is
+   still outstanding — a human task, see the plan's Task 7.
 
 3. **Languages & cloud tools — not yet planned.**
    `mise.sh`, `select-dev-language.sh` (Ruby on Rails, Node.js, Go, PHP, Python, Elixir,
