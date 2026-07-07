@@ -67,10 +67,33 @@ the next phase's plan.
    and both `cloud-tools.sh` functions) in `7105055`. 110 bats tests, all passing.
    Confirmed clean on a subsequent re-run — Phase 3 is closed out.
 
-4. **Editors & AI tooling — not yet planned.**
+4. **Editors & AI tooling — DONE, merged to `master`.**
+   Plan: `docs/superpowers/plans/2026-07-07-omawsl-phase4-editors-ai-tooling.md`
    All 8 `app-*.sh` scripts (VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI,
-   GitHub Copilot CLI, Gemini CLI), with detect-and-defer for the Windows-side GUI apps
-   (VS Code, Cursor) — this phase populates the checklist further.
+   GitHub Copilot CLI, Gemini CLI) wired into `install/terminal.sh`'s dispatch table, each
+   gated on `OMAWSL_EDITORS` membership via `omawsl_list_has`. VS Code and Cursor share one
+   baseline `configs/vscode.json` deployed to their Remote-WSL/WSL-integration "Machine"
+   settings, with detect-and-defer for the live CLI (two new checklist items,
+   `omawsl_code_reachable`/`omawsl_cursor_reachable` in `lib.sh`); Codex CLI and Gemini CLI
+   (npm-only) each use a private `mise exec node@lts`-managed install plus an explicit
+   `$HOME/.local/bin` wrapper rather than mise's shim mechanism, after Phase 3's Rails/`gem`
+   bug. Also folded in six always-on terminal tools the roadmap had never scheduled to any
+   phase (`gh`, `btop`, `fastfetch`, `lazygit` via apt; `lazydocker`, `zellij` via their own
+   installers) — a gap found while planning this phase, fixed per explicit user decision.
+   Implemented via subagent-driven-development in an isolated worktree; all 12 tasks passed
+   individual review, and the final whole-branch review (opus) specifically scrutinized a
+   hand-resolved merge conflict from a mid-flight bug fix (see below) and found it correct.
+   145 bats tests, all passing. **A real end-to-end run by the human (on the pre-Phase-4
+   `master`, picking Ruby on Rails) surfaced one more bug the stubbed suite couldn't catch:**
+   `install/terminal.sh`'s dispatch order ran `select-dev-language.sh` (which triggers
+   `mise`'s ruby-build backend to compile Ruby, and its OpenSSL dependency, from source)
+   *before* `libraries.sh` (which installs `build-essential`, the C toolchain) — so picking
+   Ruby failed with "No C compiler found" on a real WSL2 instance that had no compiler yet.
+   Fixed directly on `master` (`ae6d5e7`, moving `libraries.sh` to run right after
+   `docker.sh`) and merged into the Phase 4 branch before it landed. A follow-up real run
+   also hit Azure CLI's already-known, already-isolated repo-unreachable limitation
+   (Microsoft's own apt repo, not an omawsl bug) — confirmed the failure-isolation from
+   Phase 3 handled it correctly and the run still completed.
 
 5. **Theming — not yet planned.**
    All 10 ported Omakub themes, `bin/omawsl theme`, the Windows Terminal JSON edit (`jq` +
