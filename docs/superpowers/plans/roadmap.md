@@ -67,7 +67,7 @@ the next phase's plan.
    and both `cloud-tools.sh` functions) in `7105055`. 110 bats tests, all passing.
    Confirmed clean on a subsequent re-run — Phase 3 is closed out.
 
-4. **Editors & AI tooling — merged to `master`, manual end-to-end verification (Task 13) pending.**
+4. **Editors & AI tooling — DONE, merged to `master`, including real-world verification.**
    Plan: `docs/superpowers/plans/2026-07-07-omawsl-phase4-editors-ai-tooling.md`
    All 8 `app-*.sh` scripts (VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI,
    GitHub Copilot CLI, Gemini CLI) wired into `install/terminal.sh`'s dispatch table, each
@@ -83,24 +83,33 @@ the next phase's plan.
    Implemented via subagent-driven-development in an isolated worktree; all 12 tasks passed
    individual review, and the final whole-branch review (opus) specifically scrutinized a
    hand-resolved merge conflict from a mid-flight bug fix (see below) and found it correct.
-   145 bats tests, all passing. **A real end-to-end run by the human (on the pre-Phase-4
-   `master`, picking Ruby on Rails) surfaced one more bug the stubbed suite couldn't catch:**
-   `install/terminal.sh`'s dispatch order ran `select-dev-language.sh` (which triggers
-   `mise`'s ruby-build backend to compile Ruby, and its OpenSSL dependency, from source)
-   *before* `libraries.sh` (which installs `build-essential`, the C toolchain) — so picking
-   Ruby failed with "No C compiler found" on a real WSL2 instance that had no compiler yet.
-   Fixed directly on `master` (`ae6d5e7`, moving `libraries.sh` to run right after
-   `docker.sh`) and merged into the Phase 4 branch before it landed. A follow-up real run
-   also hit Azure CLI's already-known, already-isolated repo-unreachable limitation
-   (Microsoft's own apt repo, not an omawsl bug) — confirmed the failure-isolation from
-   Phase 3 handled it correctly and the run still completed. **Both of those were found
-   incidentally on the pre-Phase-4 `master`, before this phase's own scripts were wired
-   into `terminal.sh` — they don't constitute verification of Phase 4's actual new surface.**
-   Per this plan's own Task 13, that verification (VS Code/Cursor settings deploy, Neovim's
-   LazyVim bootstrap, Claude Code CLI's real install location, the Codex/Gemini CLI
-   mise-wrapper mechanism, gh-copilot, lazydocker/zellij) is human-in-the-loop by design and
-   still outstanding — this entry should only be reworded to "DONE" once that's run and
-   reported back (matching Phases 2-3's own Task 7/Task 6 pattern).
+   147 bats tests, all passing.
+   **Two real bugs surfaced from real `install.sh` runs, both fixed directly on `master`:**
+   1. `install/terminal.sh`'s dispatch order ran `select-dev-language.sh` (triggers `mise`'s
+      ruby-build backend to compile Ruby, and its OpenSSL dependency, from source) *before*
+      `libraries.sh` (installs `build-essential`, the C toolchain) — so picking Ruby failed
+      with "No C compiler found." Found on the pre-Phase-4 `master` (before this phase's own
+      scripts were even wired in) and fixed by moving `libraries.sh` to run right after
+      `docker.sh` (`ae6d5e7`), merged into the Phase 4 branch before it landed.
+   2. **Task 13 (manual end-to-end verification) found a severe bug in this phase's own new
+      surface:** `app-gh-copilot.sh`'s `gh extension install github/gh-copilot` has no
+      failure isolation, and requires an authenticated `gh` session that a fresh install
+      never has (nobody runs `gh auth login` before their *first* `install.sh`). Since the
+      script runs under `set -euo pipefail`, sourced (not sub-shelled) into `terminal.sh`,
+      this single failure silently aborted the entire rest of the run - confirmed by
+      file-mtime forensics showing Codex CLI (installed right before it) succeeded while
+      Gemini CLI (the very last script, right after it) never ran at all, and
+      `install complete` never printed. Fixed (`d3df812`) with the same failure-isolation
+      pattern Phase 3 established for Terraform/Azure CLI, plus a `gh extension list`
+      idempotency guard. Also hardened `a_shell_test.bats`'s `nvim`-not-installed test
+      against real host state (`da6982e`) - same recurring class of fragility as
+      docker/terraform/mise - and added `docs/prerequisites.md` documenting the `gh auth
+      login` prerequisite up front, referenced from the failure message (`bceffa5`).
+   A follow-up real run also hit Azure CLI's already-known, already-isolated
+   repo-unreachable limitation (Microsoft's own apt repo, not an omawsl bug) - confirmed
+   Phase 3's failure-isolation handled it correctly. **After both fixes, the user re-ran
+   `gh auth login` + `install.sh` end to end and confirmed it now completes cleanly** -
+   Phase 4 is closed out.
 
 5. **Theming — not yet planned.**
    All 10 ported Omakub themes, `bin/omawsl theme`, the Windows Terminal JSON edit (`jq` +
