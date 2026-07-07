@@ -15,6 +15,14 @@ setup() {
   stub_command gpg
   stub_command mise
   stub_command gem
+  # This WSL instance has real docker-ce and real terraform installed on
+  # it (from real Task 6/7 verification runs on earlier phases) - hide
+  # them (and az, pre-emptively) so `command -v <tool>` behaves the same
+  # here as on a fresh instance, regardless of what's actually installed.
+  # A fixed "safe" PATH list doesn't work (broke twice already: Docker
+  # Desktop's /mnt/c/... interop, then a real docker-ce install); this
+  # builds a shadow directory of symlinks to every other binary instead.
+  stub_hide_command docker terraform az
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"
@@ -69,34 +77,8 @@ setup() {
 }
 
 @test "choosing Docker Desktop surfaces the pre-install checklist, and declining exits before installing" {
-  # Relies on `docker` not being reachable via `command -v docker`. Excluding
-  # whole PATH directories doesn't work: /usr/bin and /bin (the latter
-  # commonly a usrmerge symlink to the former) hold `bash` and every
-  # coreutil this test also needs, alongside `docker` once this WSL
-  # instance has docker-ce installed natively (a normal side effect of
-  # running this very script for real). A fixed "safe" directory list
-  # doesn't work either - it already broke once for Docker Desktop's
-  # /mnt/c/... interop. Instead, build a shadow directory of symlinks to
-  # every other binary from the standard system directories, skipping only
-  # the literal name "docker" wherever it appears - deterministic
-  # regardless of how many places or why `docker` is reachable here, while
-  # leaving every other tool this test needs (bash, coreutils, uname, ...)
-  # fully available.
-  local shadow_dir="$BATS_TEST_TMPDIR/path-without-docker"
-  mkdir -p "$shadow_dir"
-  local sysdir f base
-  for sysdir in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /usr/games /usr/local/games /usr/lib/wsl/lib; do
-    [[ -d "$sysdir" ]] || continue
-    for f in "$sysdir"/*; do
-      [[ -e "$f" ]] || continue
-      base="${f##*/}"
-      [[ "$base" == "docker" ]] && continue
-      [[ -e "$shadow_dir/$base" ]] && continue
-      ln -s "$f" "$shadow_dir/$base" 2>/dev/null || true
-    done
-  done
-  local restricted_path="$shadow_dir"
-
+  # Relies on `docker` not being reachable via `command -v docker` -
+  # already handled by setup()'s stub_hide_command call above.
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Desktop for Windows"
   gum_stub_respond ""
@@ -105,7 +87,7 @@ setup() {
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
 
-  run env PATH="$restricted_path" bash -c "echo n | bash '$REPO_ROOT/install.sh'"
+  run bash -c "echo n | bash '$REPO_ROOT/install.sh'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Docker Desktop"* ]]
   [[ "$output" == *"Exiting - nothing has been installed yet"* ]]
