@@ -15,14 +15,9 @@ setup() {
   stub_command gpg
   stub_command mise
   stub_command gem
-  # This WSL instance has real docker-ce and real terraform installed on
-  # it (from real Task 6/7 verification runs on earlier phases) - hide
-  # them (and az, pre-emptively) so `command -v <tool>` behaves the same
-  # here as on a fresh instance, regardless of what's actually installed.
-  # A fixed "safe" PATH list doesn't work (broke twice already: Docker
-  # Desktop's /mnt/c/... interop, then a real docker-ce install); this
-  # builds a shadow directory of symlinks to every other binary instead.
-  stub_hide_command docker terraform az
+  stub_command tar
+  stub_command gh
+  stub_hide_command docker terraform az lazydocker zellij code cursor claude codex gemini opencode
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"
@@ -51,13 +46,18 @@ setup() {
 @test "runs the full install end to end and writes version state" {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
-  gum_stub_respond ""
+  gum_stub_respond $'VS Code\nNeovim\nGitHub Copilot CLI'
   gum_stub_respond $'Go\nTerraform'
   gum_stub_respond ""
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
 
-  run bash "$REPO_ROOT/install.sh"
+  # VS Code was chosen and `code` is hidden (stub_hide_command above), so
+  # windows-prereq-checklist.sh's VS Code item fires and its y/N prompt
+  # reads stdin - answer "y" so the full install actually proceeds and
+  # completes (mirrors the second @test's "echo n" pattern for its own,
+  # deliberately-declined prompt).
+  run bash -c "echo y | bash '$REPO_ROOT/install.sh'"
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"install complete"* ]]
@@ -68,12 +68,23 @@ setup() {
   [ "$(cat "$OMAWSL_STATE_DIR/version")" = "$(cat "$REPO_ROOT/version")" ]
   [ -f "$OMAWSL_STATE_DIR/choices.env" ]
   grep -q '^OMAWSL_NETWORK_MODE="Personal / unrestricted"$' "$OMAWSL_STATE_DIR/choices.env"
+  grep -q '^OMAWSL_EDITORS="VS Code,Neovim,GitHub Copilot CLI"$' "$OMAWSL_STATE_DIR/choices.env"
   grep -q '^OMAWSL_LANGUAGES="Go,Terraform"$' "$OMAWSL_STATE_DIR/choices.env"
-  grep -q '^OMAWSL_STORAGE=""$' "$OMAWSL_STATE_DIR/choices.env"
   [[ "$(stub_calls)" == *"sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"* ]]
   [[ "$(stub_calls)" == *"mise use --global go@latest"* ]]
   [[ "$(stub_calls)" == *"sudo apt-get install -y terraform"* ]]
-  [[ "$(stub_calls)" != *"azure-cli"* ]]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit"* ]]
+  [ -f "$HOME/.vscode-server/data/Machine/settings.json" ]
+  [[ "$(stub_calls)" == *"git clone https://github.com/LazyVim/starter $HOME/.config/nvim"* ]]
+  [[ "$(stub_calls)" == *"gh extension install github/gh-copilot"* ]]
+  [[ "$(stub_calls)" != *"cursor-server"* ]]
+  # Not a bare "opencode" substring check: the gum stub logs its own
+  # invocation verbatim, including every offered-but-unselected choice
+  # (e.g. "gum choose --no-limit --header Editors & AI tooling ... VS
+  # Code Neovim opencode Cursor ..."), so that would false-positive on
+  # the option label alone. Assert against opencode's actual install
+  # command instead (same string app_opencode_test.bats checks for).
+  [[ "$(stub_calls)" != *"curl -fsSL https://opencode.ai/install"* ]]
 }
 
 @test "choosing Docker Desktop surfaces the pre-install checklist, and declining exits before installing" {
