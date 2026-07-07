@@ -1,6 +1,9 @@
 #!/usr/bin/env bats
 
+load 'helpers/stubs'
+
 setup() {
+  stub_init
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
@@ -27,7 +30,15 @@ setup() {
   export HOME="$BATS_TEST_TMPDIR/home_no_nvim"
   mkdir -p "$HOME"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
-  run env PATH="/usr/bin:/bin" bash -i -c 'echo "$EDITOR:$VISUAL"'
+  # A fixed PATH like "/usr/bin:/bin" stops hiding nvim the moment a real
+  # WSL2 run genuinely installs it there (apt puts it at /usr/bin/nvim) -
+  # confirmed happening on this machine after Phase 4's own manual
+  # verification. stub_hide_command builds a shadow PATH of everything
+  # except the named command, so this stays deterministic regardless of
+  # where nvim is really installed (same fix already applied to
+  # docker/terraform/mise in earlier phases).
+  stub_hide_command nvim
+  run bash -i -c 'echo "$EDITOR:$VISUAL"'
   [ "$status" -eq 0 ]
   [[ "$output" == *"nano:nano"* ]]
 }
