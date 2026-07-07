@@ -55,10 +55,17 @@ if command -v fzf &>/dev/null; then
   source /usr/share/doc/fzf/examples/key-bindings.bash 2>/dev/null || true
 fi
 
-if command -v mise &>/dev/null; then
-  eval "$(mise activate bash)"
-fi
-
+# Must come before the mise check below: mise itself (like any tool
+# installed under $HOME/.local/bin, e.g. nvim above) isn't on PATH until
+# this runs, so checking for it first would always fail and silently skip
+# activation - confirmed as a real bug on an actual WSL2 run (`mise
+# --version` worked from a later shell only because this export ran
+# unconditionally, but `mise activate` never fired, so `go`/`ruby`/`gem`
+# were never actually reachable).
 if [ -d "$HOME/.local/bin" ]; then
   export PATH="$HOME/.local/bin:$PATH"
+fi
+
+if command -v mise &>/dev/null; then
+  eval "$(mise activate bash)"
 fi
