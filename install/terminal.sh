@@ -18,6 +18,14 @@ OMAWSL_TERMINAL_SCRIPTS=(
   "terminal/select-dev-language.sh"
   "terminal/cloud-tools.sh"
   "terminal/select-dev-storage.sh"
+  "terminal/app-vscode.sh"
+  "terminal/app-neovim.sh"
+  "terminal/app-opencode.sh"
+  "terminal/app-cursor.sh"
+  "terminal/app-claude-cli.sh"
+  "terminal/app-codex-cli.sh"
+  "terminal/app-gh-copilot.sh"
+  "terminal/app-gemini-cli.sh"
   "terminal/libraries.sh"
 )
 
@@ -34,6 +42,14 @@ omawsl_run_terminal_scripts() {
     ["terminal/select-dev-language.sh"]="omawsl_select_dev_language"
     ["terminal/cloud-tools.sh"]="omawsl_cloud_tools"
     ["terminal/select-dev-storage.sh"]="omawsl_install_storage"
+    ["terminal/app-vscode.sh"]="omawsl_install_vscode"
+    ["terminal/app-neovim.sh"]="omawsl_install_neovim"
+    ["terminal/app-opencode.sh"]="omawsl_install_opencode"
+    ["terminal/app-cursor.sh"]="omawsl_install_cursor"
+    ["terminal/app-claude-cli.sh"]="omawsl_install_claude_cli"
+    ["terminal/app-codex-cli.sh"]="omawsl_install_codex_cli"
+    ["terminal/app-gh-copilot.sh"]="omawsl_install_gh_copilot"
+    ["terminal/app-gemini-cli.sh"]="omawsl_install_gemini_cli"
     ["terminal/libraries.sh"]="omawsl_install_libraries"
   )
 

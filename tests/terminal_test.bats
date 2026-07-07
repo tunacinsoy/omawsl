@@ -13,6 +13,14 @@ setup() {
   stub_command git
   stub_command curl
   stub_command gpg
+  # apps-terminal.sh (Task 1, Phase 4) installs lazydocker/zellij via a
+  # real `curl | tar` when they aren't already present. Neither is
+  # installed on a fresh test host, so without these two guards that step
+  # would pipe stubbed curl's empty output into a real tar/gzip and fail -
+  # this mirrors apps_terminal_test.bats's own stubbing exactly, keeping
+  # this full-pipeline test hermetic instead of dependent on host state.
+  stub_command tar
+  stub_hide_command lazydocker zellij
 
   # Pre-seed systemd=true so the Docker engine-mode step (§9) doesn't stop
   # this run early asking for a WSL restart - that early-exit path has its
@@ -41,6 +49,7 @@ setup() {
 @test "runs every terminal script in the documented fixed order" {
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
+  stub_command gh
 
   run bash "$REPO_ROOT/install/terminal.sh"
   [ "$status" -eq 0 ]
@@ -55,6 +64,14 @@ terminal/mise.sh
 terminal/select-dev-language.sh
 terminal/cloud-tools.sh
 terminal/select-dev-storage.sh
+terminal/app-vscode.sh
+terminal/app-neovim.sh
+terminal/app-opencode.sh
+terminal/app-cursor.sh
+terminal/app-claude-cli.sh
+terminal/app-codex-cli.sh
+terminal/app-gh-copilot.sh
+terminal/app-gemini-cli.sh
 terminal/libraries.sh"
 
   [ "$actual_order" = "$expected_order" ]
