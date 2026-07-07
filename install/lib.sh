@@ -94,3 +94,12 @@ omawsl_load_choice() {
   line="${line//\\\\/\\}"
   echo "$line"
 }
+
+# omawsl_docker_reachable
+# True if a `docker` CLI is already reachable on PATH. Shared by
+# windows-prereq-checklist.sh (deciding whether Docker Desktop needs
+# flagging as a pending Windows-side prerequisite) and docker.sh's own
+# Desktop-mode detect-and-defer check (design spec §6, §9).
+omawsl_docker_reachable() {
+  command -v docker &>/dev/null
+}

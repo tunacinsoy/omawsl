@@ -109,3 +109,18 @@ setup() {
   [ "$output" = 'O"Brien $(touch '"$BATS_TEST_TMPDIR"'/pwned) \done' ]
   [ ! -e "$BATS_TEST_TMPDIR/pwned" ]
 }
+
+@test "omawsl_docker_reachable: true when a docker command is present" {
+  stub_command docker
+  run omawsl_docker_reachable
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl_docker_reachable: false when nothing named docker is on PATH" {
+  run bash -c '
+    export PATH=/nonexistent
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    omawsl_docker_reachable
+  '
+  [ "$status" -eq 1 ]
+}
