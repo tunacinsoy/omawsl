@@ -23,3 +23,31 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"gh extension install github/gh-copilot"* ]]
 }
+
+@test "skips a redundant install when the gh-copilot extension is already present" {
+  export OMAWSL_EDITORS="GitHub Copilot CLI"
+  gh() {
+    echo "gh $*" >> "$STUB_LOG"
+    if [[ "$1" == "extension" && "$2" == "list" ]]; then
+      echo "gh-copilot	github/gh-copilot	v1.2.3"
+    fi
+  }
+  export -f gh
+  run omawsl_install_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"gh extension install"* ]]
+}
+
+@test "isolates an install failure (e.g. gh not authenticated yet) instead of aborting the run" {
+  export OMAWSL_EDITORS="GitHub Copilot CLI"
+  gh() {
+    echo "gh $*" >> "$STUB_LOG"
+    if [[ "$1" == "extension" && "$2" == "install" ]]; then
+      return 1
+    fi
+  }
+  export -f gh
+  run omawsl_install_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"GitHub Copilot CLI install failed"* ]]
+}

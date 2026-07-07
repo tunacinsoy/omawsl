@@ -9,15 +9,28 @@ source "$SCRIPT_DIR/../lib.sh"
 # GitHub Copilot CLI, installed as a gh extension - depends only on gh
 # itself, which apps-terminal.sh now installs unconditionally regardless
 # of any picker (Task 1), so there's no cross-picker dependency gap here
-# (design spec §10). Actual usability still depends on an authenticated
-# gh session and an active Copilot subscription - a README-level runtime
-# concern, not an install-time failure.
+# (design spec §10). Idempotent via `gh extension list` (installing an
+# already-present extension errors instead of no-opping). Failure-isolated
+# the same way cloud-tools.sh isolates a repo-add failure: confirmed on a
+# real WSL2 run that `gh extension install` itself needs an authenticated
+# session, not just Copilot usage afterward - `gh auth login` hasn't run
+# yet on a fresh install, so this is the default case, not an edge case.
+# Without isolation, this single failure (under set -e, sourced not
+# sub-shelled) silently aborted the entire rest of install.sh, including
+# every script after this one in the dispatch order.
 omawsl_install_gh_copilot() {
   if ! omawsl_list_has "${OMAWSL_EDITORS:-}" "GitHub Copilot CLI"; then
     return 0
   fi
 
-  gh extension install github/gh-copilot
+  if gh extension list 2>/dev/null | grep -q '^gh-copilot'; then
+    return 0
+  fi
+
+  if ! gh extension install github/gh-copilot; then
+    echo "omawsl: GitHub Copilot CLI install failed (gh not authenticated yet?) - skipping, continuing with the rest of the run."
+    echo "Run 'gh auth login', then 'gh extension install github/gh-copilot' yourself, or re-run install.sh."
+  fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
