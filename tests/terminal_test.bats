@@ -51,6 +51,9 @@ terminal/identification.sh
 terminal/a-shell.sh
 terminal/apps-terminal.sh
 terminal/docker.sh
+terminal/mise.sh
+terminal/select-dev-language.sh
+terminal/cloud-tools.sh
 terminal/select-dev-storage.sh
 terminal/libraries.sh"
 
