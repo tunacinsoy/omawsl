@@ -38,10 +38,22 @@ the next phase's plan.
    `abc46e8` by repeating it in `install.sh`'s final summary) — both fixed and verified
    directly on `master` after the phase's own merge.
 
-3. **Languages & cloud tools — not yet planned.**
-   `mise.sh`, `select-dev-language.sh` (Ruby on Rails, Node.js, Go, PHP, Python, Elixir,
-   Rust, Java), `cloud-tools.sh` (Terraform, Azure CLI) with apt-repo-failure isolation so
-   one blocked third-party mirror can't cascade into unrelated later steps.
+3. **Languages & cloud tools — merged to `master`, manual verification (Task 6) outstanding.**
+   Plan: `docs/superpowers/plans/2026-07-07-omawsl-phase3-languages-cloud-tools.md`
+   `mise.sh` (bootstraps the mise version manager, exports the current session's PATH for
+   `select-dev-language.sh` to use), `select-dev-language.sh` (Ruby on Rails, Node.js, Go,
+   PHP, Python, Elixir, Rust, Java, all via `mise use --global`), `cloud-tools.sh`
+   (Terraform, Azure CLI via their own apt repos) with apt-repo-failure isolation so one
+   blocked third-party mirror can't cascade into unrelated later steps. 107 bats tests, all
+   passing. Implemented via subagent-driven-development in an isolated worktree; task-by-task
+   review found and fixed two real bash `set -e`/pipe bugs in `cloud-tools.sh`'s own sample
+   code, and the final whole-branch review caught a critical cross-task gap (Ruby on Rails'
+   `gem install rails` wouldn't have found `gem` on PATH after a mise-only Ruby install,
+   which would have aborted the entire `install.sh` run for that selection) — fixed before
+   merge. **Manual end-to-end verification against a real WSL2 instance (Task 6) has not
+   run yet** — needs a human to pick a representative subset (2-3 languages including Ruby
+   on Rails specifically, plus one cloud tool) and confirm mise/the languages/the cloud
+   tool(s) actually work, same pattern as Phase 2's Task 7.
 
 4. **Editors & AI tooling — not yet planned.**
    All 8 `app-*.sh` scripts (VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI,

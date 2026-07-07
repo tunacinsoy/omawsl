@@ -853,7 +853,7 @@ From inside the WSL Ubuntu terminal itself:
 bash /mnt/c/Users/tcins/vscode-workspace/omawsl/install.sh
 ```
 
-You don't need to test all 10 language/cloud-tool options - picking 2-3 languages (e.g. Go and Rust - both fast to install via mise) plus one cloud tool (Terraform or Azure CLI) is enough to exercise every code path for real without a long wait. Docker/storage answers can be whatever's convenient (they're already verified from Phase 2).
+You don't need to test all 10 language/cloud-tool options, but **include Ruby on Rails specifically** - the only path with an extra `mise exec ruby@latest -- gem install rails` step on top of a plain `mise use --global`, added during this phase's final review to fix a real gap (a bare `gem install rails` wouldn't have found `gem` on PATH after a mise-only Ruby install). Picking Ruby on Rails plus one fast language (e.g. Go) and one cloud tool (Terraform or Azure CLI) is enough to exercise every code path for real without a long wait. Docker/storage answers can be whatever's convenient (they're already verified from Phase 2).
 
 - [ ] **Step 2 (human): Confirm mise and the chosen languages actually work**
 
