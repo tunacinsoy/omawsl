@@ -50,4 +50,5 @@ setup() {
   run omawsl_install_gh_copilot
   [ "$status" -eq 0 ]
   [[ "$output" == *"GitHub Copilot CLI install failed"* ]]
+  [[ "$output" == *"docs/prerequisites.md#github-copilot-cli"* ]]
 }
