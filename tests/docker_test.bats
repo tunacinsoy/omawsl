@@ -138,6 +138,30 @@ setup() {
   [[ "$(stub_calls)" == *"sudo tee -a $wsl_conf"* ]]
 }
 
+# --- omawsl_docker_final_reminder ---------------------------------------------
+
+@test "final reminder: shown for Engine-only mode" {
+  export OMAWSL_DOCKER_MODE="Docker Engine only, inside WSL (recommended)"
+  run omawsl_docker_final_reminder
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"new terminal"* ]]
+  [[ "$output" == *"newgrp docker"* ]]
+}
+
+@test "final reminder: shown when OMAWSL_DOCKER_MODE is unset (defaults to Engine)" {
+  unset OMAWSL_DOCKER_MODE
+  run omawsl_docker_final_reminder
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"new terminal"* ]]
+}
+
+@test "final reminder: not shown for Docker Desktop mode" {
+  export OMAWSL_DOCKER_MODE="Docker Desktop for Windows"
+  run omawsl_docker_final_reminder
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 @test "engine mode: continues past systemd, installs docker, adds the user to the docker group, when systemd is already enabled" {
   wsl_conf="$BATS_TEST_TMPDIR/wsl-already.conf"
   printf '[boot]\nsystemd=true\n' > "$wsl_conf"

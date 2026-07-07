@@ -40,6 +40,7 @@ omawsl_install() {
 
   echo
   echo "omawsl: install complete."
+  omawsl_docker_final_reminder
   echo "See docs/windows-setup.md for the manual Windows-side steps."
 }
 

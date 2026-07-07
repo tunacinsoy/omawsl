@@ -114,6 +114,22 @@ omawsl_docker_engine() {
   omawsl_check_docker_path_collision
 }
 
+# omawsl_docker_final_reminder
+# Re-prints the group-membership reminder from omawsl_docker_engine, this
+# time in install.sh's final summary rather than mid-run: by the time a
+# real install finishes, terminal/libraries.sh's own apt-get output has
+# scrolled the original message well out of view, and a user who types
+# `docker ps` in the same terminal right after "install complete" hits a
+# real "permission denied" error - confirmed on a real run. Matches design
+# spec §5 step 7's own rationale for the final summary (important
+# next-steps shouldn't just scroll by mid-run). No-ops for Docker Desktop
+# mode, which never runs usermod.
+omawsl_docker_final_reminder() {
+  if [[ "${OMAWSL_DOCKER_MODE:-}" != "$OMAWSL_DOCKER_MODE_DESKTOP" ]]; then
+    echo "omawsl: remember to open a new terminal (or run 'newgrp docker') before using Docker without sudo."
+  fi
+}
+
 # omawsl_docker
 # Branches on OMAWSL_DOCKER_MODE (design spec §6, §9). Treats anything other
 # than the literal Docker Desktop option as Engine-only, matching that

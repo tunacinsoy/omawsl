@@ -44,6 +44,7 @@ setup() {
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"install complete"* ]]
+  [[ "$output" == *"remember to open a new terminal"* ]]
   [ -f "$HOME/.bashrc" ]
   [ -f "$HOME/.inputrc" ]
   [ -f "$OMAWSL_STATE_DIR/version" ]
@@ -56,13 +57,34 @@ setup() {
 }
 
 @test "choosing Docker Desktop surfaces the pre-install checklist, and declining exits before installing" {
-  # Relies on `docker` not being reachable via `command -v docker`. On a
-  # real WSL developer machine, Docker Desktop for Windows can make its
-  # interop binary reachable through a WSL-injected /mnt/c/... PATH entry
-  # (host state omawsl itself never adds), which would spuriously satisfy
-  # `command -v docker` and mask this test's premise. Pin PATH to
-  # genuine Linux-side system directories for this subprocess only, so the
-  # result is deterministic regardless of what's on the ambient host PATH.
+  # Relies on `docker` not being reachable via `command -v docker`. Excluding
+  # whole PATH directories doesn't work: /usr/bin and /bin (the latter
+  # commonly a usrmerge symlink to the former) hold `bash` and every
+  # coreutil this test also needs, alongside `docker` once this WSL
+  # instance has docker-ce installed natively (a normal side effect of
+  # running this very script for real). A fixed "safe" directory list
+  # doesn't work either - it already broke once for Docker Desktop's
+  # /mnt/c/... interop. Instead, build a shadow directory of symlinks to
+  # every other binary from the standard system directories, skipping only
+  # the literal name "docker" wherever it appears - deterministic
+  # regardless of how many places or why `docker` is reachable here, while
+  # leaving every other tool this test needs (bash, coreutils, uname, ...)
+  # fully available.
+  local shadow_dir="$BATS_TEST_TMPDIR/path-without-docker"
+  mkdir -p "$shadow_dir"
+  local sysdir f base
+  for sysdir in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /usr/games /usr/local/games /usr/lib/wsl/lib; do
+    [[ -d "$sysdir" ]] || continue
+    for f in "$sysdir"/*; do
+      [[ -e "$f" ]] || continue
+      base="${f##*/}"
+      [[ "$base" == "docker" ]] && continue
+      [[ -e "$shadow_dir/$base" ]] && continue
+      ln -s "$f" "$shadow_dir/$base" 2>/dev/null || true
+    done
+  done
+  local restricted_path="$shadow_dir"
+
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Desktop for Windows"
   gum_stub_respond ""
@@ -71,7 +93,7 @@ setup() {
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
 
-  run env PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib" bash -c "echo n | bash '$REPO_ROOT/install.sh'"
+  run env PATH="$restricted_path" bash -c "echo n | bash '$REPO_ROOT/install.sh'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Docker Desktop"* ]]
   [[ "$output" == *"Exiting - nothing has been installed yet"* ]]
