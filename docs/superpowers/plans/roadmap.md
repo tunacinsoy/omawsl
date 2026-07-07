@@ -44,8 +44,8 @@ the next phase's plan.
    `select-dev-language.sh` to use), `select-dev-language.sh` (Ruby on Rails, Node.js, Go,
    PHP, Python, Elixir, Rust, Java, all via `mise use --global`), `cloud-tools.sh`
    (Terraform, Azure CLI via their own apt repos) with apt-repo-failure isolation so one
-   blocked third-party mirror can't cascade into unrelated later steps. 107 bats tests, all
-   passing. Implemented via subagent-driven-development in an isolated worktree; task-by-task
+   blocked third-party mirror can't cascade into unrelated later steps. Implemented via
+   subagent-driven-development in an isolated worktree; task-by-task
    review found and fixed two real bash `set -e`/pipe bugs in `cloud-tools.sh`'s own sample
    code, and the final whole-branch review caught a critical cross-task gap (Ruby on Rails'
    `gem install rails` wouldn't have found `gem` on PATH after a mise-only Ruby install,
@@ -60,9 +60,14 @@ the next phase's plan.
    behind, which poisoned `libraries.sh`'s own later `apt-get update` and silently aborted
    the whole `install.sh` run under `set -e` (fixed in `18134f5`, which also hardened
    several tests against this WSL instance's newly-real `docker-ce`/`terraform`/`mise`
-   installs — commits `18134f5`, `ba6a01b`). 110 bats tests, all passing. A final
-   confirming re-run (including Azure CLI again) hasn't happened yet, though the fix is
-   covered by new automated tests regardless — see the plan's Task 6 for details.
+   installs — commits `18134f5`, `ba6a01b`). A follow-up re-run then hit a third bug:
+   `gpg --dearmor` without `--yes` interactively prompts to overwrite an
+   already-existing keyring file (left over from the original pre-fix failure) and
+   hangs a non-interactive script forever — fixed in all three call sites (`docker.sh`
+   and both `cloud-tools.sh` functions) in `7105055`. 110 bats tests, all passing. A
+   fully clean confirming re-run (no manual cleanup, no prompts) hasn't happened yet,
+   though all three fixes are covered by automated tests regardless — see the plan's
+   Task 6 for details.
 
 4. **Editors & AI tooling — not yet planned.**
    All 8 `app-*.sh` scripts (VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI,
