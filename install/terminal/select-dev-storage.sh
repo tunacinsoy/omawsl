@@ -28,6 +28,18 @@ omawsl_ensure_container() {
 omawsl_install_storage() {
   local storage="${OMAWSL_STORAGE:-}"
 
+  # If storage was selected but `docker` isn't reachable yet (e.g. Docker
+  # Desktop was picked and deferred by docker.sh's own detect-and-defer
+  # check - design spec §6, §9), skip container creation cleanly instead of
+  # letting `docker ps`/`docker run` fail and abort the whole install under
+  # `set -e`. omawsl_docker_reachable is the same check Docker Desktop's own
+  # deferral uses, so this follows that identical pattern.
+  if [[ -n "$storage" ]] && ! omawsl_docker_reachable; then
+    echo "omawsl: skipping storage containers - 'docker' isn't reachable yet."
+    echo "Finish Docker setup (see the checklist above), then re-run install.sh."
+    return 0
+  fi
+
   if omawsl_list_has "$storage" "MySQL"; then
     omawsl_ensure_container omawsl-mysql \
       -p 3306:3306 \

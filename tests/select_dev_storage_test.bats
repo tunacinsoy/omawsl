@@ -62,3 +62,21 @@ setup() {
   omawsl_install_storage
   [[ "$(stub_calls)" == *"docker run -d --name omawsl-redis"* ]]
 }
+
+@test "skips storage containers cleanly when storage is selected but docker isn't reachable yet" {
+  # Deliberately does not rely on setup()'s docker() stub: that function is
+  # exported and would satisfy `command -v docker` regardless of PATH, which
+  # would mask the very case being tested here. `unset -f docker` strips the
+  # inherited stub inside the subshell before docker's absence is checked.
+  run bash -c '
+    unset -f docker
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/terminal/select-dev-storage.sh"
+    export OMAWSL_STORAGE="MySQL,Redis,PostgreSQL"
+    export PATH=/nonexistent
+    omawsl_install_storage
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"skipping storage containers"* ]]
+  [[ "$output" == *"docker"*"isn't reachable"* ]]
+}
