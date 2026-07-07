@@ -7,12 +7,15 @@ source "$SCRIPT_DIR/lib.sh"
 
 # omawsl_windows_checklist_items
 # Prints zero or more lines, each describing one pending Windows-side
-# prerequisite relevant to what was actually selected. Empty output means
-# nothing to show. This phase has no Windows-dependent components yet
-# (Docker Desktop detection lands in Phase 2, VS Code/Cursor in Phase 4) -
-# those phases extend this function rather than restructuring it.
+# prerequisite relevant to what was actually selected. Phase 2 adds the
+# first real item: Docker Desktop, shown only if that mode was chosen and
+# `docker` isn't already reachable (design spec §6, §9). Later phases
+# (VS Code/Cursor in Phase 4) extend this function further rather than
+# restructuring it.
 omawsl_windows_checklist_items() {
-  :
+  if [[ "${OMAWSL_DOCKER_MODE:-}" == "Docker Desktop for Windows" ]] && ! omawsl_docker_reachable; then
+    echo "  - Docker Desktop - docs/windows-setup.md#docker-desktop (install it, enable WSL integration for this distro, verify 'docker' is reachable)"
+  fi
 }
 
 omawsl_windows_prereq_checklist() {

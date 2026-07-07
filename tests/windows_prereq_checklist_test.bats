@@ -41,3 +41,41 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"REACHED_AFTER_CHECKLIST"* ]]
 }
+
+@test "real checklist: shows a Docker Desktop item when chosen and docker isn't reachable" {
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/windows-prereq-checklist.sh"
+    export OMAWSL_DOCKER_MODE="Docker Desktop for Windows"
+    export PATH=/nonexistent
+    omawsl_windows_checklist_items
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Docker Desktop"* ]]
+  [[ "$output" == *"docs/windows-setup.md#docker-desktop"* ]]
+}
+
+@test "real checklist: shows nothing when Docker Desktop was chosen but docker is already reachable" {
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/windows-prereq-checklist.sh"
+    export OMAWSL_DOCKER_MODE="Docker Desktop for Windows"
+    docker() { :; }
+    export -f docker
+    omawsl_windows_checklist_items
+  '
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "real checklist: shows nothing when Engine-only mode was chosen" {
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/windows-prereq-checklist.sh"
+    export OMAWSL_DOCKER_MODE="Docker Engine only, inside WSL (recommended)"
+    export PATH=/nonexistent
+    omawsl_windows_checklist_items
+  '
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
