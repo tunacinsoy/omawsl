@@ -50,10 +50,19 @@ the next phase's plan.
    code, and the final whole-branch review caught a critical cross-task gap (Ruby on Rails'
    `gem install rails` wouldn't have found `gem` on PATH after a mise-only Ruby install,
    which would have aborted the entire `install.sh` run for that selection) — fixed before
-   merge. **Manual end-to-end verification against a real WSL2 instance (Task 6) has not
-   run yet** — needs a human to pick a representative subset (2-3 languages including Ruby
-   on Rails specifically, plus one cloud tool) and confirm mise/the languages/the cloud
-   tool(s) actually work, same pattern as Phase 2's Task 7.
+   merge. **Manual end-to-end verification (Task 6) ran against a real WSL2 instance
+   (Go + Ruby on Rails + Terraform/Azure CLI) and found two more real bugs the stubbed
+   suite couldn't catch:** `configs/bashrc` checked for `mise` before exporting the PATH
+   entry that makes it reachable, so `mise activate` never ran in any interactive shell —
+   `go`/`ruby`/`rails`/`gem` stayed unreachable even though `mise ls` showed them installed
+   (fixed in `7e9b10b`); and a failed Azure CLI repo-add (Microsoft's apt repo has no
+   Release file yet for Ubuntu 26.04's "resolute" codename) left a broken apt source
+   behind, which poisoned `libraries.sh`'s own later `apt-get update` and silently aborted
+   the whole `install.sh` run under `set -e` (fixed in `18134f5`, which also hardened
+   several tests against this WSL instance's newly-real `docker-ce`/`terraform`/`mise`
+   installs — commits `18134f5`, `ba6a01b`). 110 bats tests, all passing. A final
+   confirming re-run (including Azure CLI again) hasn't happened yet, though the fix is
+   covered by new automated tests regardless — see the plan's Task 6 for details.
 
 4. **Editors & AI tooling — not yet planned.**
    All 8 `app-*.sh` scripts (VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI,

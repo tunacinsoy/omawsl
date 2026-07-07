@@ -845,7 +845,7 @@ git commit -m "test: extend install_test.bats for languages + cloud-tools end-to
 
 This is the one step in this plan the agent executing it should **not** attempt: it requires real network access to `mise.run`, HashiCorp's and Microsoft's real apt repos, and real (possibly slow) toolchain downloads/compiles. Everything up through Task 5 is fully verified by the automated, stubbed test suite — this task is the final "does the real thing actually work, unstubbed" check.
 
-- [ ] **Step 1 (human): Run the real install, picking a representative subset**
+- [x] **Step 1 (human): Run the real install, picking a representative subset**
 
 From inside the WSL Ubuntu terminal itself:
 
@@ -855,7 +855,7 @@ bash /mnt/c/Users/tcins/vscode-workspace/omawsl/install.sh
 
 You don't need to test all 10 language/cloud-tool options, but **include Ruby on Rails specifically** - the only path with an extra `mise exec ruby@latest -- gem install rails` step on top of a plain `mise use --global`, added during this phase's final review to fix a real gap (a bare `gem install rails` wouldn't have found `gem` on PATH after a mise-only Ruby install). Picking Ruby on Rails plus one fast language (e.g. Go) and one cloud tool (Terraform or Azure CLI) is enough to exercise every code path for real without a long wait. Docker/storage answers can be whatever's convenient (they're already verified from Phase 2).
 
-- [ ] **Step 2 (human): Confirm mise and the chosen languages actually work**
+- [x] **Step 2 (human): Confirm mise and the chosen languages actually work**
 
 After the run completes with `omawsl: install complete.`:
 - `mise --version` succeeds.
@@ -863,22 +863,30 @@ After the run completes with `omawsl: install complete.`:
 - For each language you picked, its own version command works (e.g. `go version`, `rustc --version`) - open a **new terminal** first if the current one doesn't see `mise`/the languages yet (same PATH-refresh consideration as Phase 2's Docker group reminder, though `mise.sh` exports PATH for the *current* install.sh run itself, so this matters only for your own separate interactive shell).
 - If you picked Ruby on Rails specifically: `ruby --version` and `rails --version` both work.
 
-- [ ] **Step 3 (human): Confirm the cloud tool(s) actually work**
+**Outcome: one real bug found, not caught by any automated test.** `go`, `ruby`, `rails`, and `gem` were all unreachable in a brand-new terminal even after `mise ls` correctly showed them installed - only `mise --version` itself worked. Root cause: `configs/bashrc` checked `command -v mise` *before* the line that puts `$HOME/.local/bin` (where `mise` lives) on PATH, so `mise activate bash` never ran in any interactive shell, ever - not just during this run. Fixed by reordering those two lines (commit `7e9b10b`), with a new regression test in `tests/a_shell_test.bats`.
+
+- [x] **Step 3 (human): Confirm the cloud tool(s) actually work**
 
 - If you picked Terraform: `terraform version` succeeds.
 - If you picked Azure CLI: `az --version` succeeds.
 
-- [ ] **Step 4 (human): Idempotency check**
+**Outcome: Terraform installed and worked correctly** (`terraform version` succeeded). **Azure CLI failed to install** - Microsoft's `azure-cli` apt repo doesn't yet have a Release file for Ubuntu 26.04's "resolute" codename (a real, current limitation on Microsoft's end, not something omawsl controls) - `cloud-tools.sh`'s failure isolation correctly reported this and didn't crash. However, the failed attempt left a broken `/etc/apt/sources.list.d/azure-cli.list` in place, which then made `libraries.sh`'s own unrelated `apt-get update` fail too (apt returns nonzero when *any* configured repo errors) and **silently aborted the entire `install.sh` run under `set -e`, before `install complete` ever printed** - a second real bug, more severe than the first, since it broke the rest of the run for anyone hitting an unreachable third-party repo. Fixed by having both `omawsl_install_terraform`/`omawsl_install_azure_cli` remove their own apt sources file on any failure, so it can't poison later steps or future runs (commit `18134f5`). Discovering this also surfaced that this WSL instance's newly-real `docker-ce`/`terraform`/`mise` installs had broken several tests' assumptions about what's "not installed" on this specific machine - hardened `install_test.bats`, `cloud_tools_test.bats`, and `mise_test.bats` accordingly (commits `18134f5`, `ba6a01b`), including a new shared `stub_hide_command` test helper.
+
+- [x] **Step 4 (human): Idempotency check**
 
 Re-run `bash install.sh` a second time end to end (same answers) and confirm it completes cleanly with no errors - the mise re-pins, the apt-repo-adds, and the package installs should all silently no-op or harmlessly re-affirm the second time.
 
-- [ ] **Step 5 (human): Report back**
+**Outcome: confirmed clean on the second run**, per the pasted output ("libpq-dev is already the newest version...", "0 upgraded, 0 newly installed, 0 to remove", ending in `omawsl: install complete.` plus the docker-group reminder).
+
+- [x] **Step 5 (human): Report back**
 
 Tell me either "it worked, here's what I saw" or paste the exact error/output if something broke. If something breaks, that's the systematic-debugging skill's territory next - a real failure here is more valuable to see than a hypothetical one (as Phase 2's Task 7 proved twice over).
 
 - [ ] **Step 6 (human, only once Step 5 confirms success): confirm the commit history is clean**
 
 Run `git log --oneline` and check it reads as a clean, incremental history of Tasks 1–5 (no fixup commits needed). If everything's fine, update `docs/superpowers/plans/roadmap.md`'s Phase 3 entry to "DONE, merged to `master`" (matching Phases 1 and 2's entry format) and Phase 4 is next.
+
+**Note for whoever does Step 6: two more fix commits landed after the ones Task 6 originally covered** (`7e9b10b`, `18134f5`, `ba6a01b`, all described above) - these are expected, real-world-verification-driven fixes, not fixup noise, consistent with Phase 2's own Task 7 precedent. **A final confirming re-run of `bash install.sh` (including Azure CLI again, to confirm it now fails cleanly without breaking `libraries.sh`) hasn't happened yet** - worth doing once more before considering Phase 3 fully closed, though the fix is covered by automated tests (`cloud_tools_test.bats`'s two new cleanup tests) regardless.
 
 ---
 
