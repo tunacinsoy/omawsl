@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib.sh
+source "$SCRIPT_DIR/../lib.sh"
+
+# omawsl_install_terraform [apt_sources_file] [keyrings_dir]
+# Idempotent (skips the repo-add once the sources file exists; apt-get
+# install itself no-ops on an already-installed package) and
+# failure-isolated: because this whole flow runs under set -e, a single
+# unreachable third-party repo (HashiCorp's, here) must not cascade into
+# failing every later step in the run (design spec §12). The `{ ... } ||`
+# block catches any failure inside it without killing the script, and
+# reports just this tool as failed rather than letting it propagate.
+# Kept as its own function rather than sharing a parameterized helper with
+# omawsl_install_azure_cli below - the two are similar but not identical,
+# and a shared helper would need as many parameters as it'd save lines.
+#
+# Two implementation notes, found while making this pass its own tests:
+# 1. The repo-add steps are chained with explicit `&&`, not bare `;`.
+#    Bash disables -e checking for *every* command inside a compound
+#    command that sits on the left of `||` (not just the last one), so a
+#    `{ cmd1; cmd2; } || ok=0` body would keep running cmd2 even after
+#    cmd1 fails - the "isolate the failure" test only passes because we
+#    explicitly stop the chain with `&&` instead of relying on -e here.
+# 2. The apt-source line is written via `sudo tee ... <<< "..."` (a
+#    here-string) rather than `echo "..." | sudo tee ...` (a live pipe).
+#    Under bats stubs, `sudo` is a plain function that returns without
+#    reading stdin, so a live pipe's writer can get SIGPIPE (exit 141)
+#    once the reader has already exited - a here-string avoids the pipe
+#    (and the race) entirely while producing the identical `sudo tee ...`
+#    invocation the tests assert on.
+omawsl_install_terraform() {
+  local apt_sources_file="${1:-${OMAWSL_TERRAFORM_APT_SOURCES_FILE:-/etc/apt/sources.list.d/hashicorp.list}}"
+  local keyrings_dir="${2:-${OMAWSL_TERRAFORM_APT_KEYRINGS_DIR:-/etc/apt/keyrings}}"
+
+  if command -v terraform &>/dev/null; then
+    return 0
+  fi
+
+  local ok=1
+  {
+    if [[ ! -f "$apt_sources_file" ]]; then
+      sudo install -m 0755 -d "$keyrings_dir" &&
+      curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o "$keyrings_dir/hashicorp.gpg" &&
+      sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/hashicorp.gpg] https://apt.releases.hashicorp.com $(. /etc/os-release && echo "$VERSION_CODENAME") main" &&
+      sudo apt-get update -qq
+    fi &&
+    sudo apt-get install -y terraform
+  } || ok=0
+
+  if [[ "$ok" -eq 0 ]]; then
+    echo "omawsl: Terraform install failed (repo unreachable?) - skipping, continuing with the rest of the run."
+  fi
+}
+
+# omawsl_install_azure_cli [apt_sources_file] [keyrings_dir]
+# Same idempotent + failure-isolated shape as omawsl_install_terraform,
+# for Microsoft's apt repo instead of HashiCorp's (design spec §12).
+omawsl_install_azure_cli() {
+  local apt_sources_file="${1:-${OMAWSL_AZURE_CLI_APT_SOURCES_FILE:-/etc/apt/sources.list.d/azure-cli.list}}"
+  local keyrings_dir="${2:-${OMAWSL_AZURE_CLI_APT_KEYRINGS_DIR:-/etc/apt/keyrings}}"
+
+  if command -v az &>/dev/null; then
+    return 0
+  fi
+
+  local ok=1
+  {
+    if [[ ! -f "$apt_sources_file" ]]; then
+      sudo install -m 0755 -d "$keyrings_dir" &&
+      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o "$keyrings_dir/microsoft.gpg" &&
+      sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(. /etc/os-release && echo "$VERSION_CODENAME") main" &&
+      sudo apt-get update -qq
+    fi &&
+    sudo apt-get install -y azure-cli
+  } || ok=0
+
+  if [[ "$ok" -eq 0 ]]; then
+    echo "omawsl: Azure CLI install failed (repo unreachable?) - skipping, continuing with the rest of the run."
+  fi
+}
+
+# omawsl_cloud_tools
+# Reads OMAWSL_LANGUAGES (Terraform/Azure CLI live in the same picker as
+# the 8 languages - design spec §6) and installs each selected tool.
+# Nothing pre-selected by default; selecting neither is a valid no-op.
+# Each install function already swallows its own failure internally and
+# always returns 0, so no extra isolation logic is needed here - a failed
+# Terraform install simply doesn't stop Azure CLI from still being tried.
+omawsl_cloud_tools() {
+  local languages="${OMAWSL_LANGUAGES:-}"
+
+  if omawsl_list_has "$languages" "Terraform"; then
+    omawsl_install_terraform
+  fi
+
+  if omawsl_list_has "$languages" "Azure CLI"; then
+    omawsl_install_azure_cli
+  fi
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  omawsl_cloud_tools
+fi
