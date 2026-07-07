@@ -10,12 +10,22 @@ source "$SCRIPT_DIR/../lib.sh"
 # (running or stopped) - `docker run` itself is not safe to re-run blindly,
 # since it errors out on a name collision rather than no-op (design spec
 # §7: "container creation is guarded by a name-existence check").
+#
+# Invoked via `sudo docker` rather than bare `docker`: this script runs in
+# the same shell session as docker.sh's `sudo usermod -aG docker "$USER"`
+# (terminal/*.sh scripts are sourced, not sub-shelled, into one continuous
+# process - design spec §8), and Linux only picks up a new supplementary
+# group membership on the next login, not retroactively for an
+# already-running session. A bare `docker` call here would fail with
+# "permission denied while trying to connect to the docker API" even
+# though the daemon is running fine - `sudo docker` sidesteps that entirely
+# (and reuses the sudo timestamp cache docker.sh's own sudo calls just set).
 omawsl_ensure_container() {
   local name="$1"; shift
-  if docker ps -a --format '{{.Names}}' | grep -qx "$name"; then
+  if sudo docker ps -a --format '{{.Names}}' | grep -qx "$name"; then
     return 0
   fi
-  docker run -d --name "$name" --restart unless-stopped "$@"
+  sudo docker run -d --name "$name" --restart unless-stopped "$@"
 }
 
 # omawsl_install_storage
