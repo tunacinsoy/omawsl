@@ -67,7 +67,7 @@ the next phase's plan.
    and both `cloud-tools.sh` functions) in `7105055`. 110 bats tests, all passing.
    Confirmed clean on a subsequent re-run — Phase 3 is closed out.
 
-4. **Editors & AI tooling — DONE, merged to `master`.**
+4. **Editors & AI tooling — merged to `master`, manual end-to-end verification (Task 13) pending.**
    Plan: `docs/superpowers/plans/2026-07-07-omawsl-phase4-editors-ai-tooling.md`
    All 8 `app-*.sh` scripts (VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI,
    GitHub Copilot CLI, Gemini CLI) wired into `install/terminal.sh`'s dispatch table, each
@@ -93,7 +93,14 @@ the next phase's plan.
    `docker.sh`) and merged into the Phase 4 branch before it landed. A follow-up real run
    also hit Azure CLI's already-known, already-isolated repo-unreachable limitation
    (Microsoft's own apt repo, not an omawsl bug) — confirmed the failure-isolation from
-   Phase 3 handled it correctly and the run still completed.
+   Phase 3 handled it correctly and the run still completed. **Both of those were found
+   incidentally on the pre-Phase-4 `master`, before this phase's own scripts were wired
+   into `terminal.sh` — they don't constitute verification of Phase 4's actual new surface.**
+   Per this plan's own Task 13, that verification (VS Code/Cursor settings deploy, Neovim's
+   LazyVim bootstrap, Claude Code CLI's real install location, the Codex/Gemini CLI
+   mise-wrapper mechanism, gh-copilot, lazydocker/zellij) is human-in-the-loop by design and
+   still outstanding — this entry should only be reworded to "DONE" once that's run and
+   reported back (matching Phases 2-3's own Task 7/Task 6 pattern).
 
 5. **Theming — not yet planned.**
    All 10 ported Omakub themes, `bin/omawsl theme`, the Windows Terminal JSON edit (`jq` +
