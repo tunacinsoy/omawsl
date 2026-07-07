@@ -79,3 +79,54 @@ setup() {
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
+
+@test "real checklist: shows a VS Code item when chosen and code isn't reachable" {
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/windows-prereq-checklist.sh"
+    export OMAWSL_EDITORS="VS Code"
+    export PATH=/nonexistent
+    omawsl_windows_checklist_items
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"VS Code"* ]]
+  [[ "$output" == *"docs/windows-setup.md#vscode"* ]]
+}
+
+@test "real checklist: shows nothing for VS Code when code is already reachable" {
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/windows-prereq-checklist.sh"
+    export OMAWSL_EDITORS="VS Code"
+    code() { :; }
+    export -f code
+    omawsl_windows_checklist_items
+  '
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "real checklist: shows a Cursor item when chosen and cursor isn't reachable" {
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/windows-prereq-checklist.sh"
+    export OMAWSL_EDITORS="Cursor"
+    export PATH=/nonexistent
+    omawsl_windows_checklist_items
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Cursor"* ]]
+  [[ "$output" == *"docs/windows-setup.md#cursor"* ]]
+}
+
+@test "real checklist: shows nothing when neither VS Code nor Cursor was chosen" {
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/windows-prereq-checklist.sh"
+    export OMAWSL_EDITORS="Neovim"
+    export PATH=/nonexistent
+    omawsl_windows_checklist_items
+  '
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}

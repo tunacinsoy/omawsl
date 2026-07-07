@@ -103,3 +103,17 @@ omawsl_load_choice() {
 omawsl_docker_reachable() {
   command -v docker &>/dev/null
 }
+
+# omawsl_code_reachable
+# True if VS Code's `code` CLI is reachable (via Win32 interop once VS
+# Code is installed on Windows). Shared by windows-prereq-checklist.sh
+# and app-vscode.sh's own detect-and-defer check (design spec §6, §10).
+omawsl_code_reachable() {
+  command -v code &>/dev/null
+}
+
+# omawsl_cursor_reachable
+# Same shape as omawsl_code_reachable, for Cursor's `cursor` CLI.
+omawsl_cursor_reachable() {
+  command -v cursor &>/dev/null
+}

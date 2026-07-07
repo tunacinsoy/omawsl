@@ -124,3 +124,33 @@ setup() {
   '
   [ "$status" -eq 1 ]
 }
+
+@test "omawsl_code_reachable: true when a code command is present" {
+  stub_command code
+  run omawsl_code_reachable
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl_code_reachable: false when nothing named code is on PATH" {
+  run bash -c '
+    export PATH=/nonexistent
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    omawsl_code_reachable
+  '
+  [ "$status" -eq 1 ]
+}
+
+@test "omawsl_cursor_reachable: true when a cursor command is present" {
+  stub_command cursor
+  run omawsl_cursor_reachable
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl_cursor_reachable: false when nothing named cursor is on PATH" {
+  run bash -c '
+    export PATH=/nonexistent
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    omawsl_cursor_reachable
+  '
+  [ "$status" -eq 1 ]
+}

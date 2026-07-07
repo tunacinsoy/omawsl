@@ -7,14 +7,21 @@ source "$SCRIPT_DIR/lib.sh"
 
 # omawsl_windows_checklist_items
 # Prints zero or more lines, each describing one pending Windows-side
-# prerequisite relevant to what was actually selected. Phase 2 adds the
-# first real item: Docker Desktop, shown only if that mode was chosen and
-# `docker` isn't already reachable (design spec §6, §9). Later phases
-# (VS Code/Cursor in Phase 4) extend this function further rather than
-# restructuring it.
+# prerequisite relevant to what was actually selected. Phase 4 adds VS
+# Code and Cursor - shown only if that editor was chosen and its CLI
+# isn't already reachable (design spec §6, §10). Later phases extend this
+# function further rather than restructuring it.
 omawsl_windows_checklist_items() {
   if [[ "${OMAWSL_DOCKER_MODE:-}" == "Docker Desktop for Windows" ]] && ! omawsl_docker_reachable; then
     echo "  - Docker Desktop - docs/windows-setup.md#docker-desktop (install it, enable WSL integration for this distro, verify 'docker' is reachable)"
+  fi
+
+  if omawsl_list_has "${OMAWSL_EDITORS:-}" "VS Code" && ! omawsl_code_reachable; then
+    echo "  - VS Code - docs/windows-setup.md#vscode (install it, enable the WSL extension, verify 'code' is on PATH)"
+  fi
+
+  if omawsl_list_has "${OMAWSL_EDITORS:-}" "Cursor" && ! omawsl_cursor_reachable; then
+    echo "  - Cursor - docs/windows-setup.md#cursor (install it, connect to this WSL distro once, verify 'cursor' is on PATH)"
   fi
 }
 
