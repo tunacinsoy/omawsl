@@ -56,9 +56,13 @@ setup() {
 }
 
 @test "choosing Docker Desktop surfaces the pre-install checklist, and declining exits before installing" {
-  # Relies on the real test machine not already having a `docker` command
-  # reachable (true as of Phase 2 - Docker isn't installed on this instance
-  # yet). If that ever changes, this test's premise needs revisiting.
+  # Relies on `docker` not being reachable via `command -v docker`. On a
+  # real WSL developer machine, Docker Desktop for Windows can make its
+  # interop binary reachable through a WSL-injected /mnt/c/... PATH entry
+  # (host state omawsl itself never adds), which would spuriously satisfy
+  # `command -v docker` and mask this test's premise. Pin PATH to
+  # genuine Linux-side system directories for this subprocess only, so the
+  # result is deterministic regardless of what's on the ambient host PATH.
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Desktop for Windows"
   gum_stub_respond ""
@@ -67,7 +71,7 @@ setup() {
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
 
-  run bash -c "echo n | bash '$REPO_ROOT/install.sh'"
+  run env PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib" bash -c "echo n | bash '$REPO_ROOT/install.sh'"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Docker Desktop"* ]]
   [[ "$output" == *"Exiting - nothing has been installed yet"* ]]
