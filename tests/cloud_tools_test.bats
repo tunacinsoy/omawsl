@@ -9,6 +9,20 @@ setup() {
   source "$REPO_ROOT/install/terminal/cloud-tools.sh"
   stub_command sudo
   stub_command gpg
+  # This WSL instance has real terraform installed on it (from a real
+  # Task 6 verification run) - hide it (and az, pre-emptively) so
+  # `command -v terraform`/`command -v az` behave the same on this
+  # machine as on a fresh one, regardless of what's actually installed.
+  stub_hide_command terraform az
+  # Same reason: this instance also has a real, already-configured
+  # /etc/apt/sources.list.d/hashicorp.list. The omawsl_cloud_tools-level
+  # tests below call the dispatcher with no explicit paths, which falls
+  # back to the real system paths - override via env var so they always
+  # see a fresh, non-existent sources file regardless of host state.
+  export OMAWSL_TERRAFORM_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/hashicorp-default.list"
+  export OMAWSL_TERRAFORM_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings-default"
+  export OMAWSL_AZURE_CLI_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/azure-cli-default.list"
+  export OMAWSL_AZURE_CLI_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings-default"
 }
 
 # --- omawsl_install_terraform ------------------------------------------------
@@ -52,6 +66,37 @@ setup() {
   [[ "$(stub_calls)" != *"apt-get install -y terraform"* ]]
 }
 
+@test "terraform: removes the sources file when apt-get itself fails, so a retry doesn't inherit a broken repo listing" {
+  # Regression test: on a real WSL2 run, a failed Azure CLI repo-add left
+  # a broken /etc/apt/sources.list.d/azure-cli.list behind (the repo
+  # simply doesn't have a Release file for this Ubuntu codename yet) -
+  # every LATER apt-get call in the same run then failed too (apt exits
+  # nonzero when any configured repo errors), which aborted the entire
+  # install.sh run under set -e inside the unrelated libraries.sh step.
+  # sudo is overridden locally (not the generic stub_command) so "sudo rm"
+  # forwards to a real rm - the sources file must actually disappear on
+  # disk, not just have the log record an attempt.
+  sudo() {
+    echo "sudo $*" >> "$STUB_LOG"
+    if [[ "$1" == "apt-get" ]]; then
+      return 1
+    fi
+    if [[ "$1" == "rm" ]]; then
+      shift
+      command rm "$@"
+      return $?
+    fi
+    return 0
+  }
+  export -f sudo
+  sources_file="$BATS_TEST_TMPDIR/hashicorp-preexisting.list"
+  : > "$sources_file"
+  run omawsl_install_terraform "$sources_file" "$BATS_TEST_TMPDIR/keyrings"
+  [ "$status" -eq 0 ]
+  [ ! -f "$sources_file" ]
+  [[ "$output" == *"Terraform install failed"* ]]
+}
+
 # --- omawsl_install_azure_cli -------------------------------------------------
 
 @test "azure-cli: installs via apt when not already present" {
@@ -91,6 +136,28 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Azure CLI install failed"* ]]
   [[ "$(stub_calls)" != *"apt-get install -y azure-cli"* ]]
+}
+
+@test "azure-cli: removes the sources file when apt-get itself fails, so a retry doesn't inherit a broken repo listing" {
+  sudo() {
+    echo "sudo $*" >> "$STUB_LOG"
+    if [[ "$1" == "apt-get" ]]; then
+      return 1
+    fi
+    if [[ "$1" == "rm" ]]; then
+      shift
+      command rm "$@"
+      return $?
+    fi
+    return 0
+  }
+  export -f sudo
+  sources_file="$BATS_TEST_TMPDIR/azure-cli-preexisting.list"
+  : > "$sources_file"
+  run omawsl_install_azure_cli "$sources_file" "$BATS_TEST_TMPDIR/keyrings"
+  [ "$status" -eq 0 ]
+  [ ! -f "$sources_file" ]
+  [[ "$output" == *"Azure CLI install failed"* ]]
 }
 
 # --- omawsl_cloud_tools --------------------------------------------------------

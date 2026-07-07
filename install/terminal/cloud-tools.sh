@@ -51,6 +51,17 @@ omawsl_install_terraform() {
   } || ok=0
 
   if [[ "$ok" -eq 0 ]]; then
+    # A partially-written or now-broken apt source left in place would
+    # poison every LATER apt-get call in this run (and any future run) -
+    # confirmed on a real WSL2 run where a failed Azure CLI repo-add
+    # (Microsoft's repo lacking a Release file for that Ubuntu codename)
+    # left /etc/apt/sources.list.d/azure-cli.list behind, which then made
+    # libraries.sh's own unrelated `apt-get update` fail and abort the
+    # entire install.sh run under set -e. Removing it here means the next
+    # apt-get update (this run or a re-run) doesn't see a broken repo at
+    # all, and a future call to this function retries the repo-add fresh
+    # instead of staying permanently broken.
+    sudo rm -f "$apt_sources_file"
     echo "omawsl: Terraform install failed (repo unreachable?) - skipping, continuing with the rest of the run."
   fi
 }
@@ -78,6 +89,7 @@ omawsl_install_azure_cli() {
   } || ok=0
 
   if [[ "$ok" -eq 0 ]]; then
+    sudo rm -f "$apt_sources_file"
     echo "omawsl: Azure CLI install failed (repo unreachable?) - skipping, continuing with the rest of the run."
   fi
 }

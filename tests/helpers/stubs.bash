@@ -59,3 +59,34 @@ gum() {
   cat "$GUM_RESPONSE_DIR/response-$n" 2>/dev/null || true
 }
 export -f gum
+
+# stub_hide_command <name> [<name> ...]
+# Exports a PATH pointing at a fresh directory of symlinks to every real
+# binary from the standard system directories, except the given name(s) -
+# which are simply never linked in, so `command -v <name>` genuinely fails
+# regardless of whether that command happens to be really installed
+# somewhere on this host. More robust than excluding whole directories
+# (which would also hide bash/coreutils living in the same /usr/bin,
+# /bin) or a fixed "safe" directory list (which breaks the moment the
+# excluded command gets installed to a new location - happened twice
+# already: Docker Desktop's /mnt/c/... interop, then a real native
+# docker-ce install; the same risk applies to any tool a test needs to
+# simulate as "not installed", e.g. terraform/az after a real Task 6 run).
+stub_hide_command() {
+  local hide_names=("$@")
+  local shadow_dir; shadow_dir="$(mktemp -d)"
+  local sysdir f base hide
+  for sysdir in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /usr/games /usr/local/games /usr/lib/wsl/lib; do
+    [[ -d "$sysdir" ]] || continue
+    for f in "$sysdir"/*; do
+      [[ -e "$f" ]] || continue
+      base="${f##*/}"
+      for hide in "${hide_names[@]}"; do
+        [[ "$base" == "$hide" ]] && continue 2
+      done
+      [[ -e "$shadow_dir/$base" ]] && continue
+      ln -s "$f" "$shadow_dir/$base" 2>/dev/null || true
+    done
+  done
+  export PATH="$shadow_dir"
+}
