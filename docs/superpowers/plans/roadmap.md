@@ -27,12 +27,16 @@ the next phase's plan.
    Docker Desktop detect-and-defer), the first real item in
    `install/windows-prereq-checklist.sh`'s checklist (Docker Desktop, when chosen and not
    yet reachable), and `select-dev-storage.sh` (MySQL/Redis/PostgreSQL as idempotent Docker
-   containers). 75 bats tests, all passing. Implemented via subagent-driven-development;
+   containers). 79 bats tests, all passing. Implemented via subagent-driven-development;
    task-by-task review plus a final whole-branch review caught a cross-task integration gap
    (storage crashing instead of deferring when Docker Desktop mode's `docker` isn't yet
-   reachable) before merge. Manual end-to-end verification against a real WSL2 instance
-   (real `sudo`, `docker-ce` install, container creation, a `wsl --shutdown` restart) is
-   still outstanding — a human task, see the plan's Task 7.
+   reachable) before merge. Manual end-to-end verification against a real fresh WSL2 Ubuntu
+   26.04 instance (Task 7) is complete, including a second idempotent re-run. It surfaced
+   two real bugs the stubbed suite couldn't catch — a stale-group-cache permission-denied
+   crash in `select-dev-storage.sh` (fixed in `871a92a` via `sudo docker`), and a
+   post-install reminder that scrolled out of view before the run finished (fixed in
+   `abc46e8` by repeating it in `install.sh`'s final summary) — both fixed and verified
+   directly on `master` after the phase's own merge.
 
 3. **Languages & cloud tools — not yet planned.**
    `mise.sh`, `select-dev-language.sh` (Ruby on Rails, Node.js, Go, PHP, Python, Elixir,

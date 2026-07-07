@@ -1004,7 +1004,7 @@ git commit -m "test: extend install_test.bats for Docker + storage end-to-end co
 
 This is the one step in this plan the agent executing it should **not** attempt: it requires a real `sudo` password against the live test WSL instance, a real `docker-ce` install from Docker's real apt repo, and (likely) a real `wsl --shutdown` restart. Everything up through Task 6 is fully verified by the automated, stubbed test suite — this task is the final "does the real thing actually work, unstubbed" check.
 
-- [ ] **Step 1 (human): Run the real install from a clean-enough state**
+- [x] **Step 1 (human): Run the real install from a clean-enough state**
 
 From inside the WSL Ubuntu terminal itself (not via `wsl.exe -d Ubuntu --`, since this needs to prompt you for your password interactively):
 
@@ -1014,18 +1014,20 @@ bash /mnt/c/Users/tcins/vscode-workspace/omawsl/install.sh
 
 (Using `install.sh` directly rather than `boot.sh`, same as Phase 1's manual verification — the GitHub repo still doesn't exist yet.)
 
-- [ ] **Step 2 (human): Pick Docker Engine-only and at least one storage option**
+- [x] **Step 2 (human): Pick Docker Engine-only and at least one storage option**
 
 Answer the Docker prompt with the recommended Engine-only option, and pick at least one storage option (e.g. PostgreSQL) so both new code paths get exercised for real.
 
-- [ ] **Step 3 (human): Handle the expected first-run restart**
+- [x] **Step 3 (human): Handle the expected first-run restart**
 
 The first real run will very likely hit the "WSL systemd support was just enabled" message and exit 0 (unless this WSL instance already has `systemd=true` in `/etc/wsl.conf` from some earlier manual poke). If it does:
 1. From Windows PowerShell/cmd: `wsl --shutdown`
 2. Reopen the WSL terminal
 3. Re-run the same command from Step 1
 
-- [ ] **Step 4 (human): Confirm Docker actually works**
+(Not hit on the actual run — this fresh WSL2 Ubuntu 26.04 instance already had `systemd=true`, so the guard was a no-op and the run proceeded straight through.)
+
+- [x] **Step 4 (human): Confirm Docker actually works**
 
 After the run completes with `omawsl: install complete.`:
 - `docker --version` succeeds.
@@ -1033,13 +1035,21 @@ After the run completes with `omawsl: install complete.`:
 - `docker ps -a` shows the container(s) matching whatever storage you picked in Step 2 (e.g. `omawsl-postgresql`), in the `Up` state.
 - Re-run `bash install.sh` a second time end to end (same answers) and confirm it completes cleanly with no errors — this is the idempotency check: the systemd guard, the apt-repo-add, and the container creation should all silently no-op the second time.
 
-- [ ] **Step 5 (human): Report back**
+- [x] **Step 5 (human): Report back**
 
 Tell me either "it worked, here's what I saw" or paste the exact error/output if something broke. If something breaks, that's the systematic-debugging skill's territory next.
 
-- [ ] **Step 6 (human, only once Step 5 confirms success): confirm the commit history is clean**
+**Outcome: two real bugs found and fixed during this step, neither catchable by the stubbed test suite:**
+1. `select-dev-storage.sh` crashed with "permission denied while trying to connect to the docker API" on the first real run. Root cause: `docker.sh`'s `sudo usermod -aG docker "$USER"` doesn't take effect in the already-running install.sh session (Linux only refreshes group membership on next login), and `terminal/*.sh` scripts are sourced into that same session, so the very next script's bare `docker` calls ran without the new group. Fixed by routing `omawsl_ensure_container` through `sudo docker` instead (commit `871a92a`, TDD'd directly on `master`, no worktree needed for a fix this size).
+2. After that fix, the human still hit the same permission error running `docker ps` themselves in their own terminal right after `install: complete.` — expected (same group-refresh issue, now for their interactive shell), but the one-time mid-run reminder about it had already scrolled out of view under `terminal/libraries.sh`'s own apt-get output. Fixed by adding `omawsl_docker_final_reminder` and printing it again in `install.sh`'s final summary (commit `abc46e8`), plus hardening an `install_test.bats` test whose PATH-exclusion trick broke once real `docker-ce` ended up installed on the dev machine for real.
+
+Re-ran the full flow (including the idempotency re-run) after both fixes: clean `omawsl: install complete.`, reminder printed at the end, second run showed `0 upgraded, 0 newly installed, 0 to remove` — confirmed idempotent.
+
+- [x] **Step 6 (human, only once Step 5 confirms success): confirm the commit history is clean**
 
 Run `git log --oneline` and check it reads as a clean, incremental history of Tasks 1–6 (no fixup commits needed). If everything's fine, update `docs/superpowers/plans/roadmap.md`'s Phase 2 entry to "DONE, merged to `master`" (matching Phase 1's entry format) and Phase 3 is next.
+
+(History includes the merge commit plus two small follow-up fix commits from real-world verification, `871a92a` and `abc46e8` — expected and consistent with Phase 1's own precedent of the plan being a living document.)
 
 ---
 
