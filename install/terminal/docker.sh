@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "${BASH_SOURCE[0]%/*}" && pwd)"
+OMAWSL_DOCKER_SH_SRC="${BASH_SOURCE[0]}"
+case "$OMAWSL_DOCKER_SH_SRC" in
+  */*) SCRIPT_DIR="$(cd "${OMAWSL_DOCKER_SH_SRC%/*}" && pwd)" ;;
+  *)   SCRIPT_DIR="$(pwd)" ;;
+esac
 # shellcheck source=../lib.sh
 source "$SCRIPT_DIR/../lib.sh"
 
