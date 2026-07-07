@@ -13,21 +13,30 @@ setup() {
   stub_command git
   stub_command curl
   stub_command gpg
+  stub_command mise
+  stub_command gem
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"
   export OMAWSL_DOCKER_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/docker.list"
   export OMAWSL_DOCKER_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings"
-  # Pre-seed the apt sources file as already-existing so
-  # omawsl_install_docker_ce takes its "already configured" branch and
-  # skips the curl|gpg / echo|tee repo-add pipes. Found during Task 5:
-  # those pipes' stubbed sudo/curl/gpg exit near-instantly without
-  # draining stdin (unlike the real commands), so when this whole script
-  # runs as a freshly exec'd process the writer side can lose the SIGPIPE
-  # race under pipefail (deterministic 141, not flaky). Both pipes already
-  # have dedicated, non-flaky coverage via a direct in-process call in
-  # docker_test.bats (tests 9-10), so this loses no coverage.
+  # Pre-seed every third-party apt sources file this run could touch as
+  # already-existing, so each one takes its "already configured" branch
+  # and skips its curl|gpg / echo|tee repo-add pipes. Found during Phase
+  # 2's Task 5: those pipes' stubbed sudo/curl/gpg exit near-instantly
+  # without draining stdin (unlike the real commands), so when this whole
+  # script runs as a freshly exec'd process the writer side can lose the
+  # SIGPIPE race under pipefail (deterministic 141, not flaky). Every one
+  # of these pipes already has dedicated, non-flaky coverage via a direct
+  # in-process call in docker_test.bats/cloud_tools_test.bats, so this
+  # loses no coverage.
   : > "$OMAWSL_DOCKER_APT_SOURCES_FILE"
+  export OMAWSL_TERRAFORM_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/hashicorp.list"
+  export OMAWSL_TERRAFORM_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings"
+  : > "$OMAWSL_TERRAFORM_APT_SOURCES_FILE"
+  export OMAWSL_AZURE_CLI_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/azure-cli.list"
+  export OMAWSL_AZURE_CLI_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings"
+  : > "$OMAWSL_AZURE_CLI_APT_SOURCES_FILE"
   export USER=testuser
 }
 
@@ -35,7 +44,7 @@ setup() {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
   gum_stub_respond ""
-  gum_stub_respond ""
+  gum_stub_respond $'Go\nTerraform'
   gum_stub_respond ""
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
@@ -51,9 +60,12 @@ setup() {
   [ "$(cat "$OMAWSL_STATE_DIR/version")" = "$(cat "$REPO_ROOT/version")" ]
   [ -f "$OMAWSL_STATE_DIR/choices.env" ]
   grep -q '^OMAWSL_NETWORK_MODE="Personal / unrestricted"$' "$OMAWSL_STATE_DIR/choices.env"
-  grep -q '^OMAWSL_LANGUAGES=""$' "$OMAWSL_STATE_DIR/choices.env"
+  grep -q '^OMAWSL_LANGUAGES="Go,Terraform"$' "$OMAWSL_STATE_DIR/choices.env"
   grep -q '^OMAWSL_STORAGE=""$' "$OMAWSL_STATE_DIR/choices.env"
   [[ "$(stub_calls)" == *"sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"* ]]
+  [[ "$(stub_calls)" == *"mise use --global go@latest"* ]]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y terraform"* ]]
+  [[ "$(stub_calls)" != *"azure-cli"* ]]
 }
 
 @test "choosing Docker Desktop surfaces the pre-install checklist, and declining exits before installing" {
