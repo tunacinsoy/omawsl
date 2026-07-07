@@ -60,6 +60,7 @@ terminal/identification.sh
 terminal/a-shell.sh
 terminal/apps-terminal.sh
 terminal/docker.sh
+terminal/libraries.sh
 terminal/mise.sh
 terminal/select-dev-language.sh
 terminal/cloud-tools.sh
@@ -71,8 +72,7 @@ terminal/app-cursor.sh
 terminal/app-claude-cli.sh
 terminal/app-codex-cli.sh
 terminal/app-gh-copilot.sh
-terminal/app-gemini-cli.sh
-terminal/libraries.sh"
+terminal/app-gemini-cli.sh"
 
   [ "$actual_order" = "$expected_order" ]
   [ -f "$HOME/.bashrc" ]
