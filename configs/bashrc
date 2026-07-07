@@ -69,3 +69,9 @@ fi
 if command -v mise &>/dev/null; then
   eval "$(mise activate bash)"
 fi
+
+# opencode's installer places its binary here, not $HOME/.local/bin like
+# mise/lazydocker/claude - needs its own PATH entry.
+if [ -d "$HOME/.opencode/bin" ]; then
+  export PATH="$HOME/.opencode/bin:$PATH"
+fi
