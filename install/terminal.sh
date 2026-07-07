@@ -6,14 +6,16 @@ OMAWSL_INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$OMAWSL_INSTALL_DIR/lib.sh"
 
 # Fixed order, sourced (not sub-shelled) so a failure stops the whole run
-# immediately (design spec §8). Extended by later phases (docker.sh,
-# select-dev-language.sh, cloud-tools.sh, select-dev-storage.sh, the
-# app-*.sh editor/tool scripts) rather than restructured.
+# immediately (design spec §8). Extended by later phases
+# (select-dev-language.sh, cloud-tools.sh, the app-*.sh editor/tool
+# scripts) rather than restructured.
 OMAWSL_TERMINAL_SCRIPTS=(
   "terminal/required/app-gum.sh"
   "terminal/identification.sh"
   "terminal/a-shell.sh"
   "terminal/apps-terminal.sh"
+  "terminal/docker.sh"
+  "terminal/select-dev-storage.sh"
   "terminal/libraries.sh"
 )
 
@@ -25,6 +27,8 @@ omawsl_run_terminal_scripts() {
     ["terminal/identification.sh"]="omawsl_identification"
     ["terminal/a-shell.sh"]="omawsl_install_shell_config"
     ["terminal/apps-terminal.sh"]="omawsl_install_terminal_apps"
+    ["terminal/docker.sh"]="omawsl_docker"
+    ["terminal/select-dev-storage.sh"]="omawsl_install_storage"
     ["terminal/libraries.sh"]="omawsl_install_libraries"
   )
 
