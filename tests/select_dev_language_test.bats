@@ -14,8 +14,11 @@ setup() {
 @test "installs ruby and rails when Ruby on Rails is selected" {
   export OMAWSL_LANGUAGES="Ruby on Rails"
   omawsl_select_dev_language
+  # gem install rails happens via `mise exec ruby@latest -- gem install ...`,
+  # a single call into the stubbed `mise` function - the `gem` stub is never
+  # separately invoked for this. Assert the exact literal command.
   [[ "$(stub_calls)" == *"mise use --global ruby@latest"* ]]
-  [[ "$(stub_calls)" == *"gem install rails --no-document"* ]]
+  [[ "$(stub_calls)" == *"mise exec ruby@latest -- gem install rails --no-document"* ]]
 }
 
 @test "installs node when Node.js is selected" {
@@ -69,6 +72,20 @@ setup() {
   [[ "$(stub_calls)" == *"mise use --global python@latest"* ]]
   [[ "$(stub_calls)" != *"php"* ]]
   [[ "$(stub_calls)" != *"java"* ]]
+}
+
+@test "installs all eight languages when all are selected" {
+  export OMAWSL_LANGUAGES="Ruby on Rails,Node.js,Go,PHP,Python,Elixir,Rust,Java"
+  omawsl_select_dev_language
+  [[ "$(stub_calls)" == *"mise use --global ruby@latest"* ]]
+  [[ "$(stub_calls)" == *"mise exec ruby@latest -- gem install rails --no-document"* ]]
+  [[ "$(stub_calls)" == *"mise use --global node@latest"* ]]
+  [[ "$(stub_calls)" == *"mise use --global go@latest"* ]]
+  [[ "$(stub_calls)" == *"mise use --global php@latest"* ]]
+  [[ "$(stub_calls)" == *"mise use --global python@latest"* ]]
+  [[ "$(stub_calls)" == *"mise use --global elixir@latest"* ]]
+  [[ "$(stub_calls)" == *"mise use --global rust@latest"* ]]
+  [[ "$(stub_calls)" == *"mise use --global java@latest"* ]]
 }
 
 @test "does not treat Terraform or Azure CLI as languages (cloud-tools.sh's job)" {

@@ -24,7 +24,14 @@ omawsl_select_dev_language() {
 
   if omawsl_list_has "$languages" "Ruby on Rails"; then
     omawsl_install_language ruby
-    gem install rails --no-document
+    # `mise use --global` only pins the version in mise's config; it does not
+    # put mise's Ruby shims on THIS shell's PATH (that requires `mise
+    # activate`, which is for interactive shells, not this one-shot script).
+    # A bare `gem install` would hit whatever `gem` is first on PATH - often
+    # nothing at all - and abort the whole install under `set -e`. `mise exec
+    # <tool>@<version> -- <cmd>` runs a single command with that tool's
+    # shims added to PATH just for the duration of the call.
+    mise exec ruby@latest -- gem install rails --no-document
   fi
 
   if omawsl_list_has "$languages" "Node.js"; then
