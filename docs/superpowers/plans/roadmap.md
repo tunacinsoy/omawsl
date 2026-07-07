@@ -119,7 +119,14 @@ the next phase's plan.
 6. **Windows-side deliverables + README — not yet planned.**
    `docs/windows-setup.md`, `windows/` assets (both the Nerd Font and zero-install Cascadia
    Mono profile variants), and `README.md`'s required sections (exclusions list, "Before you
-   begin").
+   begin"). **Must fold in and then delete `docs/prerequisites.md`** (an interim stopgap added
+   during Phase 4's Task 13, outside the spec's documented doc structure): its GitHub Copilot
+   CLI (`gh auth login`) and VS Code/Cursor (install on Windows first) content belongs in the
+   one canonical quick-reference table `docs/windows-setup.md` §13 specifies, reused as-is by
+   README's "Before you begin" §16. **Once that table exists and this file is deleted, update
+   `install/terminal/app-gh-copilot.sh`'s failure message** (currently points at
+   `docs/prerequisites.md#github-copilot-cli`) to point at the new location - don't leave a
+   dangling reference to a deleted file.
 
 7. **`bin/omawsl` CLI completion — not yet planned.**
    `update`, `migrate`, `uninstall`, `install`, `doctor` subcommands, plus the `uninstall/`
