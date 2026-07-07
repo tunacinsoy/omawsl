@@ -882,7 +882,7 @@ Re-run `bash install.sh` a second time end to end (same answers) and confirm it 
 
 Tell me either "it worked, here's what I saw" or paste the exact error/output if something broke. If something breaks, that's the systematic-debugging skill's territory next - a real failure here is more valuable to see than a hypothetical one (as Phase 2's Task 7 proved twice over).
 
-- [ ] **Step 6 (human, only once Step 5 confirms success): confirm the commit history is clean**
+- [x] **Step 6 (human, only once Step 5 confirms success): confirm the commit history is clean**
 
 Run `git log --oneline` and check it reads as a clean, incremental history of Tasks 1–5 (no fixup commits needed). If everything's fine, update `docs/superpowers/plans/roadmap.md`'s Phase 3 entry to "DONE, merged to `master`" (matching Phases 1 and 2's entry format) and Phase 4 is next.
 

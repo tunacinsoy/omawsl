@@ -38,7 +38,7 @@ the next phase's plan.
    `abc46e8` by repeating it in `install.sh`'s final summary) — both fixed and verified
    directly on `master` after the phase's own merge.
 
-3. **Languages & cloud tools — merged to `master`, manual verification (Task 6) outstanding.**
+3. **Languages & cloud tools — DONE, merged to `master`.**
    Plan: `docs/superpowers/plans/2026-07-07-omawsl-phase3-languages-cloud-tools.md`
    `mise.sh` (bootstraps the mise version manager, exports the current session's PATH for
    `select-dev-language.sh` to use), `select-dev-language.sh` (Ruby on Rails, Node.js, Go,
@@ -64,10 +64,8 @@ the next phase's plan.
    `gpg --dearmor` without `--yes` interactively prompts to overwrite an
    already-existing keyring file (left over from the original pre-fix failure) and
    hangs a non-interactive script forever — fixed in all three call sites (`docker.sh`
-   and both `cloud-tools.sh` functions) in `7105055`. 110 bats tests, all passing. A
-   fully clean confirming re-run (no manual cleanup, no prompts) hasn't happened yet,
-   though all three fixes are covered by automated tests regardless — see the plan's
-   Task 6 for details.
+   and both `cloud-tools.sh` functions) in `7105055`. 110 bats tests, all passing.
+   Confirmed clean on a subsequent re-run — Phase 3 is closed out.
 
 4. **Editors & AI tooling — not yet planned.**
    All 8 `app-*.sh` scripts (VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI,
