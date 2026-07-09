@@ -1,0 +1,23 @@
+{
+    "name": "Ristretto",
+    "background": "#2c2525",
+    "foreground": "#e6d9db",
+    "cursorColor": "#c3b7b8",
+    "selectionBackground": "#403e41",
+    "black": "#2c2525",
+    "red": "#fd6883",
+    "green": "#adda78",
+    "yellow": "#f9cc6c",
+    "blue": "#f38d70",
+    "purple": "#a8a9eb",
+    "cyan": "#85dacc",
+    "white": "#e6d9db",
+    "brightBlack": "#463a3a",
+    "brightRed": "#ff8297",
+    "brightGreen": "#c8e292",
+    "brightYellow": "#fcd675",
+    "brightBlue": "#f8a788",
+    "brightPurple": "#bebffd",
+    "brightCyan": "#9bf1e1",
+    "brightWhite": "#f1e5e7"
+}

@@ -1,0 +1,23 @@
+{
+    "name": "Osaka Jade",
+    "background": "#111c18",
+    "foreground": "#c1c497",
+    "cursorColor": "#d7c995",
+    "selectionBackground": "#23372b",
+    "black": "#23372b",
+    "red": "#ff5345",
+    "green": "#549e6a",
+    "yellow": "#459451",
+    "blue": "#509475",
+    "purple": "#d2689c",
+    "cyan": "#2dd5b7",
+    "white": "#f6f5dd",
+    "brightBlack": "#53685b",
+    "brightRed": "#db9f9c",
+    "brightGreen": "#63b07a",
+    "brightYellow": "#e5c736",
+    "brightBlue": "#acd4cf",
+    "brightPurple": "#75bbb3",
+    "brightCyan": "#8cd3cb",
+    "brightWhite": "#9eebb3"
+}

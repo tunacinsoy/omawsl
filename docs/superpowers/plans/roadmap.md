@@ -126,7 +126,13 @@ the next phase's plan.
    README's "Before you begin" §16. **Once that table exists and this file is deleted, update
    `install/terminal/app-gh-copilot.sh`'s failure message** (currently points at
    `docs/prerequisites.md#github-copilot-cli`) to point at the new location - don't leave a
-   dangling reference to a deleted file.
+   dangling reference to a deleted file. **Must also fold in and then delete
+   `docs/zellij-keybinding-fixes.md`** (an interim stopgap added during Phase 5's own Task 8,
+   same pattern as `docs/prerequisites.md`): its `Alt+Left/Down/Up/Right` unbind fix, confirmed
+   for real against a live Windows Terminal `settings.json` during Phase 5's Task 9, must be
+   baked into both `windows/windows-terminal.json` and `windows-terminal-fallback.json` (design
+   spec §13 already requires both to resolve zellij keybinding collisions) before this file is
+   deleted.
 
 7. **`bin/omawsl` CLI completion — not yet planned.**
    `update`, `migrate`, `uninstall`, `install`, `doctor` subcommands, plus the `uninstall/`

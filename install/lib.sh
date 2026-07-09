@@ -117,3 +117,19 @@ omawsl_code_reachable() {
 omawsl_cursor_reachable() {
   command -v cursor &>/dev/null
 }
+
+# omawsl_windows_userprofile
+# Resolves the Windows user's profile directory as a WSL path
+# (e.g. /mnt/c/Users/<name>) via cmd.exe + wslpath, rather than
+# assuming the Windows username matches $USER - design spec §11 flags
+# this as a real, common mismatch. Prints nothing and returns 1 if
+# cmd.exe/wslpath aren't reachable (e.g. outside real WSL2, as in the
+# bats suite unless stubbed) or the lookup comes back empty.
+omawsl_windows_userprofile() {
+  command -v cmd.exe &>/dev/null || return 1
+  command -v wslpath &>/dev/null || return 1
+  local win_path
+  win_path="$(cmd.exe /c "echo %USERPROFILE%" 2>/dev/null | tr -d '\r\n')"
+  [[ -n "$win_path" ]] || return 1
+  wslpath -u "$win_path"
+}
