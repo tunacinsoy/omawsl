@@ -133,11 +133,46 @@ setup() {
 @test "omawsl_theme_command with no args prompts via gum and applies the chosen theme" {
   omawsl_theme_apply() { echo "apply-called $1" >> "$STUB_LOG"; }
   export -f omawsl_theme_apply
-  gum_stub_init
-  gum_stub_respond "Tokyo Night"
+  # theme.sh feeds the choice list into gum via a live pipe
+  # (`... | gum choose`) under `pipefail`. The shared gum stub (used
+  # as-is by other tests with very different stdin setups, e.g.
+  # install_test.bats piping one "y" through the whole install for an
+  # unrelated downstream prompt) never reads its stdin, so a
+  # real `gum choose` succeeding here would still leave the pipeline's
+  # upstream writer SIGPIPE'd (exit 141) once gum exits without
+  # draining it - which pipefail then reports as the whole pipe having
+  # failed. Override gum locally (draining stdin first, like the real
+  # `gum choose` does) so this test reflects a real successful pick
+  # rather than that stub artifact.
+  gum() {
+    echo "gum $*" >> "$STUB_LOG"
+    cat >/dev/null
+    echo "Tokyo Night"
+  }
+  export -f gum
   run omawsl_theme_command
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"apply-called tokyo-night"* ]]
+}
+
+@test "omawsl_theme_command with no args returns cleanly when gum choose is cancelled (Esc)" {
+  omawsl_theme_apply() { echo "apply-called $1" >> "$STUB_LOG"; }
+  export -f omawsl_theme_apply
+  # The shared gum stub (tests/helpers/stubs.bash) always returns exit 0,
+  # but the real `gum choose` exits non-zero and prints nothing when the
+  # user presses Esc. Override locally so this test actually reproduces
+  # that cancel behavior instead of the stub's always-success shortcut.
+  gum() {
+    echo "gum $*" >> "$STUB_LOG"
+    return 1
+  }
+  export -f gum
+  # theme.sh runs under `set -euo pipefail`. bats' `run` normally disables
+  # errexit for the duration of the call (masking this exact bug), so force
+  # it back on via BATS_RUN_ERREXIT to actually exercise set -e behavior.
+  BATS_RUN_ERREXIT=1 run omawsl_theme_command
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"apply-called"* ]]
 }
 
 @test "bin/omawsl theme with a valid name applies it end to end (real jq, real files)" {

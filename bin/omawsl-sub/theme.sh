@@ -149,7 +149,7 @@ omawsl_theme_command() {
 
   if [[ -z "$input" ]]; then
     local choice
-    choice="$(omawsl_theme_names | while read -r n; do omawsl_theme_display_name "$n"; done | gum choose --header "Choose your theme")"
+    choice="$(omawsl_theme_names | while read -r n; do omawsl_theme_display_name "$n"; done | gum choose --header "Choose your theme")" || choice=""
     [[ -n "$choice" ]] || return 0
     name="$(omawsl_theme_folder_name "$choice")"
   else
