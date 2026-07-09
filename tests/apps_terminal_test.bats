@@ -80,3 +80,10 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq"* ]]
 }
+
+@test "installs a bin/omawsl wrapper into ~/.local/bin that execs the real script" {
+  run omawsl_install_cli
+  [ "$status" -eq 0 ]
+  [ -x "$HOME/.local/bin/omawsl" ]
+  [[ "$(cat "$HOME/.local/bin/omawsl")" == *"exec bash \"$REPO_ROOT/bin/omawsl\""* ]]
+}

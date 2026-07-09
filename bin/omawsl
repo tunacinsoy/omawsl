@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+OMAWSL_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=../install/lib.sh
+source "$OMAWSL_ROOT_DIR/install/lib.sh"
+# shellcheck source=omawsl-sub/theme.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/theme.sh"
+
+# omawsl_usage
+# Only "theme" is wired up this phase - Phase 7 adds update/migrate/
+# uninstall/install/doctor here, each backed by its own
+# bin/omawsl-sub/<command>.sh, same shape as theme.sh.
+omawsl_usage() {
+  cat <<'EOF'
+Usage: omawsl <command> [args]
+
+Commands:
+  theme [name]   Apply one of the ported themes. With no name, choose
+                 interactively.
+EOF
+}
+
+omawsl_main() {
+  local cmd="${1:-}"
+  case "$cmd" in
+    theme)
+      shift
+      omawsl_theme_command "$@"
+      ;;
+    ""|-h|--help)
+      omawsl_usage
+      ;;
+    *)
+      echo "omawsl: unknown command '$cmd'" >&2
+      omawsl_usage >&2
+      exit 1
+      ;;
+  esac
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  omawsl_main "$@"
+fi
