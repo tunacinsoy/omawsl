@@ -46,3 +46,37 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" != *"unknown-linux-musl"* ]]
 }
+
+@test "deploys configs/zellij.kdl to ~/.config/zellij/config.kdl" {
+  run omawsl_install_zellij_config
+  [ "$status" -eq 0 ]
+  diff "$HOME/.config/zellij/config.kdl" "$REPO_ROOT/configs/zellij.kdl"
+}
+
+@test "does not overwrite an existing zellij config.kdl" {
+  mkdir -p "$HOME/.config/zellij"
+  echo "theme \"my-custom-theme\"" > "$HOME/.config/zellij/config.kdl"
+  run omawsl_install_zellij_config
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/.config/zellij/config.kdl")" == 'theme "my-custom-theme"' ]]
+}
+
+@test "deploys configs/btop.conf to ~/.config/btop/btop.conf" {
+  run omawsl_install_btop_config
+  [ "$status" -eq 0 ]
+  diff "$HOME/.config/btop/btop.conf" "$REPO_ROOT/configs/btop.conf"
+}
+
+@test "does not overwrite an existing btop.conf" {
+  mkdir -p "$HOME/.config/btop"
+  echo 'color_theme = "my-custom-theme"' > "$HOME/.config/btop/btop.conf"
+  run omawsl_install_btop_config
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/.config/btop/btop.conf")" == 'color_theme = "my-custom-theme"' ]]
+}
+
+@test "installs jq alongside the rest of the always-on apt tool set" {
+  run omawsl_install_terminal_apps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq"* ]]
+}
