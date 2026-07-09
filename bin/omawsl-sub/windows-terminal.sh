@@ -40,7 +40,8 @@ omawsl_windows_terminal_settings_path() {
 # the theme. Prefers jq over sed because `schemes` is a nested array,
 # not a single-line key. Skips gracefully (prints a
 # docs/windows-setup.md pointer, returns 0) if jq or Windows Terminal's
-# settings.json can't be found - never fails the rest of
+# settings.json can't be found, or if settings.json exists but isn't
+# valid JSON - never fails the rest of
 # `bin/omawsl theme`. Targets `profiles.defaults.colorScheme` (applies
 # to every profile unless a specific one overrides it) rather than
 # hunting for "the" WSL profile object by name/source/GUID, which is
@@ -57,6 +58,12 @@ omawsl_theme_apply_windows_terminal() {
   local settings_file
   if ! settings_file="$(omawsl_windows_terminal_settings_path)"; then
     echo "omawsl: couldn't find Windows Terminal's settings.json - skipping the Windows Terminal color sync."
+    echo "See docs/windows-setup.md#windows-terminal-theme for the manual steps."
+    return 0
+  fi
+
+  if ! jq empty "$settings_file" 2>/dev/null; then
+    echo "omawsl: Windows Terminal's settings.json isn't valid JSON - skipping the Windows Terminal color sync."
     echo "See docs/windows-setup.md#windows-terminal-theme for the manual steps."
     return 0
   fi

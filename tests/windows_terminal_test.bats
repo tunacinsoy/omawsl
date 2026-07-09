@@ -101,3 +101,16 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"jq"* ]]
 }
+
+@test "omawsl_theme_apply_windows_terminal skips gracefully when settings.json is invalid JSON" {
+  local store_dir="$WINHOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState"
+  mkdir -p "$store_dir"
+  echo 'not valid json {{{' > "$store_dir/settings.json"
+
+  run omawsl_theme_apply_windows_terminal "$REPO_ROOT/themes/tokyo-night/windows-terminal-scheme.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"isn't valid JSON"* ]]
+
+  [ ! -f "$store_dir/settings.json.bak" ]
+  [[ "$(cat "$store_dir/settings.json")" == "not valid json {{{" ]]
+}
