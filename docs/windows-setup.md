@@ -35,16 +35,20 @@ here instead of repeating these steps.
 
 Two complete options - pick based on your own machine's restrictions, not a "correct" answer:
 
-- **Nerd Font (enhanced).** Full icon-glyph rendering: fastfetch's logo, file-type icons,
-  powerline-style separators all render as intended. See `windows/fonts/README.md` for where
-  to download it (not vendored in this repo - see that file for why) and its exact font family
-  name. Once installed, merge `windows/windows-terminal.json` into your Windows Terminal
-  `settings.json` (open Settings, click "Open JSON file", merge the `profiles.defaults` and
-  `actions` keys from that file into your own - don't just paste over the whole file).
+- **Nerd Font (enhanced).** Full icon-glyph rendering wherever a tool requests one - the most
+  directly testable example already installed by `install.sh` is `eza --icons`, which prints a
+  file-type icon before every entry. (`fastfetch`'s output does *not* depend on this - this repo
+  doesn't ship a custom fastfetch config, so its default output is plain text either way.) See
+  `windows/fonts/README.md` for where to download the font (not vendored in this repo - see that
+  file for why) and its exact font family name. Once installed, merge
+  `windows/windows-terminal.json` into your Windows Terminal `settings.json` (open Settings,
+  click "Open JSON file", merge the `profiles.defaults` and `actions` keys from that file into
+  your own - don't just paste over the whole file).
 - **Cascadia Mono (zero install).** Nothing to install - Cascadia Mono ships bundled with
   Windows Terminal already. Merge `windows/windows-terminal-fallback.json` instead, the same
-  way. Some icon glyphs render as boxes/tofu instead of icons; everything else (text, colors,
-  layout) is fully readable and functional. This trade-off is real, not a bug to report.
+  way. Icon glyphs (e.g. from `eza --icons`) render as boxes/tofu instead of icons; everything
+  else (text, colors, layout) is fully readable and functional. This trade-off is real, not a
+  bug to report.
 
 **Both files also fix a real keybinding collision, not just the font.** Omakub's zellij
 keybindings (`configs/zellij.kdl`) bind `Alt+Left/Down/Up/Right` for pane focus - the same four
