@@ -1,0 +1,15 @@
+{
+    "profiles": {
+        "defaults": {
+            "font": {
+                "face": "Cascadia Mono"
+            }
+        }
+    },
+    "actions": [
+        { "command": "unbound", "keys": "alt+left" },
+        { "command": "unbound", "keys": "alt+down" },
+        { "command": "unbound", "keys": "alt+up" },
+        { "command": "unbound", "keys": "alt+right" }
+    ]
+}
