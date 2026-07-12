@@ -28,8 +28,11 @@ setup() {
   export OMAWSL_EDITORS="GitHub Copilot CLI"
   gh() {
     echo "gh $*" >> "$STUB_LOG"
+    # Real `gh extension list` output (confirmed live on a real WSL2
+    # instance): the first column is "gh copilot" - space-separated, the
+    # invocation name - not the hyphenated "gh-copilot" repo/dir name.
     if [[ "$1" == "extension" && "$2" == "list" ]]; then
-      echo "gh-copilot	github/gh-copilot	v1.2.3"
+      echo "gh copilot	github/gh-copilot	v1.2.3"
     fi
   }
   export -f gh

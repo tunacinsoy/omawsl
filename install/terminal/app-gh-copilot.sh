@@ -18,12 +18,20 @@ source "$SCRIPT_DIR/../lib.sh"
 # Without isolation, this single failure (under set -e, sourced not
 # sub-shelled) silently aborted the entire rest of install.sh, including
 # every script after this one in the dispatch order.
+#
+# The idempotency check matches on the "github/gh-copilot" repo-slug
+# column, not the extension's invocation-name column - `gh extension
+# list`'s first column is actually "gh copilot" (space-separated, the
+# invocation name), not "gh-copilot" (hyphenated), confirmed live on a
+# real WSL2 instance. A `grep -q '^gh-copilot'` check against that first
+# column never matches real output, so this check was previously always
+# false and `gh extension install` was attempted on every re-run.
 omawsl_install_gh_copilot() {
   if ! omawsl_list_has "${OMAWSL_EDITORS:-}" "GitHub Copilot CLI"; then
     return 0
   fi
 
-  if gh extension list 2>/dev/null | grep -q '^gh-copilot'; then
+  if gh extension list 2>/dev/null | grep -q 'github/gh-copilot'; then
     return 0
   fi
 
