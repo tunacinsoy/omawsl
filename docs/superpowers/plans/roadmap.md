@@ -145,23 +145,35 @@ the next phase's plan.
    `Alt+Left/Down/Up/Right` collision fix (see below) both confirmed working through a live
    Windows Terminal + zellij session.
 
-6. **Windows-side deliverables + README — not yet planned.**
-   `docs/windows-setup.md`, `windows/` assets (both the Nerd Font and zero-install Cascadia
-   Mono profile variants), and `README.md`'s required sections (exclusions list, "Before you
-   begin"). **Must fold in and then delete `docs/prerequisites.md`** (an interim stopgap added
-   during Phase 4's Task 13, outside the spec's documented doc structure): its GitHub Copilot
-   CLI (`gh auth login`) and VS Code/Cursor (install on Windows first) content belongs in the
-   one canonical quick-reference table `docs/windows-setup.md` §13 specifies, reused as-is by
-   README's "Before you begin" §16. **Once that table exists and this file is deleted, update
-   `install/terminal/app-gh-copilot.sh`'s failure message** (currently points at
-   `docs/prerequisites.md#github-copilot-cli`) to point at the new location - don't leave a
-   dangling reference to a deleted file. **Must also fold in and then delete
-   `docs/zellij-keybinding-fixes.md`** (an interim stopgap added during Phase 5's own Task 8,
-   same pattern as `docs/prerequisites.md`): its `Alt+Left/Down/Up/Right` unbind fix, confirmed
-   for real against a live Windows Terminal `settings.json` during Phase 5's Task 9, must be
-   baked into both `windows/windows-terminal.json` and `windows-terminal-fallback.json` (design
-   spec §13 already requires both to resolve zellij keybinding collisions) before this file is
-   deleted.
+6. **Windows-side deliverables + README — merged to `master`, verification pending.**
+   Plan: `docs/superpowers/plans/2026-07-12-omawsl-phase6-windows-docs.md`
+   `docs/windows-setup.md` (the new canonical Windows-side doc, opening with a quick-reference
+   table, using explicit `<a id="...">` anchors rather than relying on GitHub's auto-generated
+   heading slugs, since at least one heading - `## VS Code` - would auto-slug to `#vs-code`, not
+   the already-shipped `#vscode` every detect-and-defer script hardcodes), `windows/` assets
+   (`windows-terminal.json` for the Nerd Font/enhanced option, `windows-terminal-fallback.json`
+   for the zero-install Cascadia Mono option - both carry the identical zellij/Windows-Terminal
+   `Alt+Left/Down/Up/Right` keybinding-unbind fix, `windows/fonts/README.md` - a doc-only pointer
+   to the same upstream `ryanoasis/nerd-fonts` release Omakub's own `fonts.sh` downloads from,
+   deliberately not vendoring a font binary into this repo, `windows/setup.ps1` - an optional,
+   never-auto-invoked winget helper), and `README.md` (the repo's first - "Before you begin" and
+   "What omawsl deliberately excludes" sections per design spec §16, linking to rather than
+   duplicating `docs/windows-setup.md`'s quick-reference table). Folded in and deleted both
+   interim stopgap docs flagged by earlier phases: `docs/prerequisites.md` (Phase 4) and
+   `docs/zellij-keybinding-fixes.md` (Phase 5), repointing `install/terminal/app-gh-copilot.sh`'s
+   one live reference to the new canonical doc. Built via subagent-driven-development in an
+   isolated worktree (`.worktrees/phase6-windows-docs`); all 7 tasks (6 content tasks + the
+   plan-doc commit) passed individual review, and the final whole-branch review found one real
+   Minor inconsistency - the doc's own "Quick reference" heading was the one section relying on
+   GitHub's auto-slug instead of an explicit anchor, against the plan's own stated principle
+   (harmless today since the auto-slug happens to resolve correctly, but fixed for consistency
+   before merge). 210 bats tests, 209 passing - the one failure is the same pre-existing,
+   environment-specific flake documented in Phase 5's entry above (`windows_terminal_test.bats`'s
+   "cmd.exe isn't reachable" test, unrelated to this phase, not investigated further). **Manual
+   end-to-end verification (Task 7) has not yet run** - see the plan document's final task for
+   the exact steps (merging one of the two JSON files into a real Windows Terminal
+   `settings.json`, confirming the keybinding fix and font render for real, reading the new docs
+   end to end as a first-time user). Do not mark this phase DONE until that's confirmed.
 
 7. **`bin/omawsl` CLI completion — not yet planned.**
    `update`, `migrate`, `uninstall`, `install`, `doctor` subcommands, plus the `uninstall/`
