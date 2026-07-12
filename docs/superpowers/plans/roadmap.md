@@ -111,10 +111,39 @@ the next phase's plan.
    `gh auth login` + `install.sh` end to end and confirmed it now completes cleanly** -
    Phase 4 is closed out.
 
-5. **Theming — not yet planned.**
-   All 10 ported Omakub themes, `bin/omawsl theme`, the Windows Terminal JSON edit (`jq` +
-   backup + Windows-username resolution), and the zellij keybinding-fidelity verification
-   this spec has flagged as unverified since design time.
+5. **Theming — DONE, merged to `master`.**
+   Plan: `docs/superpowers/plans/2026-07-09-omawsl-phase5-theming.md`
+   All 10 Omakub themes ported to `themes/<name>/` (`neovim.lua`, `zellij.kdl`, `btop.theme`,
+   `vscode.sh`, plus a new `windows-terminal-scheme.json` hand-derived from each theme's real
+   upstream Alacritty colors, since Windows Terminal replaces Alacritty). `bin/omawsl theme
+   <name>` (the first `bin/omawsl` subcommand - Phase 7 adds the rest) applies a theme across
+   zellij, btop, Neovim, VS Code/Cursor, opencode (best-effort - 6 of 10 themes have a real
+   built-in opencode preset, confirmed via research; the other 4 no-op by design), and Windows
+   Terminal's own `settings.json` via `jq` (the one exception in this whole project to "never
+   auto-edit Windows-side files" - a local JSON edit only, backed up first). Also closed a real
+   Phase-1 gap: `configs/zellij.kdl` (Omakub's actual keybindings) and a minimal
+   `configs/btop.conf` were listed as Phase-1 deliverables but never actually ported - Task 1
+   ported both for real. 192 bats tests, all passing. Implemented via subagent-driven-development
+   in an isolated worktree; task-by-task review found and fixed two trailing-whitespace
+   transcription slips in theme data files, a Windows Terminal `settings.json` malformed-JSON
+   abort bug (now skips gracefully instead), and the final whole-branch review found a `set -e`
+   dead-code bug in the `gum choose` cancel path (fixed, re-reviewed clean).
+   **Task 9 (manual end-to-end verification) is complete, run against the real WSL2 Ubuntu
+   instance, confirmed clean by the user.** It surfaced three things, none of them Phase 5 code
+   bugs: (1) a pre-existing interrupted-dpkg state on the test machine blocked the very first
+   `sudo apt-get` call in `install.sh` (unrelated to any omawsl code - resolved via
+   `sudo dpkg --configure -a`); (2) a Node.js deprecation warning during `code
+   --install-extension`, confirmed via direct reproduction to originate from VS Code's own CLI
+   binary, not any omawsl script - cosmetic, extension installs succeed regardless; (3) the
+   assistant's own Task 9 checklist wording was wrong (said `q` exits zellij's scroll mode - the
+   real ported keybindings, verified byte-for-byte against upstream in Task 1, have no such
+   binding; the real exit keys are `Esc`/`Enter`/`Ctrl+c`) - confirmed working once corrected,
+   not a code issue. Windows Terminal sync was independently verified twice (once by the
+   assistant directly inspecting the real `settings.json`, once by the user visually confirming
+   the rendered terminal) - real Windows username resolved correctly, schemes replace instead of
+   duplicating across repeated applies, zellij keybinding-fidelity (§15) and the
+   `Alt+Left/Down/Up/Right` collision fix (see below) both confirmed working through a live
+   Windows Terminal + zellij session.
 
 6. **Windows-side deliverables + README — not yet planned.**
    `docs/windows-setup.md`, `windows/` assets (both the Nerd Font and zero-install Cascadia
