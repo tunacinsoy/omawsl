@@ -7,6 +7,7 @@ setup lives; every "you'll need to do something on Windows" message elsewhere in
 pre-install checklist, an editor's detect-and-defer message, `bin/omawsl doctor`) links back
 here instead of repeating these steps.
 
+<a id="quick-reference"></a>
 ## Quick reference
 
 | If you picked... | You'll need | Steps |
