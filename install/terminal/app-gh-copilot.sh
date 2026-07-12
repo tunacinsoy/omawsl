@@ -30,7 +30,7 @@ omawsl_install_gh_copilot() {
   if ! gh extension install github/gh-copilot; then
     echo "omawsl: GitHub Copilot CLI install failed (gh not authenticated yet?) - skipping, continuing with the rest of the run."
     echo "Run 'gh auth login', then 'gh extension install github/gh-copilot' yourself, or re-run install.sh."
-    echo "See docs/prerequisites.md#github-copilot-cli for why this needs to happen before install.sh, not after."
+    echo "See docs/windows-setup.md#github-copilot-cli for why this needs to happen before install.sh, not after."
   fi
 }
 
