@@ -57,6 +57,15 @@ setup() {
   [[ "$(stub_calls)" != *"apt-get purge"* ]]
 }
 
+@test "omawsl_uninstall_language no-ops cleanly when mise was never installed" {
+  unset -f mise
+  stub_hide_command mise
+  run omawsl_uninstall_language "Go"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"nothing to remove"* ]]
+  [[ "$(stub_calls)" != *"mise unuse"* ]]
+}
+
 @test "omawsl_uninstall_language purges azure-cli and removes its apt source" {
   # Override sudo to actually perform rm operations (needed to verify file
   # deletion in tests), while still logging calls for stub_calls assertions

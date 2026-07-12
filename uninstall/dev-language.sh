@@ -5,18 +5,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../install/lib.sh
 source "$SCRIPT_DIR/../install/lib.sh"
 
-# omawsl_uninstall_mise_tool <mise_tool>
+# omawsl_uninstall_mise_tool <mise_tool> <label>
+# <mise_tool> is the tool name (e.g., "go", "ruby"), <label> is the display
+# label (e.g., "Go", "Ruby on Rails") for output messaging.
 # `mise unuse --global <tool>@latest` both removes the [tools] entry from
 # ~/.config/mise/config.toml AND prunes the installed version (verified
 # live: help text says "Will also prune the installed version if no other
 # configurations are using it"). Confirmed idempotent on a real WSL2
 # instance: calling it for a tool that was never configured exits 0
-# silently rather than erroring, so no pre-check is needed here - the
-# echo below is what actually satisfies design spec §14's "no-op with an
-# informational message, not an error" requirement.
+# silently rather than erroring. However, if mise itself is not installed,
+# we need to guard against a hard error and return cleanly per design spec §14.
 omawsl_uninstall_mise_tool() {
   local mise_tool="$1"
+  local label="$2"
+
+  if ! command -v mise &>/dev/null; then
+    echo "omawsl: mise isn't installed - nothing to remove for $mise_tool."
+    return 0
+  fi
+
   mise unuse --global "${mise_tool}@latest"
+  echo "omawsl: $label removed."
 }
 
 # omawsl_uninstall_terraform [apt_sources_file] [keyrings_dir]
@@ -60,14 +69,14 @@ omawsl_uninstall_azure_cli() {
 omawsl_uninstall_language() {
   local label="$1"
   case "$label" in
-    "Ruby on Rails") omawsl_uninstall_mise_tool ruby; echo "omawsl: Ruby on Rails removed." ;;
-    "Node.js")        omawsl_uninstall_mise_tool node; echo "omawsl: Node.js removed." ;;
-    "Go")             omawsl_uninstall_mise_tool go; echo "omawsl: Go removed." ;;
-    "PHP")            omawsl_uninstall_mise_tool php; echo "omawsl: PHP removed." ;;
-    "Python")         omawsl_uninstall_mise_tool python; echo "omawsl: Python removed." ;;
-    "Elixir")         omawsl_uninstall_mise_tool elixir; echo "omawsl: Elixir removed." ;;
-    "Rust")           omawsl_uninstall_mise_tool rust; echo "omawsl: Rust removed." ;;
-    "Java")           omawsl_uninstall_mise_tool java; echo "omawsl: Java removed." ;;
+    "Ruby on Rails") omawsl_uninstall_mise_tool ruby "Ruby on Rails" ;;
+    "Node.js")        omawsl_uninstall_mise_tool node "Node.js" ;;
+    "Go")             omawsl_uninstall_mise_tool go "Go" ;;
+    "PHP")            omawsl_uninstall_mise_tool php "PHP" ;;
+    "Python")         omawsl_uninstall_mise_tool python "Python" ;;
+    "Elixir")         omawsl_uninstall_mise_tool elixir "Elixir" ;;
+    "Rust")           omawsl_uninstall_mise_tool rust "Rust" ;;
+    "Java")           omawsl_uninstall_mise_tool java "Java" ;;
     "Terraform")      omawsl_uninstall_terraform ;;
     "Azure CLI")      omawsl_uninstall_azure_cli ;;
     *)
