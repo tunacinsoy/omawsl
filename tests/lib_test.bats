@@ -164,3 +164,15 @@ setup() {
   [ -f "$OMAWSL_STATE_DIR/version" ]
   [ "$(cat "$OMAWSL_STATE_DIR/version")" = "1234567890" ]
 }
+
+@test "omawsl_merge_csv unions two comma lists, deduplicated, a's order first" {
+  [[ "$(omawsl_merge_csv "Go,Rust" "Python,Go")" == "Go,Rust,Python" ]]
+}
+
+@test "omawsl_merge_csv handles an empty existing list" {
+  [[ "$(omawsl_merge_csv "" "Go,Rust")" == "Go,Rust" ]]
+}
+
+@test "omawsl_merge_csv handles an empty new list" {
+  [[ "$(omawsl_merge_csv "Go,Rust" "")" == "Go,Rust" ]]
+}

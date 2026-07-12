@@ -148,3 +148,22 @@ omawsl_write_version_state() {
   mkdir -p "$dir"
   cp "$root_dir/version" "$dir/version"
 }
+
+# omawsl_merge_csv <a> <b>
+# Union of two comma-delimited lists, de-duplicated, order-preserving
+# (a's items first, then any of b's items not already in a) - via
+# omawsl_list_has, so this respects the same whole-token matching every
+# other membership check in this repo uses.
+omawsl_merge_csv() {
+  local a="$1" b="$2"
+  local result="$a"
+  local item
+  IFS=',' read -ra items <<< "$b"
+  for item in "${items[@]}"; do
+    [[ -z "$item" ]] && continue
+    if ! omawsl_list_has "$result" "$item"; then
+      result="${result:+$result,}$item"
+    fi
+  done
+  echo "$result"
+}
