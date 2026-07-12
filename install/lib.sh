@@ -133,3 +133,18 @@ omawsl_windows_userprofile() {
   [[ -n "$win_path" ]] || return 1
   wslpath -u "$win_path"
 }
+
+# omawsl_write_version_state <root_dir>
+# Copies <root_dir>/version into the persisted state dir (design spec §8:
+# a fresh install already reflects current desired state, so the first
+# `bin/omawsl migrate` doesn't treat every historical migration as
+# pending). Moved here from install.sh (Phase 1) so bin/omawsl-sub/migrate.sh
+# (Phase 7) can reuse it without duplicating - takes root_dir as an
+# explicit argument rather than reading a global, so both callers stay
+# self-contained and testable in isolation.
+omawsl_write_version_state() {
+  local root_dir="$1"
+  local dir; dir="$(omawsl_choices_dir)"
+  mkdir -p "$dir"
+  cp "$root_dir/version" "$dir/version"
+}
