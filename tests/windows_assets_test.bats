@@ -28,3 +28,15 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     [[ "$keys" == "alt+down,alt+left,alt+right,alt+up" ]]
   done
 }
+
+@test "windows/fonts/README.md points at the real upstream nerd-fonts release URL" {
+  grep -q "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaMono.zip" "$REPO_ROOT/windows/fonts/README.md"
+}
+
+@test "windows/fonts/ has no vendored font binaries" {
+  ! find "$REPO_ROOT/windows/fonts" -iname "*.ttf" -o -iname "*.otf" | grep -q .
+}
+
+@test "windows/setup.ps1 is never sourced or invoked by any .sh file in the repo" {
+  ! grep -rl "setup\.ps1" "$REPO_ROOT" --include="*.sh" | grep -q .
+}
