@@ -145,7 +145,7 @@ the next phase's plan.
    `Alt+Left/Down/Up/Right` collision fix (see below) both confirmed working through a live
    Windows Terminal + zellij session.
 
-6. **Windows-side deliverables + README — merged to `master`, verification pending.**
+6. **Windows-side deliverables + README — DONE, merged to `master`.**
    Plan: `docs/superpowers/plans/2026-07-12-omawsl-phase6-windows-docs.md`
    `docs/windows-setup.md` (the new canonical Windows-side doc, opening with a quick-reference
    table, using explicit `<a id="...">` anchors rather than relying on GitHub's auto-generated
@@ -169,11 +169,31 @@ the next phase's plan.
    (harmless today since the auto-slug happens to resolve correctly, but fixed for consistency
    before merge). 210 bats tests, 209 passing - the one failure is the same pre-existing,
    environment-specific flake documented in Phase 5's entry above (`windows_terminal_test.bats`'s
-   "cmd.exe isn't reachable" test, unrelated to this phase, not investigated further). **Manual
-   end-to-end verification (Task 7) has not yet run** - see the plan document's final task for
-   the exact steps (merging one of the two JSON files into a real Windows Terminal
-   `settings.json`, confirming the keybinding fix and font render for real, reading the new docs
-   end to end as a first-time user). Do not mark this phase DONE until that's confirmed.
+   "cmd.exe isn't reachable" test, unrelated to this phase, not investigated further).
+   **Manual end-to-end verification (Task 7) is complete**, run directly against the user's real
+   Windows 11 + WSL2 machine. Most of it was run by the assistant itself, since it has direct
+   filesystem/PowerShell access on the same machine, not just WSL interop: backed up the real
+   `settings.json`, confirmed the collision was genuinely present beforehand (empty `actions`,
+   no font set), merged `windows/windows-terminal.json` in, and ran `windows/setup.ps1` to
+   install the real Nerd Font (confirmed registered via both GDI and DirectWrite font
+   enumeration - the font exposes both `CaskaydiaMono NFM` and the full `CaskaydiaMono Nerd Font
+   Mono` as aliases for the same family, so the plan's exact font-face string does resolve for
+   real, not just per documentation). **One real, useful discovery along the way:** this specific
+   installed Windows Terminal version (1.24.11321.0) live-reloads `settings.json` while running
+   and silently migrates `actions`/`"command":"unbound"` entries into the legacy
+   `keybindings`/`"id":null` form - functionally equivalent, but worth knowing if a future
+   inspection of a real `settings.json` looks different from what the JSON fragment predicts.
+   **One real doc bug found and fixed** (commit `2d109aa`): `docs/windows-setup.md`'s
+   `#fonts` section claimed "fastfetch's logo... render as intended" as a Nerd-Font-glyph
+   example, but no phase ever built a `configs/fastfetch.jsonc` - fastfetch's output here is
+   plain apt-default text regardless of font, not a valid test. Same for a "powerline-style
+   separators" claim with no backing config anywhere in this repo. Replaced both with `eza
+   --icons` (already installed, apt package via `apps-terminal.sh`), confirmed by direct testing
+   to emit real Nerd Font glyph codepoints. **The two things only the human could do were both
+   confirmed for real**: `Alt+Left/Down/Up/Right` reaches zellij after restarting Windows
+   Terminal (user-confirmed), and `eza --icons` renders real file-type icon glyphs, not
+   boxes/tofu (user-confirmed via screenshot - a document icon for a file, a folder icon for a
+   directory). Phase 6 is closed out.
 
 7. **`bin/omawsl` CLI completion — not yet planned.**
    `update`, `migrate`, `uninstall`, `install`, `doctor` subcommands, plus the `uninstall/`
