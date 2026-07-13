@@ -22,6 +22,7 @@ setup() {
 
 @test "installs via a private mise-managed Node and writes a wrapper" {
   export OMAWSL_EDITORS="Gemini CLI"
+  stub_hide_command gemini
   run omawsl_install_gemini_cli
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @google/gemini-cli"* ]]
@@ -35,4 +36,13 @@ setup() {
   run omawsl_install_gemini_cli
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" != *"npm install"* ]]
+}
+
+@test "omawsl_gemini_cli_install_steps runs unconditionally and (re)writes the wrapper" {
+  stub_command gemini
+  rm -f "$HOME/.local/bin/gemini"
+  run omawsl_gemini_cli_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @google/gemini-cli"* ]]
+  [ -x "$HOME/.local/bin/gemini" ]
 }

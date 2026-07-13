@@ -5,6 +5,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib.sh
 source "$SCRIPT_DIR/../lib.sh"
 
+# omawsl_codex_cli_install_steps
+# The actual install + wrapper-write commands, no guard - called both by
+# omawsl_install_codex_cli below (guarded) and by bin/omawsl update's
+# orphan-tool apply phase (guard bypassed). Re-running this always
+# re-installs the npm package at whatever version @openai/codex currently
+# resolves to and rewrites the wrapper unconditionally (cheap, and keeps
+# it in sync if this file's own wrapper contents ever change).
+omawsl_codex_cli_install_steps() {
+  mise exec node@lts -- npm install -g @openai/codex
+
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/codex" <<'WRAPPER'
+#!/usr/bin/env bash
+exec mise exec node@lts -- codex "$@"
+WRAPPER
+  chmod +x "$HOME/.local/bin/codex"
+}
+
 # omawsl_install_codex_cli
 # OpenAI Codex CLI - purely WSL-side, no Windows dependency (design spec
 # §10). Its only distribution channel is npm (@openai/codex), so this
@@ -12,13 +30,7 @@ source "$SCRIPT_DIR/../lib.sh"
 # node@lts`), rather than depending on whether the user separately picked
 # Node.js in the language picker - that picker is about the user's own
 # project runtime, not an implementation detail of an unrelated tool
-# (design spec §10). A thin wrapper at $HOME/.local/bin/codex (already on
-# PATH) re-resolves through `mise exec` on every invocation, rather than
-# relying on mise's shim mechanism to expose a binary from an ad-hoc
-# `mise exec`-driven npm global install - deliberately explicit rather
-# than assumed, after Phase 3 found a real bug in the analogous "does
-# mise make this reachable automatically" assumption for Rails' gem.
-# Idempotent via a command -v guard.
+# (design spec §10). Idempotent via a command -v guard.
 omawsl_install_codex_cli() {
   if ! omawsl_list_has "${OMAWSL_EDITORS:-}" "Codex CLI"; then
     return 0
@@ -28,14 +40,7 @@ omawsl_install_codex_cli() {
     return 0
   fi
 
-  mise exec node@lts -- npm install -g @openai/codex
-
-  mkdir -p "$HOME/.local/bin"
-  cat > "$HOME/.local/bin/codex" <<'WRAPPER'
-#!/usr/bin/env bash
-exec mise exec node@lts -- codex "$@"
-WRAPPER
-  chmod +x "$HOME/.local/bin/codex"
+  omawsl_codex_cli_install_steps
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

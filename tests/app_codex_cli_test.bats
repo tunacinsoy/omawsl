@@ -22,6 +22,7 @@ setup() {
 
 @test "installs via a private mise-managed Node and writes a wrapper" {
   export OMAWSL_EDITORS="Codex CLI"
+  stub_hide_command codex
   run omawsl_install_codex_cli
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @openai/codex"* ]]
@@ -35,4 +36,13 @@ setup() {
   run omawsl_install_codex_cli
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" != *"npm install"* ]]
+}
+
+@test "omawsl_codex_cli_install_steps runs unconditionally and (re)writes the wrapper" {
+  stub_command codex
+  rm -f "$HOME/.local/bin/codex"
+  run omawsl_codex_cli_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @openai/codex"* ]]
+  [ -x "$HOME/.local/bin/codex" ]
 }
