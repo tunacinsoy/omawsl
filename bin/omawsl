@@ -6,18 +6,34 @@ OMAWSL_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=omawsl-sub/theme.sh
 source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/theme.sh"
+# shellcheck source=omawsl-sub/items.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/items.sh"
+# shellcheck source=omawsl-sub/migrate.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/migrate.sh"
+# shellcheck source=omawsl-sub/update.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/update.sh"
+# shellcheck source=omawsl-sub/uninstall.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/uninstall.sh"
+# shellcheck source=omawsl-sub/install.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/install.sh"
+# shellcheck source=omawsl-sub/doctor.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/doctor.sh"
 
-# omawsl_usage
-# Only "theme" is wired up this phase - Phase 7 adds update/migrate/
-# uninstall/install/doctor here, each backed by its own
-# bin/omawsl-sub/<command>.sh, same shape as theme.sh.
 omawsl_usage() {
   cat <<'EOF'
 Usage: omawsl <command> [args]
 
 Commands:
-  theme [name]   Apply one of the ported themes. With no name, choose
-                 interactively.
+  theme [name]              Apply one of the ported themes. With no name,
+                             choose interactively.
+  update                    Pull the latest omawsl and run pending
+                             migrations.
+  migrate                   Run pending migrations only, without pulling.
+  install [category] [item] Add a language/editor/storage item. With no
+                             args, choose interactively.
+  uninstall <name>          Remove one installed item by name.
+  doctor                    Report what's installed/configured, and what's
+                             still pending.
 EOF
 }
 
@@ -27,6 +43,23 @@ omawsl_main() {
     theme)
       shift
       omawsl_theme_command "$@"
+      ;;
+    update)
+      omawsl_update
+      ;;
+    migrate)
+      omawsl_migrate
+      ;;
+    install)
+      shift
+      omawsl_install_command "$@"
+      ;;
+    uninstall)
+      shift
+      omawsl_uninstall_command "$@"
+      ;;
+    doctor)
+      omawsl_doctor
       ;;
     ""|-h|--help)
       omawsl_usage

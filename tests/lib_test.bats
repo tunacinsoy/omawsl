@@ -154,3 +154,25 @@ setup() {
   '
   [ "$status" -eq 1 ]
 }
+
+@test "omawsl_write_version_state copies the given root dir's version file into the state dir" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  local root="$BATS_TEST_TMPDIR/root"
+  mkdir -p "$root"
+  echo "1234567890" > "$root/version"
+  omawsl_write_version_state "$root"
+  [ -f "$OMAWSL_STATE_DIR/version" ]
+  [ "$(cat "$OMAWSL_STATE_DIR/version")" = "1234567890" ]
+}
+
+@test "omawsl_merge_csv unions two comma lists, deduplicated, a's order first" {
+  [[ "$(omawsl_merge_csv "Go,Rust" "Python,Go")" == "Go,Rust,Python" ]]
+}
+
+@test "omawsl_merge_csv handles an empty existing list" {
+  [[ "$(omawsl_merge_csv "" "Go,Rust")" == "Go,Rust" ]]
+}
+
+@test "omawsl_merge_csv handles an empty new list" {
+  [[ "$(omawsl_merge_csv "Go,Rust" "")" == "Go,Rust" ]]
+}

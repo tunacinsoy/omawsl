@@ -16,12 +16,6 @@ source "$OMAWSL_ROOT_DIR/install/windows-prereq-checklist.sh"
 # shellcheck source=install/terminal.sh
 source "$OMAWSL_ROOT_DIR/install/terminal.sh"
 
-omawsl_write_version_state() {
-  local dir; dir="$(omawsl_choices_dir)"
-  mkdir -p "$dir"
-  cp "$OMAWSL_ROOT_DIR/version" "$dir/version"
-}
-
 omawsl_install() {
   omawsl_check_version
 
@@ -36,7 +30,7 @@ omawsl_install() {
   omawsl_windows_prereq_checklist
   omawsl_run_terminal_scripts
 
-  omawsl_write_version_state
+  omawsl_write_version_state "$OMAWSL_ROOT_DIR"
 
   echo
   echo "omawsl: install complete."
