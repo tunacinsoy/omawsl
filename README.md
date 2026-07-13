@@ -76,5 +76,6 @@ Not every gap here is an oversight - some are deliberate:
 
 ## Status
 
-omawsl is under active development. `bin/omawsl theme` is the first subcommand shipped;
-`update`, `migrate`, `uninstall`, `install`, and `doctor` are still to come.
+omawsl's full CLI is now shipped: `bin/omawsl theme`, `update`, `migrate`,
+`install`, `uninstall`, and `doctor`. Run `bin/omawsl` with no arguments for
+the full command list.

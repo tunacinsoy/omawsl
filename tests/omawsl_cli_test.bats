@@ -197,3 +197,29 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage: omawsl"* ]]
 }
+
+@test "bin/omawsl usage text lists every subcommand" {
+  run bash "$REPO_ROOT/bin/omawsl"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"theme"* ]]
+  [[ "$output" == *"update"* ]]
+  [[ "$output" == *"migrate"* ]]
+  [[ "$output" == *"install"* ]]
+  [[ "$output" == *"uninstall"* ]]
+  [[ "$output" == *"doctor"* ]]
+}
+
+@test "bin/omawsl doctor runs end to end with no selections made" {
+  export HOME="$BATS_TEST_TMPDIR/home"
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  mkdir -p "$HOME" "$OMAWSL_STATE_DIR"
+  run bash "$REPO_ROOT/bin/omawsl" doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"none selected"* ]]
+}
+
+@test "bin/omawsl uninstall with no name prints usage and exits non-zero" {
+  run bash "$REPO_ROOT/bin/omawsl" uninstall
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Usage: omawsl uninstall"* ]]
+}
