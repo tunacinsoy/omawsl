@@ -7,6 +7,18 @@ OMAWSL_ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=items.sh
 source "$SCRIPT_DIR/items.sh"
+# shellcheck source=../../install/terminal/apps-terminal.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/apps-terminal.sh"
+# shellcheck source=../../install/terminal/app-opencode.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-opencode.sh"
+# shellcheck source=../../install/terminal/app-claude-cli.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-claude-cli.sh"
+# shellcheck source=../../install/terminal/app-codex-cli.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-codex-cli.sh"
+# shellcheck source=../../install/terminal/app-gemini-cli.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-gemini-cli.sh"
+# shellcheck source=../../install/terminal/app-gh-copilot.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-gh-copilot.sh"
 
 # Registry + version-check adapters for omawsl's "orphan" tools - tools
 # omawsl installs that have no native update command of their own (no
@@ -203,4 +215,56 @@ omawsl_orphan_tools_check_versions() {
     omawsl_orphan_wait_with_timeout "${pids[$i]}" "$remaining" || true
     [[ -f "$tmp_dir/${slugs[$i]}.result" ]] || printf '\t\n' > "$tmp_dir/${slugs[$i]}.result"
   done
+}
+
+# omawsl_orphan_tools_format_line <slug> <installed> <latest>
+# One rendered status line for a single orphan tool, given its already-
+# resolved installed/latest versions (empty string for either means
+# "unknown" - a genuine lookup failure/timeout, not a real "0" version).
+# Shared by the picker labels and (Task 9) the live-redraw status phase,
+# so they can never drift out of sync with each other.
+omawsl_orphan_tools_format_line() {
+  local slug="$1" installed="$2" latest="$3"
+  local label; label="$(omawsl_orphan_tool_label "$slug")"
+  local status
+  if [[ -z "$latest" ]]; then
+    status="unknown"
+  elif [[ "$installed" == "$latest" ]]; then
+    status="up to date"
+  else
+    status="update available"
+  fi
+  printf '%-22s current: %-10s latest: %-10s (%s)' \
+    "$label" "${installed:-unknown}" "${latest:-unknown}" "$status"
+}
+
+# omawsl_orphan_tool_apply_update <slug>
+# Re-runs the given orphan tool's install steps, guard bypassed, so an
+# already-installed tool gets a genuine fresh install/update rather than
+# the no-op its normal command -v guard would otherwise produce.
+# gh-copilot is the one exception: its own "steps" function for THIS
+# purpose is omawsl_gh_copilot_update_steps (`gh extension upgrade`), not
+# omawsl_gh_copilot_install_steps (`gh extension install`, which errors
+# on an already-present extension rather than upgrading it - Task 7).
+# Isolated per tool (cloud-tools.sh's own `{ ... } || ok=0` pattern) so
+# one tool's failed update doesn't abort the rest of the selected
+# updates or the overall omawsl update run.
+omawsl_orphan_tool_apply_update() {
+  local slug="$1"
+  local label; label="$(omawsl_orphan_tool_label "$slug")"
+  local ok=1
+  case "$slug" in
+    zellij) omawsl_zellij_install_steps || ok=0 ;;
+    lazydocker) omawsl_lazydocker_install_steps || ok=0 ;;
+    opencode) omawsl_opencode_install_steps || ok=0 ;;
+    claude) omawsl_claude_cli_install_steps || ok=0 ;;
+    codex) omawsl_codex_cli_install_steps || ok=0 ;;
+    gemini) omawsl_gemini_cli_install_steps || ok=0 ;;
+    gh-copilot) omawsl_gh_copilot_update_steps || ok=0 ;;
+  esac
+  if [[ "$ok" -eq 0 ]]; then
+    echo "omawsl: failed to update $label - skipping, continuing with the rest."
+  else
+    echo "omawsl: updated $label."
+  fi
 }

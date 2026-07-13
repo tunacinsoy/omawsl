@@ -59,6 +59,51 @@ setup() {
   [ "$(omawsl_orphan_extract_semver "")" = "" ]
 }
 
+@test "omawsl_orphan_tools_format_line reports update available when versions differ" {
+  run omawsl_orphan_tools_format_line codex "0.38.1" "0.41.0"
+  [[ "$output" == *"Codex CLI"* ]]
+  [[ "$output" == *"current: 0.38.1"* ]]
+  [[ "$output" == *"latest: 0.41.0"* ]]
+  [[ "$output" == *"update available"* ]]
+}
+
+@test "omawsl_orphan_tools_format_line reports up to date when versions match" {
+  run omawsl_orphan_tools_format_line gemini "2.1.0" "2.1.0"
+  [[ "$output" == *"up to date"* ]]
+}
+
+@test "omawsl_orphan_tools_format_line reports unknown when latest is empty" {
+  run omawsl_orphan_tools_format_line zellij "0.44.3" ""
+  [[ "$output" == *"unknown"* ]]
+}
+
+@test "omawsl_orphan_tool_apply_update dispatches to the right tool's steps function" {
+  omawsl_codex_cli_install_steps() { echo "codex-updated" >> "$STUB_LOG"; }
+  export -f omawsl_codex_cli_install_steps
+  run omawsl_orphan_tool_apply_update codex
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"codex-updated"* ]]
+}
+
+@test "omawsl_orphan_tool_apply_update calls gh_copilot's update_steps, not install_steps" {
+  omawsl_gh_copilot_update_steps() { echo "gh-copilot-updated" >> "$STUB_LOG"; }
+  export -f omawsl_gh_copilot_update_steps
+  omawsl_gh_copilot_install_steps() { echo "gh-copilot-installed" >> "$STUB_LOG"; }
+  export -f omawsl_gh_copilot_install_steps
+  run omawsl_orphan_tool_apply_update gh-copilot
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"gh-copilot-updated"* ]]
+  [[ "$(stub_calls)" != *"gh-copilot-installed"* ]]
+}
+
+@test "omawsl_orphan_tool_apply_update isolates a failure and keeps a zero exit" {
+  omawsl_codex_cli_install_steps() { return 1; }
+  export -f omawsl_codex_cli_install_steps
+  run omawsl_orphan_tool_apply_update codex
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"failed to update"* ]]
+}
+
 @test "omawsl_orphan_extract_semver returns exit 0 and empty output when given text with no semver token (no grep match)" {
   run omawsl_orphan_extract_semver "no version here"
   [ "$status" -eq 0 ]
