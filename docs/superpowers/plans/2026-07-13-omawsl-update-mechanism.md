@@ -299,9 +299,14 @@ cat >> bin/omawsl-sub/orphan-tools.sh <<'EOF'
 # shared by every "installed version" check below, since each tool's own
 # --version output format differs (single line vs. multi-line, with or
 # without a leading tool name) but all of them contain a plain semver
-# token somewhere in the output.
+# token somewhere in the output. The trailing `|| true` matters: under
+# this file's own `set -euo pipefail`, a `grep` with no match exits 1,
+# and pipefail propagates that through `| head -n1` even though head
+# itself "succeeds" - which would abort any caller capturing this via
+# `result="$(...)"` for the common case of a tool that isn't installed
+# at all. Found by task review during implementation (Task 2).
 omawsl_orphan_extract_semver() {
-  grep -oE '[0-9]+\.[0-9]+\.[0-9]+' <<< "$1" | head -n1
+  grep -oE '[0-9]+\.[0-9]+\.[0-9]+' <<< "$1" | head -n1 || true
 }
 
 # omawsl_orphan_latest_from_github <owner/repo>
