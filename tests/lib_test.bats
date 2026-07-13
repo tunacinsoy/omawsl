@@ -176,3 +176,23 @@ setup() {
 @test "omawsl_merge_csv handles an empty new list" {
   [[ "$(omawsl_merge_csv "Go,Rust" "")" == "Go,Rust" ]]
 }
+
+@test "omawsl_remove_from_csv removes one item, preserving order of the rest" {
+  [[ "$(omawsl_remove_from_csv "Go,Rust,Python" "Rust")" == "Go,Python" ]]
+}
+
+@test "omawsl_remove_from_csv leaves the list unchanged when the item isn't present" {
+  [[ "$(omawsl_remove_from_csv "Go,Rust" "Java")" == "Go,Rust" ]]
+}
+
+@test "omawsl_remove_from_csv removing the only item yields an empty string" {
+  [[ "$(omawsl_remove_from_csv "Go" "Go")" == "" ]]
+}
+
+@test "omawsl_remove_from_csv handles an empty list" {
+  [[ "$(omawsl_remove_from_csv "" "Go")" == "" ]]
+}
+
+@test "omawsl_remove_from_csv does not match as a bare substring" {
+  [[ "$(omawsl_remove_from_csv "GoLang,Python" "Go")" == "GoLang,Python" ]]
+}

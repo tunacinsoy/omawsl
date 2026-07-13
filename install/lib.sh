@@ -167,3 +167,20 @@ omawsl_merge_csv() {
   done
   echo "$result"
 }
+
+# omawsl_remove_from_csv <csv> <item>
+# Inverse of omawsl_merge_csv: removes one item from a comma-delimited
+# list (whole-token match, via omawsl_list_has's own convention - not a
+# bare substring), order-preserving for whatever remains. No-ops cleanly
+# if the item isn't present.
+omawsl_remove_from_csv() {
+  local csv="$1" item="$2"
+  local result="" tok
+  IFS=',' read -ra items <<< "$csv"
+  for tok in "${items[@]}"; do
+    [[ -z "$tok" ]] && continue
+    [[ "$tok" == "$item" ]] && continue
+    result="${result:+$result,}$tok"
+  done
+  echo "$result"
+}

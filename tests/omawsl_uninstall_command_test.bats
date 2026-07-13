@@ -43,6 +43,62 @@ setup() {
   [[ "$(stub_calls)" == *"mise unuse --global go@latest"* ]]
 }
 
+@test "omawsl_uninstall_command removes the item from its choices.env list after a successful uninstall" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  stub_command sudo
+  stub_command mise
+  omawsl_save_choice OMAWSL_LANGUAGES "Go,Rust"
+  run omawsl_uninstall_command go
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_LANGUAGES)" == "Rust" ]]
+}
+
+@test "omawsl_uninstall_command deselects an editor from OMAWSL_EDITORS" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  stub_hide_command code
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,Neovim"
+  run omawsl_uninstall_command vscode
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "Neovim" ]]
+}
+
+@test "omawsl_uninstall_command deselects a storage option from OMAWSL_STORAGE" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  stub_command sudo
+  stub_hide_command docker
+  omawsl_save_choice OMAWSL_STORAGE "MySQL,Redis"
+  run omawsl_uninstall_command mysql
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_STORAGE)" == "Redis" ]]
+}
+
+@test "omawsl_uninstall_command does not touch choices.env at all for the docker slug" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  stub_command sudo
+  stub_hide_command docker
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  run omawsl_uninstall_command docker
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_DOCKER_MODE)" == "Docker Engine only, inside WSL (recommended)" ]]
+}
+
+@test "omawsl_uninstall_command does not deselect when the item was never selected in the first place" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  stub_command sudo
+  stub_command mise
+  run omawsl_uninstall_command go
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_LANGUAGES)" == "" ]]
+}
+
+@test "omawsl_uninstall_command does not deselect anything when dispatch fails for an unknown item" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_LANGUAGES "Go"
+  BATS_RUN_ERREXIT=1 run omawsl_uninstall_command not-a-real-item
+  [ "$status" -ne 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_LANGUAGES)" == "Go" ]]
+}
+
 @test "omawsl_uninstall_command dispatches the docker slug to uninstall/docker.sh" {
   export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
   stub_command sudo
@@ -52,7 +108,11 @@ setup() {
 }
 
 @test "omawsl_uninstall_command rejects an unknown item" {
-  run omawsl_uninstall_command not-a-real-item
+  # omawsl_uninstall_command now has two sequential statements (dispatch,
+  # then deselect); bats' run disables errexit by default, which would
+  # mask set -e correctly stopping at the first failing statement in real
+  # usage - force it back on so this test reflects real set -e behavior.
+  BATS_RUN_ERREXIT=1 run omawsl_uninstall_command not-a-real-item
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown item"* ]]
 }
