@@ -55,3 +55,18 @@ setup() {
   [[ "$output" == *"GitHub Copilot CLI install failed"* ]]
   [[ "$output" == *"docs/windows-setup.md#github-copilot-cli"* ]]
 }
+
+@test "omawsl_gh_copilot_install_steps runs the install command directly" {
+  stub_command gh
+  run omawsl_gh_copilot_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"gh extension install github/gh-copilot"* ]]
+}
+
+@test "omawsl_gh_copilot_update_steps runs 'gh extension upgrade', not 'install'" {
+  stub_command gh
+  run omawsl_gh_copilot_update_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"gh extension upgrade gh-copilot"* ]]
+  [[ "$(stub_calls)" != *"extension install"* ]]
+}
