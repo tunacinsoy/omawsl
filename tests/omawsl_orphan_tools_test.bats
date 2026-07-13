@@ -224,3 +224,81 @@ setup() {
   [ "$(cat "$tmp_dir/lazydocker.result")" = "$(printf '\t')" ]
   [ "$(cat "$tmp_dir/opencode.result")" = "$(printf '\t')" ]
 }
+
+@test "omawsl_orphan_tools_installed_slugs lists only what's actually installed" {
+  stub_hide_command zellij lazydocker opencode claude codex gemini gh
+  stub_command zellij
+  stub_command codex
+  run omawsl_orphan_tools_installed_slugs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"zellij"* ]]
+  [[ "$output" == *"codex"* ]]
+  [[ "$output" != *"lazydocker"* ]]
+}
+
+@test "omawsl_orphan_tools_update no-ops cleanly when no orphan tool is installed" {
+  stub_hide_command zellij lazydocker opencode claude codex gemini gh
+  run omawsl_orphan_tools_update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"no orphan tools installed"* ]]
+}
+
+@test "omawsl_orphan_tools_update skips the picker when everything is confirmed up to date" {
+  stub_hide_command lazydocker opencode claude codex gemini gh
+  stub_command zellij
+  zellij() { echo "zellij 1.0.0"; }
+  export -f zellij
+  omawsl_orphan_tool_version_latest() { echo "1.0.0"; }
+  export -f omawsl_orphan_tool_version_latest
+  run omawsl_orphan_tools_update
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"already up to date"* ]]
+  [[ "$(stub_calls)" != *"gum choose"* ]]
+}
+
+@test "omawsl_orphan_tools_update shows the picker, pre-selecting only outdated tools, and applies what's picked" {
+  stub_hide_command lazydocker opencode claude codex gemini gh
+  stub_command zellij
+  gum_stub_init
+  zellij() { echo "zellij 1.0.0"; }
+  export -f zellij
+  omawsl_orphan_tool_version_latest() { echo "2.0.0"; }
+  export -f omawsl_orphan_tool_version_latest
+  omawsl_zellij_install_steps() { echo "zellij-updated" >> "$STUB_LOG"; }
+  export -f omawsl_zellij_install_steps
+  gum_stub_respond "$(omawsl_orphan_tools_format_line zellij 1.0.0 2.0.0)"
+
+  run omawsl_orphan_tools_update
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"gum choose"* ]]
+  [[ "$(stub_calls)" == *"--selected"* ]]
+  [[ "$(stub_calls)" == *"zellij-updated"* ]]
+}
+
+@test "omawsl_orphan_tools_update still shows the picker when a tool is unknown, even with none confirmed outdated" {
+  stub_hide_command lazydocker opencode claude codex gemini gh
+  stub_command zellij
+  gum_stub_init
+  zellij() { echo "zellij 1.0.0"; }
+  export -f zellij
+  omawsl_orphan_tool_version_latest() { echo ""; }
+  export -f omawsl_orphan_tool_version_latest
+  gum_stub_respond ""
+
+  run omawsl_orphan_tools_update
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"gum choose"* ]]
+}
+
+@test "omawsl_orphan_tools_live_check eventually prints the resolved version line" {
+  local tmp_dir="$BATS_TEST_TMPDIR/live-check"
+  mkdir -p "$tmp_dir"
+  zellij() { echo "zellij 1.0.0"; }
+  export -f zellij
+  omawsl_orphan_tool_version_latest() { echo "2.0.0"; }
+  export -f omawsl_orphan_tool_version_latest
+  run omawsl_orphan_tools_live_check "$tmp_dir" 5 zellij
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"current: 1.0.0"* ]]
+  [[ "$output" == *"latest: 2.0.0"* ]]
+}

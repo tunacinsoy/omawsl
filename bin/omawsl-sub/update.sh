@@ -7,12 +7,16 @@ OMAWSL_ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=migrate.sh
 source "$SCRIPT_DIR/migrate.sh"
+# shellcheck source=orphan-tools.sh
+source "$SCRIPT_DIR/orphan-tools.sh"
 
 # omawsl_update
-# Entry point for `bin/omawsl update` (design spec §14): git pull inside
-# $OMAWSL_HOME, then runs pending migrations - a deliberate improvement
-# over upstream Omakub, whose own update flow never automates the git
-# pull itself. Detects a dirty working tree first (someone hand-edited a
+# Entry point for `bin/omawsl update` (design spec §14, extended by
+# docs/superpowers/specs/2026-07-13-omawsl-update-mechanism-design.md
+# §4): git pull inside $OMAWSL_HOME, runs pending migrations, then offers
+# to update the 7 "orphan" tools that have no native updater of their
+# own (§3 of that spec) - never wraps `apt upgrade`/`mise upgrade`
+# themselves. Detects a dirty working tree first (someone hand-edited a
 # file directly inside the checkout) and refuses to pull over it rather
 # than letting `git pull` fail confusingly or silently discard those
 # edits. Same $OMAWSL_HOME default/override convention as boot.sh.
@@ -39,6 +43,10 @@ omawsl_update() {
   omawsl_migrate
 
   echo "omawsl: update complete."
+
+  omawsl_orphan_tools_update
+
+  echo "omawsl: languages/cloud tools -> mise upgrade, or 'omawsl install language <x>'. System packages -> sudo apt upgrade. Full breakdown: docs/updating.md."
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

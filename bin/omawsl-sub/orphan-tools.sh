@@ -268,3 +268,130 @@ omawsl_orphan_tool_apply_update() {
     echo "omawsl: updated $label."
   fi
 }
+
+# omawsl_orphan_tools_installed_slugs
+# Which of the 7 orphan tools are actually installed right now, in
+# registry order.
+omawsl_orphan_tools_installed_slugs() {
+  local slug
+  while IFS= read -r slug; do
+    omawsl_orphan_tool_installed "$slug" && echo "$slug"
+  done < <(omawsl_orphan_tool_slugs)
+  return 0
+}
+
+# omawsl_orphan_tools_live_check <tmp_dir> <timeout_seconds> <slug...>
+# TTY-only companion to omawsl_orphan_tools_check_versions (Task 3):
+# prints a "checking..." placeholder line per tool immediately, runs the
+# real check via that same function in the background (reused as-is, not
+# reimplemented - this function only adds a live terminal redraw on top),
+# and redraws the whole block in place every 0.2s using tput cursor
+# movement until the background check itself exits. `tput` calls are
+# each `|| true`-guarded so a terminal that doesn't support cursor
+# movement degrades to extra scrollback rather than an error.
+omawsl_orphan_tools_live_check() {
+  local tmp_dir="$1" timeout_seconds="$2"; shift 2
+  local slugs=("$@")
+  local slug label installed latest
+
+  for slug in "${slugs[@]}"; do
+    label="$(omawsl_orphan_tool_label "$slug")"
+    printf '%-22s checking...\n' "$label"
+  done
+
+  omawsl_orphan_tools_check_versions "$tmp_dir" "$timeout_seconds" "${slugs[@]}" &
+  local runner_pid=$!
+
+  while kill -0 "$runner_pid" 2>/dev/null; do
+    sleep 0.2
+    tput cuu "${#slugs[@]}" 2>/dev/null || true
+    for slug in "${slugs[@]}"; do
+      tput el 2>/dev/null || true
+      if [[ -f "$tmp_dir/$slug.result" ]]; then
+        IFS=$'\t' read -r installed latest < "$tmp_dir/$slug.result"
+        omawsl_orphan_tools_format_line "$slug" "$installed" "$latest"
+        echo
+      else
+        label="$(omawsl_orphan_tool_label "$slug")"
+        printf '%-22s checking...\n' "$label"
+      fi
+    done
+  done
+  wait "$runner_pid" 2>/dev/null || true
+
+  tput cuu "${#slugs[@]}" 2>/dev/null || true
+  for slug in "${slugs[@]}"; do
+    tput el 2>/dev/null || true
+    IFS=$'\t' read -r installed latest < "$tmp_dir/$slug.result"
+    omawsl_orphan_tools_format_line "$slug" "$installed" "$latest"
+    echo
+  done
+}
+
+# omawsl_orphan_tools_update
+# Entry point called from omawsl_update (bin/omawsl-sub/update.sh) after
+# its existing self-update + migrate steps (design spec §4). No-ops
+# cleanly if no orphan tool is installed. Uses the live-redraw status
+# phase only when connected to a real terminal (design spec §6 - `gum
+# choose` itself can't live-update rows once shown, so this is a
+# separate phase before the picker, not part of it); bats' `run` never
+# provides a real TTY, so tests always exercise the plain
+# omawsl_orphan_tools_check_versions path deterministically, while a real
+# interactive run gets the live "checking..." -> resolved-version redraw.
+omawsl_orphan_tools_update() {
+  local slugs=() slug
+  while IFS= read -r slug; do slugs+=("$slug"); done < <(omawsl_orphan_tools_installed_slugs)
+
+  if [[ "${#slugs[@]}" -eq 0 ]]; then
+    echo "omawsl: no orphan tools installed - nothing to check."
+    return 0
+  fi
+
+  local tmp_dir; tmp_dir="$(mktemp -d)"
+  if [[ -t 1 ]]; then
+    omawsl_orphan_tools_live_check "$tmp_dir" 5 "${slugs[@]}"
+  else
+    omawsl_orphan_tools_check_versions "$tmp_dir" 5 "${slugs[@]}"
+  fi
+
+  local any_available=0 any_unknown=0
+  local options=() selected=()
+  for slug in "${slugs[@]}"; do
+    local installed latest line
+    IFS=$'\t' read -r installed latest < "$tmp_dir/$slug.result"
+    line="$(omawsl_orphan_tools_format_line "$slug" "$installed" "$latest")"
+    options+=("$line")
+    if [[ -z "$latest" ]]; then
+      any_unknown=1
+    elif [[ "$installed" != "$latest" ]]; then
+      any_available=1
+      selected+=("$line")
+    fi
+  done
+  rm -rf "$tmp_dir"
+
+  if [[ "$any_available" -eq 0 && "$any_unknown" -eq 0 ]]; then
+    echo "omawsl: everything is already up to date."
+    return 0
+  fi
+
+  local preselected=""
+  if [[ "${#selected[@]}" -gt 0 ]]; then
+    preselected="$(printf '%s\n' "${selected[@]}" | paste -sd, -)"
+  fi
+
+  local picked
+  picked="$(gum choose --no-limit --selected "$preselected" --header "Update orphan tools (no native updater of their own)" "${options[@]}")" || picked=""
+  [[ -n "$picked" ]] || return 0
+
+  local chosen_line
+  while IFS= read -r chosen_line; do
+    [[ -z "$chosen_line" ]] && continue
+    for slug in "${slugs[@]}"; do
+      if [[ "$chosen_line" == "$(omawsl_orphan_tool_label "$slug")"* ]]; then
+        omawsl_orphan_tool_apply_update "$slug"
+        break
+      fi
+    done
+  done <<< "$picked"
+}
