@@ -116,3 +116,42 @@ setup() {
   [ "$(omawsl_orphan_tool_version_latest codex)" = "8.8.8" ]
   [ "$(omawsl_orphan_tool_version_latest gemini)" = "8.8.8" ]
 }
+
+@test "omawsl_orphan_wait_with_timeout returns 0 for a process that exits on its own" {
+  sleep 0.2 &
+  run omawsl_orphan_wait_with_timeout "$!" 5
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl_orphan_wait_with_timeout kills and returns 1 for a process that outlives the limit" {
+  sleep 30 &
+  local pid=$!
+  run omawsl_orphan_wait_with_timeout "$pid" 1
+  [ "$status" -eq 1 ]
+  ! kill -0 "$pid" 2>/dev/null
+}
+
+@test "omawsl_orphan_tools_check_versions writes one result file per slug in parallel" {
+  zellij() { echo "zellij 1.2.3"; }
+  export -f zellij
+  lazydocker() { echo "Version: 4.5.6"; }
+  export -f lazydocker
+  curl() { echo '{"tag_name":"v9.9.9"}'; }
+  export -f curl
+
+  local tmp_dir="$BATS_TEST_TMPDIR/results"
+  mkdir -p "$tmp_dir"
+  omawsl_orphan_tools_check_versions "$tmp_dir" 5 zellij lazydocker
+  [ "$(cat "$tmp_dir/zellij.result")" = "$(printf '1.2.3\t9.9.9')" ]
+  [ "$(cat "$tmp_dir/lazydocker.result")" = "$(printf '4.5.6\t9.9.9')" ]
+}
+
+@test "omawsl_orphan_tools_check_versions falls back to empty/empty when a job times out" {
+  omawsl_orphan_tool_version_latest() { sleep 30; echo "9.9.9"; }
+  export -f omawsl_orphan_tool_version_latest
+
+  local tmp_dir="$BATS_TEST_TMPDIR/results-timeout"
+  mkdir -p "$tmp_dir"
+  omawsl_orphan_tools_check_versions "$tmp_dir" 1 zellij
+  [ "$(cat "$tmp_dir/zellij.result")" = "$(printf '\t')" ]
+}

@@ -128,3 +128,70 @@ omawsl_orphan_tool_version_latest() {
     gh-copilot) omawsl_orphan_latest_from_github github/gh-copilot ;;
   esac
 }
+
+# omawsl_orphan_wait_with_timeout <pid> <limit_seconds>
+# Polls a background pid every 0.1s, killing it once <limit_seconds> has
+# elapsed. Deliberately a poll loop, not the external `timeout` command:
+# `timeout cmd` execs `cmd` directly via a real binary lookup, invisible
+# to this repo's export -f-based command stubbing (tests/helpers/stubs.bash)
+# - a stubbed `curl` bash function would never be seen by a real `timeout`
+# process. Returns 0 if the process exited on its own before the
+# deadline, 1 if it had to be killed (caller treats that result as
+# unknown/empty).
+# NOTE: `waited=$((waited + 1))` (plain assignment) is used instead of the
+# more idiomatic `((waited++))` on purpose: under this file's `set -e`,
+# `((expr))` is a command whose exit status reflects the *result* of the
+# expression, and post-increment evaluates to the OLD value - so on the
+# very first iteration (waited=0) `((waited++))` evaluates to 0, which
+# `set -e` treats as a command failure and aborts the function before it
+# ever calls `wait`/returns 0. A plain arithmetic assignment has no such
+# truthiness trap.
+omawsl_orphan_wait_with_timeout() {
+  local pid="$1" limit="$2"
+  local waited=0 max_iterations=$((limit * 10))
+  while kill -0 "$pid" 2>/dev/null; do
+    if (( waited >= max_iterations )); then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      return 1
+    fi
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  wait "$pid" 2>/dev/null || true
+  return 0
+}
+
+# omawsl_orphan_tools_check_versions <tmp_dir> <timeout_seconds> <slug...>
+# Launches one background job per slug - each resolving both the
+# installed and latest version and writing "installed<TAB>latest" to
+# <tmp_dir>/<slug>.result - so the network-bound "latest" lookups run in
+# parallel rather than one after another. Blocks until every job has
+# either finished or been killed by omawsl_orphan_wait_with_timeout, so
+# the total wait is bounded by the single slowest per-tool timeout, not
+# the sum of every tool's timeout. A killed job leaves no result file
+# behind (its own subshell never reached the `printf`), so this function
+# backfills an empty/empty result for it - a wholesale timeout (as
+# opposed to just the network half being slow) is rare enough that
+# falling back to "everything unknown" for that one tool is an
+# acceptable, clearly-labeled degradation.
+omawsl_orphan_tools_check_versions() {
+  local tmp_dir="$1" timeout_seconds="$2"; shift 2
+  local slugs=("$@")
+  local slug
+  local pids=()
+  for slug in "${slugs[@]}"; do
+    (
+      local installed latest
+      installed="$(omawsl_orphan_tool_version_installed "$slug" 2>/dev/null || true)"
+      latest="$(omawsl_orphan_tool_version_latest "$slug" 2>/dev/null || true)"
+      printf '%s\t%s\n' "$installed" "$latest" > "$tmp_dir/$slug.result"
+    ) &
+    pids+=("$!")
+  done
+  local i
+  for i in "${!pids[@]}"; do
+    omawsl_orphan_wait_with_timeout "${pids[$i]}" "$timeout_seconds" || true
+    [[ -f "$tmp_dir/${slugs[$i]}.result" ]] || printf '\t\n' > "$tmp_dir/${slugs[$i]}.result"
+  done
+}
