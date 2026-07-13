@@ -59,6 +59,20 @@ setup() {
   [ "$(omawsl_orphan_extract_semver "")" = "" ]
 }
 
+@test "omawsl_orphan_extract_semver returns exit 0 and empty output when given text with no semver token (no grep match)" {
+  run omawsl_orphan_extract_semver "no version here"
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+}
+
+@test "omawsl_orphan_tool_version_installed returns exit 0 and empty output when a tool's version stub produces no semver (simulating not installed)" {
+  zellij() { echo "zellij not found"; }
+  export -f zellij
+  run omawsl_orphan_tool_version_installed zellij
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]
+}
+
 @test "omawsl_orphan_latest_from_github strips a leading v from the release tag" {
   curl() { echo '{"tag_name":"v0.44.3"}'; }
   export -f curl

@@ -69,7 +69,7 @@ omawsl_orphan_tool_installed() {
 # without a leading tool name) but all of them contain a plain semver
 # token somewhere in the output.
 omawsl_orphan_extract_semver() {
-  grep -oE '[0-9]+\.[0-9]+\.[0-9]+' <<< "$1" | head -n1
+  grep -oE '[0-9]+\.[0-9]+\.[0-9]+' <<< "$1" | head -n1 || true
 }
 
 # omawsl_orphan_latest_from_github <owner/repo>
