@@ -24,8 +24,7 @@ setup() {
   stub_hide_command opencode
   run omawsl_install_opencode
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"curl"* ]]
-  [[ "$(stub_calls)" == *"opencode.ai/install"* ]]
+  [[ "$(stub_calls)" == *"curl -fsSL https://opencode.ai/install"* ]]
 }
 
 @test "no-ops when already installed" {

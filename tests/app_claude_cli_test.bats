@@ -24,8 +24,7 @@ setup() {
   stub_hide_command claude
   run omawsl_install_claude_cli
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"curl"* ]]
-  [[ "$(stub_calls)" == *"claude.ai/install.sh"* ]]
+  [[ "$(stub_calls)" == *"curl -fsSL https://claude.ai/install.sh"* ]]
 }
 
 @test "no-ops when already installed" {
