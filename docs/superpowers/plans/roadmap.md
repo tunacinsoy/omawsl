@@ -195,11 +195,53 @@ the next phase's plan.
    boxes/tofu (user-confirmed via screenshot - a document icon for a file, a folder icon for a
    directory). Phase 6 is closed out.
 
-7. **`bin/omawsl` CLI completion — not yet planned.**
-   `update`, `migrate`, `uninstall`, `install`, `doctor` subcommands, plus the `uninstall/`
-   tree.
+7. **`bin/omawsl` CLI completion — DONE, merged to `master`.**
+   Plan: `docs/superpowers/plans/2026-07-12-omawsl-phase7-cli-completion.md`
+   Shipped all 5 remaining `bin/omawsl` subcommands (`update`, `migrate`, `install`,
+   `uninstall`, `doctor` - `theme` already existed from Phase 5) plus the full `uninstall/`
+   tree (11 scripts: `dev-language.sh` covering all 10 language/cloud-tool picker items,
+   `storage.sh`, `docker.sh`, and one script each for the 8 optional editors/AI CLIs), and a
+   shared slug/label/category registry (`bin/omawsl-sub/items.sh`) reused by `install`,
+   `uninstall`, and `doctor` alike so all three never drift on what a name means. Built via
+   subagent-driven-development in an isolated worktree (`.worktrees/phase7-cli-completion`);
+   13 tasks, each individually reviewed (one fix round on Task 1: a missing `mise`-absent
+   guard that would have hard-failed uninstall under `set -euo pipefail`). Final whole-branch
+   review (opus): no Critical or blocking Important findings - verified the shared registry's
+   taxonomy matches `install/first-run-choices.sh`'s real picker labels verbatim, and that the
+   `uninstall/` tree covers all 22 installable targets with no gaps or orphans. One Minor
+   finding (a test fixture hardcoding the `master` branch name) fixed post-review. Also found
+   and fixed, in passing, a real pre-existing bug unrelated to this phase:
+   `install/terminal/app-gh-copilot.sh`'s idempotency check never matched `gh extension
+   list`'s real output format (`e268b16`). 280 bats tests, 279 passing (the one failure is the
+   same pre-existing `windows_terminal_test.bats` `cmd.exe`-reachability flake noted
+   throughout this doc, unrelated to this phase).
+   **Manual end-to-end verification (Task 14) is complete.** Steps 1-5 (assistant-doable,
+   run directly against the user's real WSL2 instance) all passed: `doctor` accurately
+   reported real installed/pending state; a full `install language go` -> `doctor` ->
+   `uninstall go` -> `doctor` -> re-`uninstall go` cycle was confirmed for real via
+   `~/.config/mise/config.toml`, not just the stubbed suite; `migrate` and `update` (against
+   a real scratch git fixture) both confirmed working end to end. The sudo-touching paths
+   (Docker/storage install, apt-based language/editor installs) could not be exercised live
+   in this pass - no passwordless `sudo` on the test instance, and a real finding along the
+   way: a human's own `sudo -v` does NOT carry over to a separately-spawned `wsl.exe` session
+   (each gets its own tty/credential cache) - those paths remain covered only by the
+   automated suite and Phases 2-6's own historical real verification of the underlying
+   `install/terminal/*.sh` scripts this phase reuses unchanged. **The user's own review of
+   Task 14's results raised one real product gap**: `uninstall` didn't remove the item from
+   `choices.env`, so `doctor` and the interactive `install` picker kept nagging about
+   something the user had deliberately just removed. Fixed the same day (`821743c`,
+   `omawsl_remove_from_csv` added to `install/lib.sh`, full TDD, live-verified against the
+   real WSL2 instance a second time) - the user's other open question (whether to add the
+   design spec's `status` alias for `doctor`) was explicitly declined. Phase 7, and the whole
+   7-phase project, is closed out.
 
-## How to continue
+## Status: all 7 phases complete
+
+The full roadmap above is done. v1 is ready. The GitHub remote was created after Phase 7's
+close-out, per the plan's own deliberate no-remote-until-done decision (see this project's
+persistent assistant memory).
+
+## How to continue (historical - kept for reference)
 
 For each phase: use the `writing-plans` skill to draft that phase's plan (only once the prior
 phase is merged — decisions can shift based on what was actually learned building it, as
