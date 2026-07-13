@@ -31,3 +31,7 @@ DOC="$REPO_ROOT/README.md"
 @test "README.md contains the real boot.sh one-liner" {
   grep -q "curl -fsSL https://raw.githubusercontent.com/tunacinsoy/omawsl/master/boot.sh | bash" "$DOC"
 }
+
+@test "README.md links to docs/updating.md" {
+  grep -q "docs/updating.md" "$DOC"
+}

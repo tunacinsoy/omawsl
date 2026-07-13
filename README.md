@@ -52,6 +52,8 @@ across zellij, btop, Neovim, VS Code/Cursor, opencode (where it has a matching b
 preset), and - the one exception to "never auto-touch Windows-side files" - Windows Terminal's
 own color scheme, synced automatically.
 
+See [`docs/updating.md`](docs/updating.md) for how to keep everything current - omawsl itself, language runtimes, system packages, and the handful of tools with no native updater of their own.
+
 Documented but never automated: Windows Terminal itself, its font, and the zellij keybinding
 fix - see [`docs/windows-setup.md`](docs/windows-setup.md).
 
