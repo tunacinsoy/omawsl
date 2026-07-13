@@ -5,6 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib.sh
 source "$SCRIPT_DIR/../lib.sh"
 
+# omawsl_opencode_install_steps
+# The actual install command, no guard - called both by
+# omawsl_install_opencode below (guarded) and by bin/omawsl update's
+# orphan-tool apply phase (guard bypassed).
+omawsl_opencode_install_steps() {
+  curl -fsSL https://opencode.ai/install | bash
+}
+
 # omawsl_install_opencode
 # opencode.ai's terminal AI coding agent CLI - purely WSL-side, no
 # Windows dependency (design spec §10). Installs via its official
@@ -21,7 +29,7 @@ omawsl_install_opencode() {
     return 0
   fi
 
-  curl -fsSL https://opencode.ai/install | bash
+  omawsl_opencode_install_steps
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

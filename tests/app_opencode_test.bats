@@ -21,9 +21,11 @@ setup() {
 
 @test "installs via the official installer when not already present" {
   export OMAWSL_EDITORS="opencode"
+  stub_hide_command opencode
   run omawsl_install_opencode
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"curl -fsSL https://opencode.ai/install"* ]]
+  [[ "$(stub_calls)" == *"curl"* ]]
+  [[ "$(stub_calls)" == *"opencode.ai/install"* ]]
 }
 
 @test "no-ops when already installed" {
@@ -32,4 +34,11 @@ setup() {
   run omawsl_install_opencode
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" != *"curl"* ]]
+}
+
+@test "omawsl_opencode_install_steps runs unconditionally, even if opencode is already installed" {
+  stub_command opencode
+  run omawsl_opencode_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"opencode.ai/install"* ]]
 }

@@ -21,9 +21,11 @@ setup() {
 
 @test "installs via the official installer when not already present" {
   export OMAWSL_EDITORS="Claude Code CLI"
+  stub_hide_command claude
   run omawsl_install_claude_cli
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"curl -fsSL https://claude.ai/install.sh"* ]]
+  [[ "$(stub_calls)" == *"curl"* ]]
+  [[ "$(stub_calls)" == *"claude.ai/install.sh"* ]]
 }
 
 @test "no-ops when already installed" {
@@ -32,4 +34,11 @@ setup() {
   run omawsl_install_claude_cli
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" != *"curl"* ]]
+}
+
+@test "omawsl_claude_cli_install_steps runs unconditionally, even if claude is already installed" {
+  stub_command claude
+  run omawsl_claude_cli_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"claude.ai/install.sh"* ]]
 }
