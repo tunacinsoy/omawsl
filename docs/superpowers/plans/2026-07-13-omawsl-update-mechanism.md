@@ -467,7 +467,13 @@ omawsl_orphan_wait_with_timeout() {
       return 1
     fi
     sleep 0.1
-    ((waited++))
+    # NOT `((waited++))`: a post-increment expression evaluates to the
+    # OLD value, so on the very first iteration (waited=0) the arithmetic
+    # command itself evaluates to 0 - which bash's `((...))` treats as a
+    # failing exit status, aborting this function under this file's own
+    # `set -euo pipefail` before it can ever return normally. Found by
+    # the Task 3 implementer's own self-review.
+    waited=$((waited + 1))
   done
   wait "$pid" 2>/dev/null || true
   return 0
@@ -477,15 +483,22 @@ omawsl_orphan_wait_with_timeout() {
 # Launches one background job per slug - each resolving both the
 # installed and latest version and writing "installed<TAB>latest" to
 # <tmp_dir>/<slug>.result - so the network-bound "latest" lookups run in
-# parallel rather than one after another. Blocks until every job has
-# either finished or been killed by omawsl_orphan_wait_with_timeout, so
-# the total wait is bounded by the single slowest per-tool timeout, not
-# the sum of every tool's timeout. A killed job leaves no result file
-# behind (its own subshell never reached the `printf`), so this function
-# backfills an empty/empty result for it - a wholesale timeout (as
-# opposed to just the network half being slow) is rare enough that
+# parallel rather than one after another. A killed job leaves no result
+# file behind (its own subshell never reached the `printf`), so this
+# function backfills an empty/empty result for it - a wholesale timeout
+# (as opposed to just the network half being slow) is rare enough that
 # falling back to "everything unknown" for that one tool is an
 # acceptable, clearly-labeled degradation.
+#
+# The wait loop shares ONE deadline across every job, computed once
+# before the loop starts, rather than giving each job its own fresh
+# `timeout_seconds`-length countdown at the moment the loop reaches it -
+# task review found the naive per-job-fresh-timeout version degrades to
+# `N x timeout_seconds` total when multiple jobs hang concurrently (a
+# real network-outage scenario, not contrived: all 7 orphan-tool lookups
+# could plausibly hang at once). Passing each job its shrinking REMAINING
+# budget instead of the full timeout keeps the total wait bounded by the
+# single slowest timeout, matching this function's own intent.
 omawsl_orphan_tools_check_versions() {
   local tmp_dir="$1" timeout_seconds="$2"; shift 2
   local slugs=("$@")
@@ -500,9 +513,14 @@ omawsl_orphan_tools_check_versions() {
     ) &
     pids+=($!)
   done
-  local i
+
+  local deadline=$(( $(date +%s) + timeout_seconds ))
+  local i now remaining
   for i in "${!pids[@]}"; do
-    omawsl_orphan_wait_with_timeout "${pids[$i]}" "$timeout_seconds" || true
+    now="$(date +%s)"
+    remaining=$(( deadline - now ))
+    (( remaining < 0 )) && remaining=0
+    omawsl_orphan_wait_with_timeout "${pids[$i]}" "$remaining" || true
     [[ -f "$tmp_dir/${slugs[$i]}.result" ]] || printf '\t\n' > "$tmp_dir/${slugs[$i]}.result"
   done
 }
