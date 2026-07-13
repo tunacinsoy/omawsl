@@ -42,6 +42,11 @@ setup() {
 
   local seed="$BATS_TEST_TMPDIR/seed"
   git clone -q "$origin" "$seed"
+  # $origin is empty at clone time, so $seed's initial branch name comes
+  # from this machine's own init.defaultBranch config, not from $origin -
+  # pin it explicitly so the push/pull below don't depend on that setting
+  # (increasingly "main" by default on newer git installs).
+  git -C "$seed" checkout -q -B master
   echo "1" > "$seed/version"
   git -C "$seed" add version
   git -C "$seed" commit -q -m init
