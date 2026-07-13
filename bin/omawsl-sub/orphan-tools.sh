@@ -61,3 +61,70 @@ omawsl_orphan_tool_installed() {
     *) return 1 ;;
   esac
 }
+
+# omawsl_orphan_extract_semver <text>
+# Pulls the first X.Y.Z-shaped token out of arbitrary command output -
+# shared by every "installed version" check below, since each tool's own
+# --version output format differs (single line vs. multi-line, with or
+# without a leading tool name) but all of them contain a plain semver
+# token somewhere in the output.
+omawsl_orphan_extract_semver() {
+  grep -oE '[0-9]+\.[0-9]+\.[0-9]+' <<< "$1" | head -n1
+}
+
+# omawsl_orphan_latest_from_github <owner/repo>
+# Latest release tag from the public GitHub REST API, unauthenticated -
+# this must work on a fresh machine before any `gh auth login` has
+# happened (the exact same real constraint already documented for
+# gh-copilot's own install in app-gh-copilot.sh). Empty output on any
+# failure (network, rate limit, malformed JSON) rather than erroring -
+# the caller (Task 3) is what bounds the wait, not this function itself.
+omawsl_orphan_latest_from_github() {
+  local repo="$1"
+  local tag
+  tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty' 2>/dev/null)" || tag=""
+  echo "${tag#v}"
+}
+
+# omawsl_orphan_latest_from_npm <package>
+# Latest published version from the npm registry, via the same private
+# mise-managed Node runtime app-codex-cli.sh/app-gemini-cli.sh already
+# use to install these two tools (`mise exec node@lts`) - never a bare
+# `npm`, which isn't guaranteed on PATH at all (design spec §5).
+omawsl_orphan_latest_from_npm() {
+  local package="$1"
+  mise exec node@lts -- npm view "$package" version 2>/dev/null || echo ""
+}
+
+# omawsl_orphan_tool_version_installed <slug>
+omawsl_orphan_tool_version_installed() {
+  local slug="$1"
+  case "$slug" in
+    zellij) omawsl_orphan_extract_semver "$(zellij --version 2>/dev/null || true)" ;;
+    lazydocker) omawsl_orphan_extract_semver "$(lazydocker --version 2>/dev/null || true)" ;;
+    opencode) omawsl_orphan_extract_semver "$(opencode --version 2>/dev/null || true)" ;;
+    claude) omawsl_orphan_extract_semver "$(claude --version 2>/dev/null || true)" ;;
+    codex) omawsl_orphan_extract_semver "$(codex --version 2>/dev/null || true)" ;;
+    gemini) omawsl_orphan_extract_semver "$(gemini --version 2>/dev/null || true)" ;;
+    gh-copilot) omawsl_orphan_extract_semver "$(gh extension list 2>/dev/null | grep 'github/gh-copilot' || true)" ;;
+  esac
+}
+
+# omawsl_orphan_tool_version_latest <slug>
+# GitHub Releases API for the 5 binary/curl-script-distributed tools
+# (repo slugs confirmed live: zellij-org/zellij, jesseduffield/lazydocker,
+# anomalyco/opencode [formerly sst/opencode - GitHub redirects the old
+# path], anthropics/claude-code, github/gh-copilot); npm registry for the
+# 2 tools installed via a private mise-managed Node runtime.
+omawsl_orphan_tool_version_latest() {
+  local slug="$1"
+  case "$slug" in
+    zellij) omawsl_orphan_latest_from_github zellij-org/zellij ;;
+    lazydocker) omawsl_orphan_latest_from_github jesseduffield/lazydocker ;;
+    opencode) omawsl_orphan_latest_from_github anomalyco/opencode ;;
+    claude) omawsl_orphan_latest_from_github anthropics/claude-code ;;
+    codex) omawsl_orphan_latest_from_npm "@openai/codex" ;;
+    gemini) omawsl_orphan_latest_from_npm "@google/gemini-cli" ;;
+    gh-copilot) omawsl_orphan_latest_from_github github/gh-copilot ;;
+  esac
+}

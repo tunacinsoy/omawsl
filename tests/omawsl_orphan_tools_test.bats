@@ -51,3 +51,54 @@ setup() {
   run omawsl_orphan_tool_installed gh-copilot
   [ "$status" -ne 0 ]
 }
+
+@test "omawsl_orphan_extract_semver pulls the first X.Y.Z token out of arbitrary text" {
+  [ "$(omawsl_orphan_extract_semver "zellij 0.44.3")" = "0.44.3" ]
+  [ "$(omawsl_orphan_extract_semver $'Version: 0.25.2\nGit commit: abc123')" = "0.25.2" ]
+  [ "$(omawsl_orphan_extract_semver "2.1.207 (Claude Code)")" = "2.1.207" ]
+  [ "$(omawsl_orphan_extract_semver "")" = "" ]
+}
+
+@test "omawsl_orphan_latest_from_github strips a leading v from the release tag" {
+  curl() { echo '{"tag_name":"v0.44.3"}'; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github zellij-org/zellij)" = "0.44.3" ]
+}
+
+@test "omawsl_orphan_latest_from_github returns empty on a curl failure" {
+  curl() { return 1; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github zellij-org/zellij)" = "" ]
+}
+
+@test "omawsl_orphan_latest_from_github returns empty on malformed JSON" {
+  curl() { echo 'not json'; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github zellij-org/zellij)" = "" ]
+}
+
+@test "omawsl_orphan_latest_from_npm uses the private mise Node runtime, not a bare npm" {
+  stub_command mise
+  omawsl_orphan_latest_from_npm "@openai/codex"
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm view @openai/codex version"* ]]
+}
+
+@test "omawsl_orphan_tool_version_installed dispatches per tool" {
+  zellij() { echo "zellij 0.44.3"; }
+  export -f zellij
+  [ "$(omawsl_orphan_tool_version_installed zellij)" = "0.44.3" ]
+}
+
+@test "omawsl_orphan_tool_version_latest dispatches to github for binary-release tools and npm for the two npm globals" {
+  curl() { echo '{"tag_name":"v9.9.9"}'; }
+  export -f curl
+  [ "$(omawsl_orphan_tool_version_latest zellij)" = "9.9.9" ]
+  [ "$(omawsl_orphan_tool_version_latest claude)" = "9.9.9" ]
+
+  stub_command mise
+  gum_stub_init 2>/dev/null || true
+  mise() { echo "8.8.8"; }
+  export -f mise
+  [ "$(omawsl_orphan_tool_version_latest codex)" = "8.8.8" ]
+  [ "$(omawsl_orphan_tool_version_latest gemini)" = "8.8.8" ]
+}
