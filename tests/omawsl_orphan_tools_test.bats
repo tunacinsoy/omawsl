@@ -155,3 +155,27 @@ setup() {
   omawsl_orphan_tools_check_versions "$tmp_dir" 1 zellij
   [ "$(cat "$tmp_dir/zellij.result")" = "$(printf '\t')" ]
 }
+
+@test "omawsl_orphan_tools_check_versions bounds total wait by a single shared timeout, not timeout * number of hung jobs" {
+  omawsl_orphan_tool_version_latest() { sleep 10; echo "9.9.9"; }
+  export -f omawsl_orphan_tool_version_latest
+
+  local tmp_dir="$BATS_TEST_TMPDIR/results-multi-timeout"
+  mkdir -p "$tmp_dir"
+
+  local start elapsed
+  start="$(date +%s)"
+  omawsl_orphan_tools_check_versions "$tmp_dir" 1 zellij lazydocker opencode
+  elapsed=$(( $(date +%s) - start ))
+
+  # All 3 jobs hang simultaneously. With the bug (a fresh timeout_seconds
+  # countdown restarted per wait-loop iteration) this would take ~3s (1s *
+  # 3 jobs). With a single shared deadline it should stay close to the 1s
+  # bound - allow generous slack for CI/WSL scheduling jitter, but well
+  # under the ~3s the bug would produce.
+  [ "$elapsed" -le 2 ]
+
+  [ "$(cat "$tmp_dir/zellij.result")" = "$(printf '\t')" ]
+  [ "$(cat "$tmp_dir/lazydocker.result")" = "$(printf '\t')" ]
+  [ "$(cat "$tmp_dir/opencode.result")" = "$(printf '\t')" ]
+}

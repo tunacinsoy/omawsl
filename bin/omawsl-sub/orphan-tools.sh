@@ -168,13 +168,18 @@ omawsl_orphan_wait_with_timeout() {
 # <tmp_dir>/<slug>.result - so the network-bound "latest" lookups run in
 # parallel rather than one after another. Blocks until every job has
 # either finished or been killed by omawsl_orphan_wait_with_timeout, so
-# the total wait is bounded by the single slowest per-tool timeout, not
-# the sum of every tool's timeout. A killed job leaves no result file
-# behind (its own subshell never reached the `printf`), so this function
-# backfills an empty/empty result for it - a wholesale timeout (as
-# opposed to just the network half being slow) is rare enough that
-# falling back to "everything unknown" for that one tool is an
-# acceptable, clearly-labeled degradation.
+# the total wait is bounded by a single shared <timeout_seconds> deadline
+# computed once up front, not <timeout_seconds> restarted fresh for each
+# job in the wait loop - the latter would let N simultaneously-hanging
+# jobs degenerate the total wait to N * timeout_seconds. Each wait call
+# instead gets whatever's left of that shared deadline (clamped to >= 0),
+# so the loop's total wall-clock time converges to timeout_seconds
+# regardless of how many jobs are hanging concurrently. A killed job
+# leaves no result file behind (its own subshell never reached the
+# `printf`), so this function backfills an empty/empty result for it - a
+# wholesale timeout (as opposed to just the network half being slow) is
+# rare enough that falling back to "everything unknown" for that one tool
+# is an acceptable, clearly-labeled degradation.
 omawsl_orphan_tools_check_versions() {
   local tmp_dir="$1" timeout_seconds="$2"; shift 2
   local slugs=("$@")
@@ -189,9 +194,13 @@ omawsl_orphan_tools_check_versions() {
     ) &
     pids+=("$!")
   done
-  local i
+  local deadline=$(( $(date +%s) + timeout_seconds ))
+  local i now remaining
   for i in "${!pids[@]}"; do
-    omawsl_orphan_wait_with_timeout "${pids[$i]}" "$timeout_seconds" || true
+    now="$(date +%s)"
+    remaining=$(( deadline - now ))
+    (( remaining < 0 )) && remaining=0
+    omawsl_orphan_wait_with_timeout "${pids[$i]}" "$remaining" || true
     [[ -f "$tmp_dir/${slugs[$i]}.result" ]] || printf '\t\n' > "$tmp_dir/${slugs[$i]}.result"
   done
 }
