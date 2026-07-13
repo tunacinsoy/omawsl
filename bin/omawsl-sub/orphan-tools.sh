@@ -119,6 +119,7 @@ omawsl_orphan_tool_version_installed() {
     codex) omawsl_orphan_extract_semver "$(codex --version 2>/dev/null || true)" ;;
     gemini) omawsl_orphan_extract_semver "$(gemini --version 2>/dev/null || true)" ;;
     gh-copilot) omawsl_orphan_extract_semver "$(gh extension list 2>/dev/null | grep 'github/gh-copilot' || true)" ;;
+    *) return 1 ;;
   esac
 }
 
@@ -138,6 +139,7 @@ omawsl_orphan_tool_version_latest() {
     codex) omawsl_orphan_latest_from_npm "@openai/codex" ;;
     gemini) omawsl_orphan_latest_from_npm "@google/gemini-cli" ;;
     gh-copilot) omawsl_orphan_latest_from_github github/gh-copilot ;;
+    *) return 1 ;;
   esac
 }
 
@@ -261,6 +263,7 @@ omawsl_orphan_tool_apply_update() {
     codex) omawsl_codex_cli_install_steps || ok=0 ;;
     gemini) omawsl_gemini_cli_install_steps || ok=0 ;;
     gh-copilot) omawsl_gh_copilot_update_steps || ok=0 ;;
+    *) echo "omawsl: unknown orphan tool slug '$slug'" >&2; return 1 ;;
   esac
   if [[ "$ok" -eq 0 ]]; then
     echo "omawsl: failed to update $label - skipping, continuing with the rest."

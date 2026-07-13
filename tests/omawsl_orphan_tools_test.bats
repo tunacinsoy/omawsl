@@ -104,6 +104,15 @@ setup() {
   [[ "$output" == *"failed to update"* ]]
 }
 
+@test "every function omawsl_orphan_tool_apply_update dispatches to actually exists" {
+  for fn in omawsl_zellij_install_steps omawsl_lazydocker_install_steps \
+            omawsl_opencode_install_steps omawsl_claude_cli_install_steps \
+            omawsl_codex_cli_install_steps omawsl_gemini_cli_install_steps \
+            omawsl_gh_copilot_update_steps; do
+    declare -F "$fn" >/dev/null || { echo "missing function: $fn"; return 1; }
+  done
+}
+
 @test "omawsl_orphan_extract_semver returns exit 0 and empty output when given text with no semver token (no grep match)" {
   run omawsl_orphan_extract_semver "no version here"
   [ "$status" -eq 0 ]
