@@ -87,3 +87,17 @@ setup() {
   [ -x "$HOME/.local/bin/omawsl" ]
   [[ "$(cat "$HOME/.local/bin/omawsl")" == *"exec bash \"$REPO_ROOT/bin/omawsl\""* ]]
 }
+
+@test "omawsl_zellij_install_steps runs unconditionally, even if zellij is already installed" {
+  stub_command zellij
+  run omawsl_zellij_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"unknown-linux-musl"* ]]
+}
+
+@test "omawsl_lazydocker_install_steps runs unconditionally, even if lazydocker is already installed" {
+  stub_command lazydocker
+  run omawsl_lazydocker_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"install_update_linux.sh"* ]]
+}

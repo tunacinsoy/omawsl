@@ -23,17 +23,38 @@ omawsl_install_terminal_apps() {
   omawsl_install_cli
 }
 
+# omawsl_lazydocker_install_steps
+# The actual install command, no guard - called both by
+# omawsl_install_lazydocker below (guarded, unchanged behavior) and by
+# bin/omawsl update's orphan-tool apply phase (guard bypassed, so an
+# already-installed lazydocker gets a genuine fresh install rather than
+# a no-op).
+omawsl_lazydocker_install_steps() {
+  curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+}
+
 # omawsl_install_lazydocker
 # No Ubuntu package exists for lazydocker - installs via its official
 # script (jesseduffield/lazydocker), which installs to $HOME/.local/bin
 # by default (already on PATH via configs/bashrc). The script itself
 # always re-downloads/reinstalls unconditionally - this command -v guard
-# is what actually makes this idempotent.
+# is what actually makes THIS entry point idempotent.
 omawsl_install_lazydocker() {
   if command -v lazydocker &>/dev/null; then
     return 0
   fi
-  curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+  omawsl_lazydocker_install_steps
+}
+
+# omawsl_zellij_install_steps
+# The actual install command, no guard - same split rationale as
+# omawsl_lazydocker_install_steps above.
+omawsl_zellij_install_steps() {
+  local arch
+  arch="$(uname -m)"
+  curl -fsSL "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz" | tar -xz -C /tmp
+  sudo install -m 0755 /tmp/zellij /usr/local/bin/zellij
+  rm -f /tmp/zellij
 }
 
 # omawsl_install_zellij
@@ -47,11 +68,7 @@ omawsl_install_zellij() {
   if command -v zellij &>/dev/null; then
     return 0
   fi
-  local arch
-  arch="$(uname -m)"
-  curl -fsSL "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz" | tar -xz -C /tmp
-  sudo install -m 0755 /tmp/zellij /usr/local/bin/zellij
-  rm -f /tmp/zellij
+  omawsl_zellij_install_steps
 }
 
 # omawsl_install_zellij_config
