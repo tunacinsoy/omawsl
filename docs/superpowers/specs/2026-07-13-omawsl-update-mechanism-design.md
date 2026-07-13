@@ -19,7 +19,10 @@ This spec does **not** try to collapse these into one universal mechanism — mi
 already good at updating the tools they own, and wrapping them would mean maintaining a
 duplicate, driftable copy of logic those tools already do correctly. Instead it targets the one
 real gap: a set of tools omawsl installs that have **no native update command at all**, and
-documents the three-way split clearly so a user always knows which tool to reach for.
+documents the full split clearly so a user always knows which tool to reach for — including the
+two things it would be easy to leave implicit: that `omawsl update` already updates omawsl itself
+(unchanged from today, retained as step 1 of the command), and that omawsl deliberately never
+touches VS Code/Cursor's own Windows-side update lifecycle (§3, §8).
 
 ## 2. Scope
 
@@ -153,15 +156,25 @@ not hidden inside the new update code.
 
 ## 8. Documentation deliverable
 
-A new `docs/updating.md`, linked from README's "What you get" section, laying out the three-way
-split plainly:
+A new `docs/updating.md`, linked from README's "What you get" section, laying out the full split
+plainly — four groups, not three, since "how do I update omawsl itself" is a real question this
+command already answers and shouldn't be left implicit:
 
+- **omawsl itself** → `omawsl update`. This is the existing, unchanged first step of the command
+  (§4 steps 1-2): `git pull` inside `$OMAWSL_HOME`, then pending migrations. Stated explicitly up
+  front in the doc, since it's easy to read the rest of this split and wonder where omawsl's own
+  versioning fits.
 - **Language runtimes & cloud tools** (Ruby, Node, Go, PHP, Python, Elixir, Rust, Java, Terraform,
   Azure CLI) → `mise upgrade`, or re-run `omawsl install language <x>` (re-pins to latest).
-- **System packages** (fzf, eza, bat, zoxide, Docker Engine, VS Code, Cursor, Neovim, LazyGit,
-  ...) → `sudo apt upgrade`, or the app's own Windows-side updater for GUI apps.
+- **System packages** (fzf, eza, bat, zoxide, Docker Engine, Neovim, LazyGit, ...) →
+  `sudo apt upgrade`.
+- **Windows-side GUI apps** (VS Code, Cursor) → not touched by omawsl at all, ever — they run
+  their own update lifecycle on Windows (VS Code's built-in updater, Cursor's own auto-update),
+  the same way omawsl never auto-installs them in the first place (README's "What omawsl
+  deliberately excludes"). Worth stating explicitly rather than leaving it to be inferred from
+  their absence in §3's orphan list.
 - **Everything else** (the 7 tools in §3, which have no native update command of their own) →
-  `omawsl update`.
+  `omawsl update`'s new orphan-tool picker (§6).
 
 `bin/omawsl update` prints a one-line pointer to this doc at the end of every run (§4 step 8), so
 the explanation is discoverable from the tool itself, not just from reading README cold.
