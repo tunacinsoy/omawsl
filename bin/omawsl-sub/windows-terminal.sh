@@ -83,5 +83,18 @@ omawsl_theme_apply_windows_terminal() {
     return 1
   fi
 
-  mv "$tmp" "$settings_file"
+  # `cp` + `rm`, not `mv`: $tmp lives on the Linux-native filesystem (from
+  # mktemp) while $settings_file lives under /mnt/c/... (Windows' own
+  # drvfs). mv can't do an atomic same-filesystem rename() across that
+  # boundary, so it falls back to copy-then-preserve-metadata-then-delete -
+  # and drvfs doesn't support the utime/chmod calls that "preserve
+  # metadata" step needs, printing "mv: preserving times/permissions ...
+  # Operation not permitted" on every single theme apply (confirmed
+  # harmless - mv still exits 0 and the content still transfers correctly -
+  # but real, repeated, alarming-looking noise on every `bin/omawsl theme`
+  # call). Plain `cp` (no --preserve) never attempts to replicate the
+  # source's metadata in the first place, so it never hits those syscalls -
+  # confirmed via direct reproduction against a real /mnt/c/... path.
+  cp "$tmp" "$settings_file"
+  rm -f "$tmp"
 }
