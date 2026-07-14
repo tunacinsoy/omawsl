@@ -50,6 +50,19 @@ setup() {
   [[ "$(stub_calls)" == *"git -C $OMAWSL_HOME checkout v0.2.0"* ]]
 }
 
+@test "runs correctly when piped through stdin, the same way curl -fsSL ... | bash invokes it" {
+  # Regression test: `bash boot.sh` (every other test in this file) always
+  # gives bash a real file path, so BASH_SOURCE[0] is populated. The
+  # documented one-liner (README.md) instead pipes the script's TEXT into
+  # bash via stdin - bash then has no source file at all, so BASH_SOURCE is
+  # a zero-element array and `${BASH_SOURCE[0]}` is a genuinely unbound
+  # reference under `set -u`, aborting before omawsl_boot ever runs.
+  run bash -c 'cat "'"$REPO_ROOT"'/boot.sh" | bash'
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"git clone https://github.com/tunacinsoy/omawsl $OMAWSL_HOME"* ]]
+  [[ "$output" == *"FAKE_INSTALL_SH_RAN"* ]]
+}
+
 @test "aborts when the user declines the confirmation prompt" {
   unset OMAWSL_ASSUME_YES
   run bash -c 'echo n | bash "'"$REPO_ROOT"'/boot.sh"'

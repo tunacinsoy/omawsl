@@ -78,6 +78,13 @@ BANNER
   exec bash "$OMAWSL_HOME/install.sh"
 }
 
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  omawsl_boot
-fi
+# No `if [[ "${BASH_SOURCE[0]}" == "${0}" ]]` sourced-vs-executed guard here
+# (unlike most other scripts in this repo): boot.sh is never sourced
+# anywhere, and the guard actively breaks the documented one-liner
+# (`curl -fsSL ... | bash`) - when bash reads a script from stdin instead
+# of a real file, BASH_SOURCE is a zero-element array, so BASH_SOURCE[0] is
+# a genuinely unbound reference under `set -u` and aborts before this line
+# ever runs. Confirmed via direct reproduction: piping this file's own
+# contents into `bash` hits the identical "unbound variable" error real
+# users hit running the real one-liner.
+omawsl_boot
