@@ -63,9 +63,28 @@ setup() {
   [[ "$output" == *"FAKE_INSTALL_SH_RAN"* ]]
 }
 
-@test "aborts when the user declines the confirmation prompt" {
+@test "does not accept the confirmation from piped stdin - only a real terminal or OMAWSL_ASSUME_YES counts" {
+  # Regression test for the /dev/tty fix: under the real `curl | bash`
+  # one-liner, stdin is the SCRIPT ITSELF being fed to bash, not the
+  # user's real keystrokes - so treating stdin as the confirmation source
+  # (the pre-fix behavior) is fundamentally wrong, even though it happens
+  # to "work" when a test pipes a literal "y" into a directly-run
+  # `bash boot.sh`. setsid detaches this subprocess from any controlling
+  # terminal, so `read < /dev/tty` genuinely fails here (confirmed safe,
+  # non-hanging: `read` opening a nonexistent /dev/tty fails immediately
+  # with ENXIO, caught by the `|| true` already in boot.sh) - proving the
+  # fix ignores stdin's "y" entirely rather than accepting it.
   unset OMAWSL_ASSUME_YES
-  run bash -c 'echo n | bash "'"$REPO_ROOT"'/boot.sh"'
+  run setsid bash -c 'echo y | bash "'"$REPO_ROOT"'/boot.sh"'
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Aborted"* ]]
+  [[ "$(stub_calls)" != *"git clone"* ]]
+  [[ "$(stub_calls)" != *"apt-get"* ]]
+}
+
+@test "aborts gracefully (not a hang or crash) when no controlling terminal is available at all" {
+  unset OMAWSL_ASSUME_YES
+  run setsid bash -c 'bash "'"$REPO_ROOT"'/boot.sh" < /dev/null'
   [ "$status" -eq 1 ]
   [[ "$output" == *"Aborted"* ]]
   [[ "$(stub_calls)" != *"git clone"* ]]

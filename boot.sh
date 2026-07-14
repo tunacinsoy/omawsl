@@ -41,8 +41,17 @@ Bring your WSL2 Ubuntu install up to Omakub-parity in one run.
 BANNER
 
   if [[ "${OMAWSL_ASSUME_YES:-}" != "1" ]]; then
+    # Read from /dev/tty, not stdin: under the real `curl | bash` one-liner,
+    # stdin is the script itself being fed to bash, not the user's real
+    # keystrokes - a bare `read` here would consume leftover script text
+    # (or nothing at all, once exhausted) instead of an actual answer. This
+    # is the same fix real curl|bash installers (e.g. rustup) use. Falls
+    # through to "Aborted." (via the `|| true`) if /dev/tty genuinely isn't
+    # available at all (no controlling terminal - a truly headless/CI
+    # context), matching the existing OMAWSL_ASSUME_YES escape hatch for
+    # that case rather than hanging or crashing.
     local reply=""
-    read -r -p "Continue? [y/N] " reply || true
+    read -r -p "Continue? [y/N] " reply < /dev/tty || true
     [[ "$reply" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
   fi
 
