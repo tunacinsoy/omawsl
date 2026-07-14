@@ -289,11 +289,38 @@ EOF
   [ "$status" -ne 0 ]
 }
 
-@test "PS1 uses Omakub's icon-only prompt with the path in the window title, not user@host:path" {
+@test "PS1 uses Omakub's icon-only prompt with the path in the window title, not user@host:path, when no font choice was ever persisted" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_font_choice"
+  mkdir -p "$HOME"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'echo "$PS1"'
   [ "$status" -eq 0 ]
   [[ "$output" != *'\u@\h'* ]]
+  [[ "$output" == *'\[\e]0;\w\a\]'* ]]
+}
+
+@test "PS1 stays icon-only when OMAWSL_FONT_MODE is Nerd Font" {
+  export HOME="$BATS_TEST_TMPDIR/home_nerd_font"
+  mkdir -p "$HOME/.local/state/omawsl"
+  printf 'OMAWSL_FONT_MODE="Nerd Font (enhanced)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "$PS1"'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'\u@\h'* ]]
+  [[ "$output" == *'\[\e]0;\w\a\]'* ]]
+}
+
+@test "PS1 falls back to a plain user@host:path prompt when OMAWSL_FONT_MODE is Cascadia Mono" {
+  # docs/windows-setup.md#fonts' zero-install option has no Nerd Font
+  # installed, so Omakub's icon-only PS1 glyph would render as a tofu box -
+  # confirmed on a real corporate machine without a Nerd Font.
+  export HOME="$BATS_TEST_TMPDIR/home_cascadia"
+  mkdir -p "$HOME/.local/state/omawsl"
+  printf 'OMAWSL_FONT_MODE="Cascadia Mono (zero install)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "$PS1"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'\u@\h:\w\$ '* ]]
   [[ "$output" == *'\[\e]0;\w\a\]'* ]]
 }
 

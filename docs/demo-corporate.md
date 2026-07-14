@@ -75,36 +75,43 @@
       Say: "One storage engine, containerized automatically — no manual `docker run` needed
       once Docker Desktop is actually up."
 
-- [ ] **9. `gh auth login` reminder lands (if not already run).**
+- [ ] **9. Font pick: Cascadia Mono (zero install).**
+      At the font picker, choose "Cascadia Mono (zero install)" — matching the Prep step above.
+      Say: "This is what tells the prompt itself, not just eza, to skip the icon glyph — pick
+      the option that doesn't match what you actually merged into Windows Terminal and the
+      prompt below breaks the same way a missing font always does." Point out the plain
+      `user@host:path` prompt on the next line as proof it took effect immediately.
+
+- [ ] **10. `gh auth login` reminder lands (if not already run).**
       Say: "GitHub Copilot CLI needs an authenticated `gh` session before its own install step
       — a fresh machine doesn't have one yet. omawsl isolates that one failure instead of
       aborting the whole run if you forget to do this first."
 
-- [ ] **10. windows-prereq-checklist appears.**
+- [ ] **11. windows-prereq-checklist appears.**
       Say: "This is the one moment omawsl asks you to step outside WSL. It only shows items
       relevant to what you actually picked — nothing generic." Point out the Docker Desktop
       item specifically — and that it's already installed from Prep, so there's nothing left
       to actually do here. Continue past it.
 
-- [ ] **11. Install runs.**
+- [ ] **12. Install runs.**
       Say, while apt/mise run in the background: "This is installing the terminal tooling —
       zellij, btop, fastfetch, lazygit, lazydocker, gh — plus Node, VS Code, and Postgres.
       Nothing here needed admin rights beyond what WSL's own sudo already grants inside the
       distro."
 
-- [ ] **12. Post-install tour: `bin/omawsl doctor`.**
+- [ ] **13. Post-install tour: `bin/omawsl doctor`.**
       ```bash
       bin/omawsl doctor
       ```
       Say: "doctor reports exactly what's installed versus still pending — this becomes your
       source of truth any time later, not just at first install."
 
-- [ ] **13. Editor tour: VS Code.**
+- [ ] **14. Editor tour: VS Code.**
       Open VS Code via `code .` from the WSL shell to show the Remote-WSL connection working.
       Say: "This connected automatically the first time `code` was reachable — no manual
       extension install needed on your end."
 
-- [ ] **14. ⭐ Theme cycling: `bin/omawsl theme`.**
+- [ ] **15. ⭐ Theme cycling: `bin/omawsl theme`.**
       ```bash
       bin/omawsl theme catppuccin
       bin/omawsl theme nord
@@ -117,7 +124,7 @@
       ⭐ Why this matters: Windows Terminal theme auto-sync — a real, visible payoff with zero
       manual Windows-side steps.
 
-- [ ] **15. ⭐ Granular install: `bin/omawsl install language terraform`.**
+- [ ] **16. ⭐ Granular install: `bin/omawsl install language terraform`.**
       ```bash
       bin/omawsl install language terraform
       ```
@@ -126,7 +133,7 @@
       the whole picker."
       ⭐ Why this matters: granular install/uninstall — you're not locked into first-run choices.
 
-- [ ] **16. ⭐ Granular uninstall: `bin/omawsl uninstall terraform` → `doctor` again.**
+- [ ] **17. ⭐ Granular uninstall: `bin/omawsl uninstall terraform` → `doctor` again.**
       ```bash
       bin/omawsl uninstall terraform
       bin/omawsl doctor
@@ -134,7 +141,7 @@
       Say: "And it comes back out just as cleanly — doctor confirms it's genuinely gone, not
       just unlisted."
 
-- [ ] **17. ⭐ Update mechanism: `bin/omawsl update`.**
+- [ ] **18. ⭐ Update mechanism: `bin/omawsl update`.**
       ```bash
       bin/omawsl update
       ```
@@ -144,7 +151,7 @@
       have no updater of their own. Nothing here needs an IT ticket."
       ⭐ Why this matters: omawsl is a full CLI you keep using, not a one-shot install script.
 
-- [ ] **18. Close.**
+- [ ] **19. Close.**
       Say: "Four things to remember: it's a full CLI, not just an installer. It updates
       everything, including the tools nobody else has a good update story for. You can add or
       remove any single piece without redoing the whole setup. And the one time it touches

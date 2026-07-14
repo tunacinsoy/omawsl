@@ -49,6 +49,7 @@ setup() {
   gum_stub_respond $'VS Code\nNeovim\nGitHub Copilot CLI'
   gum_stub_respond $'Go\nTerraform'
   gum_stub_respond ""
+  gum_stub_respond "Nerd Font (enhanced)"
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
 
@@ -95,6 +96,7 @@ setup() {
   gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond ""
+  gum_stub_respond "Cascadia Mono (zero install)"
   gum_stub_respond "Ada Lovelace"
   gum_stub_respond "ada@example.com"
 

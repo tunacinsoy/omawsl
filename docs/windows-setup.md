@@ -50,6 +50,11 @@ Two complete options - pick based on your own machine's restrictions, not a "cor
   else (text, colors, layout) is fully readable and functional. This trade-off is real, not a
   bug to report.
 
+`install.sh` also asks which of these two you set up, so the shell prompt itself (not just
+`eza`) matches: picking Cascadia Mono there falls back to a plain `user@host:path` prompt
+instead of Omakub's single-glyph one, which would otherwise render as a tofu box without a
+matching Nerd Font.
+
 **Both files also fix a real keybinding collision, not just the font.** Omakub's zellij
 keybindings (`configs/zellij.kdl`) bind `Alt+Left/Down/Up/Right` for pane focus - the same four
 chords Windows Terminal binds by default for moving focus between *its own* split panes. Since

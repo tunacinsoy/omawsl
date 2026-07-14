@@ -11,12 +11,13 @@ setup() {
   source "$REPO_ROOT/install/first-run-choices.sh"
 }
 
-@test "persists all five choices and exports them for the current run" {
+@test "persists all six choices and exports them for the current run" {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
   gum_stub_respond $'VS Code\nNeovim'
   gum_stub_respond $'Go\nRust'
   gum_stub_respond "PostgreSQL"
+  gum_stub_respond "Nerd Font (enhanced)"
 
   omawsl_first_run_choices
 
@@ -25,11 +26,14 @@ setup() {
   [ "$OMAWSL_EDITORS" = "VS Code,Neovim" ]
   [ "$OMAWSL_LANGUAGES" = "Go,Rust" ]
   [ "$OMAWSL_STORAGE" = "PostgreSQL" ]
+  [ "$OMAWSL_FONT_MODE" = "Nerd Font (enhanced)" ]
 
   run omawsl_load_choice OMAWSL_LANGUAGES
   [ "$output" = "Go,Rust" ]
   run omawsl_load_choice OMAWSL_STORAGE
   [ "$output" = "PostgreSQL" ]
+  run omawsl_load_choice OMAWSL_FONT_MODE
+  [ "$output" = "Nerd Font (enhanced)" ]
 }
 
 @test "selecting nothing in a multi-select persists an empty string, not an error" {
@@ -38,6 +42,7 @@ setup() {
   gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond ""
+  gum_stub_respond "Cascadia Mono (zero install)"
 
   run omawsl_first_run_choices
   [ "$status" -eq 0 ]

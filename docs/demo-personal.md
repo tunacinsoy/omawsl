@@ -73,18 +73,24 @@
 - [ ] **8. Pick storage: PostgreSQL + Redis.**
       Say: "Both come up as containers automatically — no manual `docker run` needed."
 
-- [ ] **9. Install runs.**
+- [ ] **9. Font pick: Nerd Font (enhanced).**
+      At the font picker, choose "Nerd Font (enhanced)" — matching the Prep step above.
+      Say: "This is what tells the prompt itself, not just eza, to use the icon glyph — pick the
+      option that matches whatever you actually merged into Windows Terminal, or this and eza's
+      icons disagree with each other." Point out the icon-only prompt on the next line.
+
+- [ ] **10. Install runs.**
       Say, while apt/mise run in the background, faster-paced than the corporate take: "Same
       terminal tooling under the hood as any omawsl install — zellij, btop, fastfetch,
       lazygit, lazydocker, gh."
 
-- [ ] **10. Post-install tour: `bin/omawsl doctor`.**
+- [ ] **11. Post-install tour: `bin/omawsl doctor`.**
       ```bash
       bin/omawsl doctor
       ```
       Say: "Every language, editor, and storage pick I just made, confirmed installed."
 
-- [ ] **11. ⭐ Theme cycling: `bin/omawsl theme`.**
+- [ ] **12. ⭐ Theme cycling: `bin/omawsl theme`.**
       ```bash
       bin/omawsl theme
       ```
@@ -95,21 +101,21 @@
       ⭐ Why this matters: Windows Terminal theme auto-sync — the one deliberate exception to
       omawsl never touching Windows-side files automatically.
 
-- [ ] **12. ⭐ Granular install: `bin/omawsl install language rust`.**
+- [ ] **13. ⭐ Granular install: `bin/omawsl install language rust`.**
       ```bash
       bin/omawsl install language rust
       ```
       Say: "Didn't pick Rust up front — adding it now, no picker replay."
       ⭐ Why this matters: granular install/uninstall.
 
-- [ ] **13. ⭐ Granular uninstall: `bin/omawsl uninstall rust` → `doctor` again.**
+- [ ] **14. ⭐ Granular uninstall: `bin/omawsl uninstall rust` → `doctor` again.**
       ```bash
       bin/omawsl uninstall rust
       bin/omawsl doctor
       ```
       Say: "And back out cleanly — confirmed gone, not just hidden."
 
-- [ ] **14. ⭐ Update mechanism: `bin/omawsl update`, with a real outdated tool.**
+- [ ] **15. ⭐ Update mechanism: `bin/omawsl update`, with a real outdated tool.**
       Before recording, deliberately leave one orphan tool (e.g. opencode) one version behind
       so this step has something real to show, not just an "up to date" no-op.
       ```bash
@@ -121,7 +127,7 @@
       ⭐ Why this matters: omawsl is a full CLI you keep using, and the update story covers
       tools nothing else updates for you.
 
-- [ ] **15. Close.**
+- [ ] **16. Close.**
       Say: "Four things: full CLI, not a one-shot script. Real updates, including the tools
       nobody else covers. Add or remove any single piece without redoing setup. And the one
       Windows-side touch is a visible, reversible local file edit." Point back at the one-liner
