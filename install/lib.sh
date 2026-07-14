@@ -96,12 +96,21 @@ omawsl_load_choice() {
 }
 
 # omawsl_docker_reachable
-# True if a `docker` CLI is already reachable on PATH. Shared by
+# True if `docker` is on PATH AND actually functional. Shared by
 # windows-prereq-checklist.sh (deciding whether Docker Desktop needs
 # flagging as a pending Windows-side prerequisite) and docker.sh's own
 # Desktop-mode detect-and-defer check (design spec §6, §9).
+#
+# Deliberately checks more than PATH presence: Docker Desktop drops a
+# 'docker' shim onto every WSL distro's PATH, even ones without WSL
+# integration enabled for that distro - it just prints a friendly "activate
+# WSL integration" nudge and exits non-zero rather than a real command not
+# found. A bare `command -v docker` check can't tell that apart from a
+# genuinely working docker - confirmed as a real false positive on a real
+# machine, which let later steps call `sudo docker ...` directly and hit a
+# raw "command not found" instead of omawsl's own graceful deferral message.
 omawsl_docker_reachable() {
-  command -v docker &>/dev/null
+  command -v docker &>/dev/null && docker info &>/dev/null
 }
 
 # omawsl_code_reachable

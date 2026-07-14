@@ -125,6 +125,22 @@ setup() {
   [ "$status" -eq 1 ]
 }
 
+@test "omawsl_docker_reachable: false when a docker command is on PATH but not functional" {
+  # Docker Desktop drops a 'docker' shim onto every WSL distro's PATH, even
+  # ones without WSL integration enabled - running it prints a friendly
+  # "activate WSL integration" nudge instead of a real docker invocation, and
+  # it exits non-zero. A bare `command -v docker` check can't tell this
+  # apart from a genuinely working docker - confirmed as a real false
+  # positive on a real machine (Docker Desktop installed, integration not
+  # enabled for that distro): the stub satisfied `command -v`, so omawsl
+  # believed docker was reachable and let later steps call `sudo docker ...`
+  # directly, which then failed with a raw "command not found" instead of
+  # omawsl's own graceful deferral message.
+  stub_command docker 1
+  run omawsl_docker_reachable
+  [ "$status" -eq 1 ]
+}
+
 @test "omawsl_code_reachable: true when a code command is present" {
   stub_command code
   run omawsl_code_reachable
