@@ -119,3 +119,38 @@ actually change.
 
 Two new files, `docs/demo-corporate.md` and `docs/demo-personal.md`, content-only (no code, no
 tests) — direct writing on `master`, no worktree needed.
+
+## Addendum (2026-07-14): Windows-side setup coverage
+
+The first version of both files started the live script at `wsl --install`, on the assumption
+that Windows itself (Windows Terminal, a Nerd Font, VS Code/Docker Desktop where relevant) was
+already set up. The user flagged this as non-exhaustive — the goal is a genuinely fresh Windows
+OS through to the full omawsl experience, matching `docs/windows-setup.md`'s existing coverage
+(Windows Terminal, fonts, Docker Desktop, VS Code, Cursor, GitHub Copilot CLI, the Windows
+Terminal theme sync) rather than skipping past it.
+
+**Split decision:** boring/slow installs (Windows Terminal from the Store, downloading and
+installing a font, installing VS Code/Docker Desktop) move into **Prep** (off-camera, checklist
+only) rather than the timed live script — matching the existing Prep section's own nature
+(clean-slate reset, repo-visibility). Fast/visual steps stay **live**: merging the Windows
+Terminal JSON fragment (~30 seconds, fixes font *and* the zellij `Alt+arrow` keybinding
+collision in one edit — real "show this" content), and everything already in the live script
+from `wsl --install` onward is unchanged.
+
+**This naturally makes Windows-side Prep asymmetric between the two files, reinforcing rather
+than fighting the existing corporate/personal split:**
+- **Personal:** editors (opencode + Claude Code CLI) and Docker mode (Engine) need nothing
+  Windows-side. Prep only grows by Windows Terminal + a Nerd Font (enhanced — full icon-glyph
+  rendering, matches the "full power-user tour" framing).
+- **Corporate:** VS Code, Docker Desktop, and GitHub Copilot CLI's `gh auth login` prerequisite
+  all have real Windows-side or pre-install requirements. Prep grows by Windows Terminal +
+  Cascadia Mono (the zero-install fallback font, bundled with Windows Terminal already — fits
+  "no IT ticket needed" better than requiring a separate font download/install on a possibly
+  locked-down machine) + VS Code + Docker Desktop.
+
+**New live step, both files, inserted right after the cold open and before `wsl --install`:**
+merge `windows/windows-terminal.json` (personal, paired with the enhanced font) or
+`windows/windows-terminal-fallback.json` (corporate, paired with Cascadia Mono) into Windows
+Terminal's real `settings.json`, narrating that it's a local JSON edit fixing two things at
+once (font family + the Alt-arrow collision with zellij), sourced from files already in the
+repo, not invented for the demo.

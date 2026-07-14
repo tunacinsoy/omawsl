@@ -366,3 +366,26 @@ Open `docs/demo-personal.md` and confirm against
 git add docs/demo-personal.md
 git commit -m "docs: add personal-PC live-demo script"
 ```
+
+---
+
+## Addendum (2026-07-14): Windows-side setup coverage
+
+After both files above were written and committed, the user flagged that they didn't cover
+Windows-side setup (Windows Terminal, fonts, VS Code/Docker Desktop installs) — the demo needs
+to cover a genuinely fresh Windows OS, not just a fresh WSL2 distro. See
+`docs/superpowers/specs/2026-07-14-omawsl-demo-docs-design.md`'s own addendum for the full
+design delta. Applied directly to both files (no new tasks needed — same two files, same
+direct-on-master approach):
+
+- Both files' Prep sections gained: installing Windows Terminal from the Store, a font choice
+  (Cascadia Mono zero-install for corporate, matching its "no IT ticket" framing; the enhanced
+  Nerd Font for personal), and — corporate only — installing VS Code and Docker Desktop
+  (personal's picks need nothing Windows-side, so nothing was added there beyond the terminal
+  and font).
+- Both files' live scripts gained one new step 2 (before `wsl --install`): merging the relevant
+  `windows/windows-terminal*.json` fragment into Windows Terminal's real `settings.json` — kept
+  live rather than Prep since it's fast (~30 seconds) and demonstrates a real fix (font +
+  the zellij `Alt+arrow` keybinding collision) rather than being a boring wait-for-installer step.
+- All step numbers after the new step 2 shifted by +1 in both files; content and ⭐ beats
+  otherwise unchanged.
