@@ -127,3 +127,31 @@ EOF
   [ -f "$settings.bak" ]
   [[ "$(cat "$settings")" == "$original" ]]
 }
+
+@test "omawsl_theme_set_vscode_settings handles a theme name with parentheses and spaces (Monokai Pro (Filter Ristretto))" {
+  local settings="$BATS_TEST_TMPDIR/settings.json"
+  cat > "$settings" <<'EOF'
+{
+  // editor settings
+  "editor.fontSize": 14
+}
+EOF
+  run omawsl_theme_set_vscode_settings "$settings" "Monokai Pro (Filter Ristretto)"
+  [ "$status" -eq 0 ]
+  grep -qF '// editor settings' "$settings"
+  [[ "$(omawsl_strip_jsonc_comments "$settings" | jq -r '.["workbench.colorTheme"]')" == "Monokai Pro (Filter Ristretto)" ]]
+}
+
+@test "omawsl_theme_set_vscode_settings handles a theme name with a colon (Ocean Green: Dark)" {
+  local settings="$BATS_TEST_TMPDIR/settings.json"
+  cat > "$settings" <<'EOF'
+{
+  "workbench.colorTheme": "Default Dark Modern", // active theme
+  "editor.fontSize": 14
+}
+EOF
+  run omawsl_theme_set_vscode_settings "$settings" "Ocean Green: Dark"
+  [ "$status" -eq 0 ]
+  grep -qF '// active theme' "$settings"
+  [[ "$(omawsl_strip_jsonc_comments "$settings" | jq -r '.["workbench.colorTheme"]')" == "Ocean Green: Dark" ]]
+}

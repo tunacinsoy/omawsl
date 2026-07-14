@@ -30,6 +30,17 @@ omawsl_strip_jsonc_comments() {
 # backs up to <settings_file>.bak first and re-validates its own edit
 # before committing - a corrupted settings.json breaks the user's whole
 # editor, not just the theme.
+#
+# <color_theme> is NOT letters-and-spaces-only - real values include
+# "Ocean Green: Dark", "Monokai Pro (Filter Ristretto)", "Rosé Pine
+# Dawn" (see themes/*/vscode.sh). The JSONC-fallback path below never
+# interpolates it into a sed s/// or awk sub() replacement (both treat
+# '&' and '\' specially, and a stray '/' would break a sed script that
+# uses '/' as its delimiter, which could abort the whole `bin/omawsl
+# theme` run under set -e) - it's spliced in via plain bash string
+# concatenation instead, then reprinted with awk's `print` (never
+# `sub()`/`gsub()`), which has no replacement-text metacharacter
+# handling at all.
 omawsl_theme_set_vscode_settings() {
   local settings_file="$1" color_theme="$2"
   [[ -f "$settings_file" ]] || return 0
@@ -41,7 +52,8 @@ omawsl_theme_set_vscode_settings() {
     return 0
   }
 
-  # Fast path: strict JSON, no comments - merge directly with jq.
+  # Fast path: strict JSON, no comments - merge directly with jq. jq's
+  # --arg safely handles any theme name, no escaping concerns here.
   if jq empty "$settings_file" 2>/dev/null; then
     local tmp
     tmp="$(mktemp)"
@@ -66,8 +78,8 @@ omawsl_theme_set_vscode_settings() {
   omawsl_strip_jsonc_comments "$settings_file" > "$stripped"
 
   if ! jq empty "$stripped" 2>/dev/null; then
-    echo "omawsl: $settings_file isn't valid JSON - skipping the color sync."
-    echo "See docs/windows-setup.md#vscode-theme for the manual steps."
+    echo "omawsl: $settings_file isn't valid JSON - skipping the color sync." >&2
+    echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
     rm -f "$stripped"
     return 0
   fi
@@ -75,15 +87,31 @@ omawsl_theme_set_vscode_settings() {
   local tmp_edited
   tmp_edited="$(mktemp)"
   if jq -e 'has("workbench.colorTheme")' "$stripped" >/dev/null; then
-    sed -E "s/(\"workbench\.colorTheme\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"/\1\"$color_theme\"/" "$settings_file" > "$tmp_edited"
+    local line_no old_line new_line
+    line_no="$(grep -n '"workbench\.colorTheme"' "$settings_file" | head -1 | cut -d: -f1)"
+    old_line="$(sed -n "${line_no}p" "$settings_file")"
+    if [[ "$old_line" =~ ^(.*\"workbench\.colorTheme\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"(.*)$ ]]; then
+      printf -v new_line '%s"%s"%s' "${BASH_REMATCH[1]}" "$color_theme" "${BASH_REMATCH[2]}"
+      awk -v n="$line_no" -v content="$new_line" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
+    else
+      cp "$settings_file" "$tmp_edited"
+    fi
   else
-    awk -v val="$color_theme" '
-      !done && /\{/ {
-        sub(/\{/, "{\n  \"workbench.colorTheme\": \"" val "\",")
-        done = 1
-      }
-      { print }
-    ' "$settings_file" > "$tmp_edited"
+    # Inserts right after the file's first '{' (design spec: this is
+    # also the documented insert-point risk the rollback test below
+    # exercises - a '{' inside a comment before the real opening brace
+    # would be matched here too, and re-validation below catches it).
+    # If the object has no other members after the inserted key (a
+    # JSONC file that's only comments), the trailing comma this leaves
+    # makes the result invalid JSON too - also caught by re-validation
+    # below, same graceful-skip outcome.
+    local line_no old_line before after new_content
+    line_no="$(grep -n '{' "$settings_file" | head -1 | cut -d: -f1)"
+    old_line="$(sed -n "${line_no}p" "$settings_file")"
+    before="${old_line%%\{*}"
+    after="${old_line#*\{}"
+    printf -v new_content '%s{\n  "workbench.colorTheme": "%s",\n%s' "$before" "$color_theme" "$after"
+    awk -v n="$line_no" -v content="$new_content" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
   fi
 
   # Re-validate the result before committing - if our own edit produced
