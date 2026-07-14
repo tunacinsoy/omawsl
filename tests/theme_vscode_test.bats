@@ -11,6 +11,7 @@ setup() {
   mkdir -p "$WINHOME"
 
   cmd.exe() {
+    echo "cmd.exe $*" >> "$STUB_LOG"
     if [[ "$*" == *USERPROFILE* ]]; then
       printf 'C:\\Users\\testuser\r\n'
     fi
@@ -60,6 +61,34 @@ setup() {
   run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" != *"code --install-extension"* ]]
+}
+
+@test "omawsl_theme_apply_vscode also installs the extension via cmd.exe, not just the WSL-side code CLI" {
+  # code --install-extension invoked directly from a WSL shell only ever
+  # reaches the Remote-WSL extension host (~/.vscode-server/extensions),
+  # never the native Windows-side store, even though `code` itself
+  # resolves to the same native binary via /mnt/c interop - confirmed
+  # live on a real machine (a fresh extension installed the WSL-side way
+  # never appeared in `code --list-extensions` run natively on Windows).
+  # Routing the same install through `cmd.exe /c "..."` - a genuinely
+  # native Windows process - lands it in the native store instead, also
+  # confirmed live. Without this, workbench.colorTheme in the native
+  # settings.json points at a theme VS Code can never resolve, so the
+  # native app silently never shows the new theme.
+  stub_command code
+  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"cmd.exe /c set NODE_NO_WARNINGS=1&&code --install-extension enkia.tokyo-night"* ]]
+}
+
+@test "omawsl_theme_apply_vscode skips the cmd.exe extension install when cmd.exe isn't reachable, but still installs via the WSL-side code CLI" {
+  unset -f cmd.exe
+  stub_hide_command cmd.exe
+  stub_command code
+  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"code --install-extension enkia.tokyo-night"* ]]
+  [[ "$(stub_calls)" != *"cmd.exe /c"* ]]
 }
 
 @test "omawsl_theme_set_vscode_settings backs up the file before editing" {

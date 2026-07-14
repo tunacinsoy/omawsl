@@ -210,5 +210,27 @@ omawsl_theme_apply_vscode() {
     # call. This is the standard Node.js env var for suppressing runtime
     # deprecation warnings without touching stderr for genuine errors.
     NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null
+
+    # `code --install-extension` invoked directly from this WSL shell
+    # only ever reaches the Remote-WSL extension host
+    # (~/.vscode-server/extensions) - never the native Windows-side
+    # store (%USERPROFILE%\.vscode\extensions) - even though `code`
+    # itself resolves to the same native binary via /mnt/c interop.
+    # Confirmed live: a fresh extension installed the WSL-side way never
+    # appeared in `code --list-extensions` run natively on Windows, only
+    # in ~/.vscode-server/extensions; installing the identical extension
+    # via `cmd.exe /c "code --install-extension ..."` - a genuinely
+    # native Windows process - from the same WSL shell landed it in the
+    # native store instead. Without this, the native settings.json's
+    # workbench.colorTheme (see omawsl_theme_ensure_vscode_settings_exists
+    # above) points at a theme VS Code can never resolve there, so the
+    # native app silently never shows the new theme - this, not the
+    # settings.json edit itself, is what broke native theme sync.
+    # Best-effort (|| true): the WSL-side install above already
+    # succeeded, so a failure here shouldn't fail the rest of
+    # `bin/omawsl theme`.
+    if command -v cmd.exe &>/dev/null; then
+      cmd.exe /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
+    fi
   fi
 }

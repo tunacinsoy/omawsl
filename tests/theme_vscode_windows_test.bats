@@ -11,6 +11,7 @@ setup() {
   mkdir -p "$WINHOME"
 
   cmd.exe() {
+    echo "cmd.exe $*" >> "$STUB_LOG"
     if [[ "$*" == *USERPROFILE* ]]; then
       printf 'C:\\Users\\testuser\r\n'
     fi
