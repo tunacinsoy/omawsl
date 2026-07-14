@@ -7,6 +7,21 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
+  WINHOME="$BATS_TEST_TMPDIR/winhome"
+  mkdir -p "$WINHOME"
+
+  cmd.exe() {
+    if [[ "$*" == *USERPROFILE* ]]; then
+      printf 'C:\\Users\\testuser\r\n'
+    fi
+  }
+  export -f cmd.exe
+
+  wslpath() {
+    echo "$WINHOME"
+  }
+  export -f wslpath
+
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/themes/set-vscode-theme.sh"
   command -v jq &>/dev/null || skip "jq not installed on this test host"

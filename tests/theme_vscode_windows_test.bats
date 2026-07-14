@@ -67,10 +67,13 @@ EOF
 
 @test "omawsl_theme_apply_vscode skips the native sync entirely when the Windows profile can't be resolved, but still syncs Remote-WSL settings" {
   unset -f cmd.exe
+  stub_hide_command cmd.exe
   mkdir -p "$HOME/.vscode-server/data/Machine"
   cp "$REPO_ROOT/configs/vscode.json" "$HOME/.vscode-server/data/Machine/settings.json"
 
   run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
   [ "$status" -eq 0 ]
   [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" == "Tokyo Night" ]]
+  [ ! -d "$WINHOME/AppData/Roaming/Code" ]
+  [ ! -d "$WINHOME/AppData/Roaming/Cursor" ]
 }

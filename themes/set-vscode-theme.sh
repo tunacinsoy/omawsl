@@ -137,6 +137,13 @@ omawsl_theme_apply_vscode() {
   fi
 
   if omawsl_code_reachable; then
+    # NODE_NO_WARNINGS=1: VS Code's `code` CLI is itself a Node.js binary
+    # and emits a `[DEP0169] DeprecationWarning: url.parse()...` to
+    # stderr on every fresh extension install - confirmed Microsoft's own
+    # tooling noise (reproduced in isolation, unrelated to omawsl), but
+    # real, alarming-looking, and repeated on every `bin/omawsl theme`
+    # call. This is the standard Node.js env var for suppressing runtime
+    # deprecation warnings without touching stderr for genuine errors.
     NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null
   fi
 }
