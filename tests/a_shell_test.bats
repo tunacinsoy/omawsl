@@ -78,3 +78,209 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" == *"MISE_ACTIVATED_MARKER"* ]]
 }
+
+# --- aliases parity (docs/superpowers/specs/2026-07-14-omawsl-aliases-parity-design.md) ---
+
+@test "cat is aliased to batcat when batcat is on PATH (apt's bat package installs the binary as batcat)" {
+  export HOME="$BATS_TEST_TMPDIR/home_with_batcat"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/batcat"
+  chmod +x "$HOME/.local/bin/batcat"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias cat'
+  [ "$status" -eq 0 ]
+  [[ "$output" == "alias cat='batcat --paging=never'" ]]
+}
+
+@test "cat is not aliased when batcat is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_batcat"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command batcat
+  run bash -i -c 'alias cat'
+  [ "$status" -ne 0 ]
+}
+
+@test "fd is aliased to fdfind when fdfind is on PATH (apt's fd-find package installs the binary as fdfind)" {
+  export HOME="$BATS_TEST_TMPDIR/home_with_fdfind"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/fdfind"
+  chmod +x "$HOME/.local/bin/fdfind"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias fd'
+  [ "$status" -eq 0 ]
+  [[ "$output" == "alias fd='fdfind'" ]]
+}
+
+@test "ff previews with batcat when both fzf and batcat are on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_with_ff"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/fzf"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/batcat"
+  chmod +x "$HOME/.local/bin/fzf" "$HOME/.local/bin/batcat"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias ff'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"batcat --style=numbers --color=always"* ]]
+}
+
+@test "ff is not defined when batcat is missing even if fzf is present" {
+  export HOME="$BATS_TEST_TMPDIR/home_ff_no_batcat"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/fzf"
+  chmod +x "$HOME/.local/bin/fzf"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command batcat
+  export PATH="$HOME/.local/bin:$PATH"
+  run bash -i -c 'alias ff'
+  [ "$status" -ne 0 ]
+}
+
+@test "ls/lsa/lt/lta get eza's long-format icon flags when eza is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_with_eza"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/eza"
+  chmod +x "$HOME/.local/bin/eza"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias ls; alias lsa; alias lt; alias lta'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias ls='eza -lh --group-directories-first --icons=auto'"* ]]
+  [[ "$output" == *"alias lsa='ls -a'"* ]]
+  [[ "$output" == *"alias lt='eza --tree --level=2 --long --icons --git'"* ]]
+  [[ "$output" == *"alias lta='lt -a'"* ]]
+}
+
+@test "directory-nav aliases (.. ... ....) are always defined" {
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c "alias ..; alias ...; alias ...."
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias ..='cd ..'"* ]]
+  [[ "$output" == *"alias ...='cd ../..'"* ]]
+  [[ "$output" == *"alias ....='cd ../../..'"* ]]
+}
+
+@test "cd is aliased to zoxide's z when zoxide is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_with_zoxide"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/zoxide"
+  chmod +x "$HOME/.local/bin/zoxide"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias cd'
+  [ "$status" -eq 0 ]
+  [[ "$output" == "alias cd='z'" ]]
+}
+
+@test "cd is not aliased when zoxide is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_zoxide"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command zoxide
+  run bash -i -c 'alias cd'
+  [ "$status" -ne 0 ]
+}
+
+@test "git shortcut and git commit aliases are defined when git is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_with_git"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/git"
+  chmod +x "$HOME/.local/bin/git"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias g; alias gcm; alias gcam; alias gcad'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias g='git'"* ]]
+  [[ "$output" == *"alias gcm='git commit -m'"* ]]
+  [[ "$output" == *"alias gcam='git commit -a -m'"* ]]
+  [[ "$output" == *"alias gcad='git commit -a --amend'"* ]]
+}
+
+@test "git shortcut and git commit aliases are not defined when git is missing" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_git"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command git
+  run bash -i -c 'alias g'
+  [ "$status" -ne 0 ]
+}
+
+@test "d/r/lzg/lzd shortcuts are defined when their tools are on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_with_tool_shortcuts"
+  mkdir -p "$HOME/.local/bin"
+  for tool in docker rails lazygit lazydocker; do
+    printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/$tool"
+    chmod +x "$HOME/.local/bin/$tool"
+  done
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias d; alias r; alias lzg; alias lzd'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias d='docker'"* ]]
+  [[ "$output" == *"alias r='rails'"* ]]
+  [[ "$output" == *"alias lzg='lazygit'"* ]]
+  [[ "$output" == *"alias lzd='lazydocker'"* ]]
+}
+
+@test "d/r/lzg/lzd shortcuts are not defined when their tools are missing" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_tool_shortcuts"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command docker rails lazygit lazydocker
+  run bash -i -c 'alias d 2>&1; alias r 2>&1; alias lzg 2>&1; alias lzd 2>&1'
+  [[ "$output" != *"alias d="* ]]
+  [[ "$output" != *"alias r="* ]]
+  [[ "$output" != *"alias lzg="* ]]
+  [[ "$output" != *"alias lzd="* ]]
+}
+
+@test "n opens nvim on the current directory when called with no arguments" {
+  export HOME="$BATS_TEST_TMPDIR/home_n_no_args"
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/nvim" <<'EOF'
+#!/usr/bin/env bash
+echo "nvim called with: $*" > "$HOME/n_invocation"
+EOF
+  chmod +x "$HOME/.local/bin/nvim"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'n'
+  [ "$status" -eq 0 ]
+  [ -f "$HOME/n_invocation" ]
+  [[ "$(cat "$HOME/n_invocation")" == "nvim called with: ." ]]
+}
+
+@test "n passes arguments through to nvim when called with arguments" {
+  export HOME="$BATS_TEST_TMPDIR/home_n_with_args"
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/nvim" <<'EOF'
+#!/usr/bin/env bash
+echo "nvim called with: $*" > "$HOME/n_invocation"
+EOF
+  chmod +x "$HOME/.local/bin/nvim"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'n foo.txt bar.txt'
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/n_invocation")" == "nvim called with: foo.txt bar.txt" ]]
+}
+
+@test "n is not defined when nvim is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_n_missing"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command nvim
+  run bash -i -c 'type -t n'
+  [ "$status" -ne 0 ]
+}
+
+@test "PS1 uses Omakub's icon-only prompt with the path in the window title, not user@host:path" {
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "$PS1"'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'\u@\h'* ]]
+  [[ "$output" == *'\[\e]0;\w\a\]'* ]]
+}

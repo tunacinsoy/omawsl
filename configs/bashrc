@@ -32,42 +32,97 @@ if [ -f ~/.inputrc ]; then
   export INPUTRC=~/.inputrc
 fi
 
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+# Omakub-parity icon-only prompt: a single Nerd Font glyph in the prompt
+# itself, path shown in the terminal tab/window title instead of inline.
+PS1=$' '
+PS1="\[\e]0;\w\a\]$PS1"
 
 if command -v eza &>/dev/null; then
-  alias ls='eza'
+  alias ls='eza -lh --group-directories-first --icons=auto'
+  alias lsa='ls -a'
   alias ll='eza -la'
+  alias lt='eza --tree --level=2 --long --icons --git'
+  alias lta='lt -a'
   alias tree='eza --tree'
 else
   alias ll='ls -la'
 fi
 
-if command -v bat &>/dev/null; then
-  alias cat='bat --paging=never'
+# apt's `bat` package installs its binary as `batcat` (name collision with
+# an unrelated pre-existing Debian package called `bat`) - checking for
+# `bat` here would never be true on Ubuntu.
+if command -v batcat &>/dev/null; then
+  alias cat='batcat --paging=never'
+fi
+
+# Same Debian/Ubuntu package-name-collision situation as bat/batcat above:
+# apt's `fd-find` package installs its binary as `fdfind`.
+if command -v fdfind &>/dev/null; then
+  alias fd='fdfind'
+fi
+
+if command -v fzf &>/dev/null && command -v batcat &>/dev/null; then
+  alias ff="fzf --preview 'batcat --style=numbers --color=always {}'"
 fi
 
 if command -v zoxide &>/dev/null; then
   eval "$(zoxide init bash)"
+  alias cd='z'
 fi
+
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
 
 if command -v fzf &>/dev/null; then
   # shellcheck disable=SC1091
   source /usr/share/doc/fzf/examples/key-bindings.bash 2>/dev/null || true
 fi
 
-# Must come before the mise check below: mise itself (like any tool
-# installed under $HOME/.local/bin, e.g. nvim above) isn't on PATH until
-# this runs, so checking for it first would always fail and silently skip
-# activation - confirmed as a real bug on an actual WSL2 run (`mise
-# --version` worked from a later shell only because this export ran
-# unconditionally, but `mise activate` never fired, so `go`/`ruby`/`gem`
-# were never actually reachable).
+if command -v git &>/dev/null; then
+  alias g='git'
+  alias gcm='git commit -m'
+  alias gcam='git commit -a -m'
+  alias gcad='git commit -a --amend'
+fi
+
+if command -v docker &>/dev/null; then
+  alias d='docker'
+fi
+
+if command -v lazygit &>/dev/null; then
+  alias lzg='lazygit'
+fi
+
+if command -v nvim &>/dev/null; then
+  n() { if [ "$#" -eq 0 ]; then nvim .; else nvim "$@"; fi; }
+fi
+
+# Must come before the lazydocker/mise/rails checks below: those tools
+# (like nvim above) aren't on PATH until this runs, so checking for them
+# first would always fail and silently skip - confirmed as a real bug on
+# an actual WSL2 run for mise (`mise --version` worked from a later shell
+# only because this export ran unconditionally, but `mise activate` never
+# fired, so `go`/`ruby`/`gem` were never actually reachable).
 if [ -d "$HOME/.local/bin" ]; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
+# lazydocker has no apt package - it installs to $HOME/.local/bin, only
+# reachable after the PATH export above.
+if command -v lazydocker &>/dev/null; then
+  alias lzd='lazydocker'
+fi
+
 if command -v mise &>/dev/null; then
   eval "$(mise activate bash)"
+fi
+
+# rails isn't installed via apt - it's `gem install`'d under mise's
+# managed Ruby, so its binary only becomes reachable once mise's shims are
+# on PATH via the activation above, not any earlier.
+if command -v rails &>/dev/null; then
+  alias r='rails'
 fi
 
 # opencode's installer places its binary here, not $HOME/.local/bin like
