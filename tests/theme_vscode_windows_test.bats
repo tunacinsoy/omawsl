@@ -77,3 +77,28 @@ EOF
   [ ! -d "$WINHOME/AppData/Roaming/Code" ]
   [ ! -d "$WINHOME/AppData/Roaming/Cursor" ]
 }
+
+@test "omawsl_theme_apply_vscode creates the native settings.json when the app is installed but has never had a User settings.json" {
+  # The app's own top-level data dir (Roaming/Code) already existing is the
+  # signal VS Code is actually installed and has run - real-world case
+  # confirmed on a live machine where VS Code has years of cache/history but
+  # the user never once opened Settings UI/JSON, so no settings.json ever
+  # existed for the old "only edit an existing file" logic to find.
+  local code_dir="$WINHOME/AppData/Roaming/Code"
+  mkdir -p "$code_dir"
+  [ ! -f "$code_dir/User/settings.json" ]
+
+  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  [ "$status" -eq 0 ]
+  [ -f "$code_dir/User/settings.json" ]
+  [[ "$(jq -r '.["workbench.colorTheme"]' "$code_dir/User/settings.json")" == "Tokyo Night" ]]
+}
+
+@test "omawsl_theme_apply_vscode does not create a settings.json for an app whose top-level data dir doesn't exist at all" {
+  # Distinguishes "app installed, never customized" (create it) from "app
+  # not installed" (don't invent config for software that isn't there).
+  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  [ "$status" -eq 0 ]
+  [ ! -d "$WINHOME/AppData/Roaming/Code" ]
+  [ ! -d "$WINHOME/AppData/Roaming/Cursor" ]
+}

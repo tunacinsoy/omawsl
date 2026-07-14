@@ -112,6 +112,34 @@ EOF
   [[ "$(cat "$settings")" == "not valid json {{{" ]]
 }
 
+@test "omawsl_theme_ensure_vscode_settings_exists creates an empty settings.json when the app's data dir exists but the file doesn't" {
+  local app_dir="$BATS_TEST_TMPDIR/AppRoot"
+  mkdir -p "$app_dir"
+  local settings="$app_dir/User/settings.json"
+  run omawsl_theme_ensure_vscode_settings_exists "$settings"
+  [ "$status" -eq 0 ]
+  [ -f "$settings" ]
+  [[ "$(jq -c '.' "$settings")" == "{}" ]]
+}
+
+@test "omawsl_theme_ensure_vscode_settings_exists does nothing when the app's data dir doesn't exist" {
+  local settings="$BATS_TEST_TMPDIR/NoSuchApp/User/settings.json"
+  run omawsl_theme_ensure_vscode_settings_exists "$settings"
+  [ "$status" -eq 0 ]
+  [ ! -f "$settings" ]
+  [ ! -d "$BATS_TEST_TMPDIR/NoSuchApp" ]
+}
+
+@test "omawsl_theme_ensure_vscode_settings_exists does nothing when the settings.json already exists" {
+  local app_dir="$BATS_TEST_TMPDIR/AppRoot"
+  mkdir -p "$app_dir/User"
+  local settings="$app_dir/User/settings.json"
+  echo '{"editor.fontSize": 14}' > "$settings"
+  run omawsl_theme_ensure_vscode_settings_exists "$settings"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$settings")" == '{"editor.fontSize": 14}' ]]
+}
+
 @test "omawsl_theme_set_vscode_settings rolls back and leaves the file untouched if its own edit would corrupt the JSON" {
   local settings="$BATS_TEST_TMPDIR/settings.json"
   cat > "$settings" <<'EOF'

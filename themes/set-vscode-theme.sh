@@ -136,22 +136,55 @@ omawsl_theme_set_vscode_settings() {
   rm -f "$stripped" "$tmp_edited" "$recheck"
 }
 
+# omawsl_theme_ensure_vscode_settings_exists <settings_file>
+# Creates an empty `{}` settings.json at <settings_file> if it doesn't
+# exist yet, but only when the app's own top-level data directory
+# (the grandparent of <settings_file> - e.g. .../Code, the parent of
+# .../Code/User/settings.json) already exists - that directory is only
+# ever created by the app itself, so its presence is a real signal
+# VS Code/Cursor is actually installed (and has run at least once),
+# without requiring a separate "is this app installed" check. Real-world
+# gap this closes: a user can have VS Code installed and used for
+# months (real cache/history/logs) while never once opening Settings
+# UI/JSON, so no settings.json exists yet for omawsl_theme_set_vscode_settings's
+# "only edit an existing file" rule to find - confirmed live, `bin/omawsl
+# theme` silently did nothing to the native app on exactly this kind of
+# machine. Never creates anything for an app that isn't installed at
+# all (data dir absent), matching the "no automatic Windows-side
+# installs" spirit - this only ever populates config for software
+# that's already there. Same shape as install/terminal/app-vscode.sh's
+# omawsl_install_vscode_settings deploying the Remote-WSL machine
+# settings file ahead of time ("inert until VS Code exists... applies
+# automatically once it does"), mirrored here for the native side.
+omawsl_theme_ensure_vscode_settings_exists() {
+  local settings_file="$1"
+  [[ -f "$settings_file" ]] && return 0
+  local app_dir
+  app_dir="$(dirname "$(dirname "$settings_file")")"
+  [[ -d "$app_dir" ]] || return 0
+  mkdir -p "$(dirname "$settings_file")"
+  echo '{}' > "$settings_file"
+}
+
 # omawsl_theme_apply_vscode <color_theme> <extension_id>
 # Applies the theme to VS Code's and Cursor's Remote-WSL settings.json
 # (whichever exist) and, if a Windows profile can be resolved via
 # omawsl_windows_userprofile, to their native Windows-side
 # settings.json too (design spec "Sync theme to native Windows-side VS
 # Code/Cursor" - Cursor reads the same workbench.colorTheme key and
-# shares this same step). Silently skips the native sync if the
-# profile can't be resolved (e.g. not real WSL2) - the Remote-WSL sync
-# and extension install below are unaffected either way. Installs the
-# VS Code extension via `code --install-extension` only when `code` is
-# reachable - matches app-vscode.sh's own detect-and-defer shape
-# (Phase 4). Deliberately does NOT attempt `cursor --install-extension`,
-# same reasoning as app-cursor.sh (Phase 4): Cursor has its own
-# extension distribution and commonly blocks Microsoft-published
-# extensions from its marketplace, so this only touches what's clearly
-# specified (shared settings keys).
+# shares this same step) - creating a minimal settings.json first via
+# omawsl_theme_ensure_vscode_settings_exists if the app is installed
+# but has never had one (see that function's own comment). Silently
+# skips the native sync if the profile can't be resolved (e.g. not
+# real WSL2) - the Remote-WSL sync and extension install below are
+# unaffected either way. Installs the VS Code extension via `code
+# --install-extension` only when `code` is reachable - matches
+# app-vscode.sh's own detect-and-defer shape (Phase 4). Deliberately
+# does NOT attempt `cursor --install-extension`, same reasoning as
+# app-cursor.sh (Phase 4): Cursor has its own extension distribution
+# and commonly blocks Microsoft-published extensions from its
+# marketplace, so this only touches what's clearly specified (shared
+# settings keys).
 omawsl_theme_apply_vscode() {
   local color_theme="$1" extension_id="$2"
 
@@ -160,8 +193,12 @@ omawsl_theme_apply_vscode() {
 
   local profile
   if profile="$(omawsl_windows_userprofile)"; then
-    omawsl_theme_set_vscode_settings "$profile/AppData/Roaming/Code/User/settings.json" "$color_theme"
-    omawsl_theme_set_vscode_settings "$profile/AppData/Roaming/Cursor/User/settings.json" "$color_theme"
+    local code_settings="$profile/AppData/Roaming/Code/User/settings.json"
+    local cursor_settings="$profile/AppData/Roaming/Cursor/User/settings.json"
+    omawsl_theme_ensure_vscode_settings_exists "$code_settings"
+    omawsl_theme_ensure_vscode_settings_exists "$cursor_settings"
+    omawsl_theme_set_vscode_settings "$code_settings" "$color_theme"
+    omawsl_theme_set_vscode_settings "$cursor_settings" "$color_theme"
   fi
 
   if omawsl_code_reachable; then
