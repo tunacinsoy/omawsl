@@ -110,11 +110,14 @@ omawsl_theme_set_vscode_settings() {
 
 # omawsl_theme_apply_vscode <color_theme> <extension_id>
 # Applies the theme to VS Code's and Cursor's Remote-WSL settings.json
-# (whichever exist) and, if a Windows profile can be resolved, to their
-# native Windows-side settings.json too (design spec "Sync theme to
-# native Windows-side VS Code/Cursor" - Cursor reads the same
-# workbench.colorTheme key and shares this same step). Installs the VS
-# Code extension via `code --install-extension` only when `code` is
+# (whichever exist) and, if a Windows profile can be resolved via
+# omawsl_windows_userprofile, to their native Windows-side
+# settings.json too (design spec "Sync theme to native Windows-side VS
+# Code/Cursor" - Cursor reads the same workbench.colorTheme key and
+# shares this same step). Silently skips the native sync if the
+# profile can't be resolved (e.g. not real WSL2) - the Remote-WSL sync
+# and extension install below are unaffected either way. Installs the
+# VS Code extension via `code --install-extension` only when `code` is
 # reachable - matches app-vscode.sh's own detect-and-defer shape
 # (Phase 4). Deliberately does NOT attempt `cursor --install-extension`,
 # same reasoning as app-cursor.sh (Phase 4): Cursor has its own
@@ -127,14 +130,13 @@ omawsl_theme_apply_vscode() {
   omawsl_theme_set_vscode_settings "$HOME/.vscode-server/data/Machine/settings.json" "$color_theme"
   omawsl_theme_set_vscode_settings "$HOME/.cursor-server/data/Machine/settings.json" "$color_theme"
 
+  local profile
+  if profile="$(omawsl_windows_userprofile)"; then
+    omawsl_theme_set_vscode_settings "$profile/AppData/Roaming/Code/User/settings.json" "$color_theme"
+    omawsl_theme_set_vscode_settings "$profile/AppData/Roaming/Cursor/User/settings.json" "$color_theme"
+  fi
+
   if omawsl_code_reachable; then
-    # NODE_NO_WARNINGS=1: VS Code's `code` CLI is itself a Node.js binary
-    # and emits a `[DEP0169] DeprecationWarning: url.parse()...` to
-    # stderr on every fresh extension install - confirmed Microsoft's own
-    # tooling noise (reproduced in isolation, unrelated to omawsl), but
-    # real, alarming-looking, and repeated on every `bin/omawsl theme`
-    # call. This is the standard Node.js env var for suppressing runtime
-    # deprecation warnings without touching stderr for genuine errors.
     NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null
   fi
 }
