@@ -18,7 +18,8 @@ here instead of repeating these steps.
 | Editors & AI tooling: VS Code | Install VS Code, enable the WSL extension | [#vscode](#vscode) |
 | Editors & AI tooling: Cursor | Install Cursor, connect to this WSL distro once | [#cursor](#cursor) |
 | Editors & AI tooling: GitHub Copilot CLI | Run `gh auth login` before `install.sh` | [#github-copilot-cli](#github-copilot-cli) |
-| After running `bin/omawsl theme` | Nothing - the color sync happens automatically | [#windows-terminal-theme](#windows-terminal-theme) |
+| After running `bin/omawsl theme` (Windows Terminal) | Nothing - the color sync happens automatically | [#windows-terminal-theme](#windows-terminal-theme) |
+| After running `bin/omawsl theme` (VS Code / Cursor, if installed natively on Windows) | Nothing - the color sync happens automatically | [#vscode-theme](#vscode-theme) |
 
 <a id="windows-terminal"></a>
 ## Windows Terminal
@@ -137,6 +138,22 @@ if `jq` isn't available or `settings.json` can't be found or parsed. Nothing to 
 hand unless that skip message shows up, in which case merge the theme's
 `themes/<name>/windows-terminal-scheme.json` into your `schemes` array yourself and set it as
 `profiles.defaults.colorScheme`.
+
+<a id="vscode-theme"></a>
+## VS Code and Cursor theme
+
+Also automatic, the same way the Windows Terminal color sync above is: `bin/omawsl theme <name>`
+edits the real native settings.json for VS Code and Cursor if they're installed on Windows -
+`%APPDATA%\Code\User\settings.json` and `%APPDATA%\Cursor\User\settings.json` - setting
+`"workbench.colorTheme"` to the theme's name. This is on top of (not instead of) the existing
+Remote-WSL settings sync, so both a Remote-WSL session and the native app end up themed.
+
+It always backs up each file first (`settings.json.bak`) and skips gracefully - printing this
+same pointer instead of failing - if `jq` isn't available, the file can't be found, or its
+contents can't be confidently parsed (this includes some JSONC comment styles it doesn't handle,
+like multi-line `/* */` blocks). Nothing to do here by hand unless that skip message shows up, in
+which case set `"workbench.colorTheme"` to the theme's Title Case name (e.g. `"Tokyo Night"`) in
+the relevant settings.json yourself.
 
 ## Clipboard and GUI apps
 

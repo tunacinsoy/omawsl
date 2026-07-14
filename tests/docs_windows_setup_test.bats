@@ -8,7 +8,7 @@ DOC="$REPO_ROOT/docs/windows-setup.md"
 }
 
 @test "docs/windows-setup.md has every heading the shipped code already links to" {
-  for heading in "## Windows Terminal" "## Fonts" "## Docker Desktop" "## VS Code" "## Cursor" "## GitHub Copilot CLI" "## Windows Terminal theme"; do
+  for heading in "## Windows Terminal" "## Fonts" "## Docker Desktop" "## VS Code" "## Cursor" "## GitHub Copilot CLI" "## Windows Terminal theme" "## VS Code and Cursor theme"; do
     grep -qF "$heading" "$DOC" || { echo "missing heading: $heading"; return 1; }
   done
 }
@@ -32,7 +32,7 @@ DOC="$REPO_ROOT/docs/windows-setup.md"
   # every pointer already shipped in install/*.sh and bin/omawsl-sub/*.sh. Checking the
   # literal <a id="..."> tag (not a heading-text-derived slug guess) is what actually
   # guarantees the anchor resolves, independent of how the heading text itself reads.
-  grep -rhoE 'docs/windows-setup\.md#[a-z0-9-]+' "$REPO_ROOT/install" "$REPO_ROOT/bin" | sed 's/.*#//' | sort -u > "$BATS_TEST_TMPDIR/wanted_anchors"
+  grep -rhoE 'docs/windows-setup\.md#[a-z0-9-]+' "$REPO_ROOT/install" "$REPO_ROOT/bin" "$REPO_ROOT/themes" | sed 's/.*#//' | sort -u > "$BATS_TEST_TMPDIR/wanted_anchors"
   while read -r anchor; do
     grep -qF "<a id=\"$anchor\"></a>" "$DOC" || { echo "doc missing <a id=\"$anchor\"> for anchor referenced in code"; return 1; }
   done < "$BATS_TEST_TMPDIR/wanted_anchors"
