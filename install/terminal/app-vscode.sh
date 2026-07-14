@@ -33,7 +33,11 @@ omawsl_install_vscode() {
   omawsl_install_vscode_settings
 
   if omawsl_code_reachable; then
-    code --install-extension ms-vscode-remote.remote-wsl
+    # NODE_NO_WARNINGS=1: same fix as themes/set-vscode-theme.sh - `code`
+    # is a Node.js binary and emits a `[DEP0169] DeprecationWarning:
+    # url.parse()...` on a fresh extension install, confirmed Microsoft's
+    # own tooling noise, unrelated to omawsl.
+    NODE_NO_WARNINGS=1 code --install-extension ms-vscode-remote.remote-wsl
   else
     echo "omawsl: VS Code isn't reachable yet - install it on Windows, then run 'code --install-extension ms-vscode-remote.remote-wsl' yourself, or re-run install.sh."
     echo "See docs/windows-setup.md#vscode for the full steps."
