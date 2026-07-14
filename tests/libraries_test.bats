@@ -16,6 +16,7 @@ setup() {
   [[ "$calls" == *"pkg-config autoconf bison clang rustc pipx"* ]]
   [[ "$calls" == *"libssl-dev"* ]]
   [[ "$calls" == *"libvips imagemagick"* ]]
+  [[ "$calls" == *"libsqlite3-dev"* ]]
   [[ "$calls" == *"libmysqlclient-dev libpq-dev"* ]]
   [[ "$calls" == *"postgresql-client-common"* ]]
 }

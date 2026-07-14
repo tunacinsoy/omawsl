@@ -8,7 +8,7 @@ omawsl_install_libraries() {
     libssl-dev libreadline-dev zlib1g-dev libyaml-dev libncurses5-dev \
     libffi-dev libgdbm-dev libjemalloc2 \
     libvips imagemagick libmagickwand-dev mupdf mupdf-tools \
-    redis-tools sqlite3 libsqlite3-0 libmysqlclient-dev libpq-dev \
+    redis-tools sqlite3 libsqlite3-0 libsqlite3-dev libmysqlclient-dev libpq-dev \
     postgresql-client postgresql-client-common
 }
 
