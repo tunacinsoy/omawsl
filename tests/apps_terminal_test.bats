@@ -81,6 +81,17 @@ setup() {
   [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq"* ]]
 }
 
+@test "installs bash-completion alongside the rest of the always-on apt tool set" {
+  # Explicit install rather than relying on it arriving as a transitive
+  # dependency of something else (confirmed present-but-unsourced on the
+  # real test WSL2 instance before this) - configs/bashrc sources it, but
+  # sourcing a package that isn't guaranteed to be installed would be
+  # fragile.
+  run omawsl_install_terminal_apps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq bash-completion"* ]]
+}
+
 @test "installs a bin/omawsl wrapper into ~/.local/bin that execs the real script" {
   run omawsl_install_cli
   [ "$status" -eq 0 ]

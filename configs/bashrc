@@ -77,7 +77,18 @@ alias ....='cd ../../..'
 if command -v fzf &>/dev/null; then
   # shellcheck disable=SC1091
   source /usr/share/doc/fzf/examples/key-bindings.bash 2>/dev/null || true
+  # fzf's own completion triggers (e.g. `**<Tab>`), separate from the
+  # key-bindings file above - not present on every Ubuntu/fzf version, so
+  # guarded the same defensive way.
+  # shellcheck disable=SC1091
+  source /usr/share/bash-completion/completions/fzf 2>/dev/null || true
 fi
+
+# System-wide tab completion (git, docker, apt, and many other commands) -
+# apt-installed explicitly (see apps-terminal.sh), but sourcing it here is
+# what actually activates it for interactive shells.
+# shellcheck disable=SC1091
+source /usr/share/bash-completion/bash_completion 2>/dev/null || true
 
 if command -v git &>/dev/null; then
   alias g='git'
@@ -129,4 +140,20 @@ fi
 # mise/lazydocker/claude - needs its own PATH entry.
 if [ -d "$HOME/.opencode/bin" ]; then
   export PATH="$HOME/.opencode/bin:$PATH"
+fi
+
+# Omakub parity: every new interactive shell drops straight into zellij -
+# upstream does this via Alacritty's own `[shell] program = "zellij"`
+# config; omawsl has no Alacritty equivalent (Windows Terminal's WSL
+# profile is dynamically generated per machine with its own GUID, too
+# fragile to target directly), so the same effect is achieved here
+# instead - terminal-emulator-agnostic, works the same in Windows
+# Terminal, VS Code's integrated terminal, or over SSH. Must be the very
+# last thing in this file: `exec` replaces the current shell process, so
+# nothing after this line would ever run. Guarded on $ZELLIJ (which
+# zellij itself sets in any shell it spawns) so opening a new pane/tab
+# INSIDE an existing session doesn't try to exec another zellij - the
+# same guard zellij's own docs recommend.
+if [[ -z "${ZELLIJ:-}" ]] && command -v zellij &>/dev/null; then
+  exec zellij
 fi

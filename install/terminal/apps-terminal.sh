@@ -7,14 +7,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Always-on terminal tooling, no picker gate. Installs via apt where a
 # stable Ubuntu package exists (verified against Ubuntu 26.04's own
 # universe repo: fzf, ripgrep, bat, eza, zoxide, plocate, apache2-utils,
-# fd-find, gh, btop, fastfetch, lazygit, jq all have candidates there),
-# plus two tools with no Ubuntu package at all (lazydocker, zellij),
-# each installed via its own official method below. `jq` is new in
-# Phase 5 - `bin/omawsl theme` (design spec §11) needs it for the
-# Windows Terminal settings.json edit.
+# fd-find, gh, btop, fastfetch, lazygit, jq, bash-completion all have
+# candidates there), plus two tools with no Ubuntu package at all
+# (lazydocker, zellij), each installed via its own official method
+# below. `jq` is new in Phase 5 - `bin/omawsl theme` (design spec §11)
+# needs it for the Windows Terminal settings.json edit. `bash-completion`
+# is explicit rather than relying on it arriving as a transitive
+# dependency of something else (confirmed present-but-unsourced on a real
+# WSL2 instance before this was added) - configs/bashrc sources it.
 omawsl_install_terminal_apps() {
   sudo apt-get update -qq
-  sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq
+  sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq bash-completion
 
   omawsl_install_lazydocker
   omawsl_install_zellij

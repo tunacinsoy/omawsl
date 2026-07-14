@@ -7,6 +7,18 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
+  # zellij is genuinely installed on real dev/test machines running this
+  # suite - without this, EVERY `bash -i -c` test below (not just the
+  # zellij-specific ones) would exec into a real, honest-to-goodness TUI
+  # app with no terminal to interact with it, hanging forever. ZELLIJ (not
+  # PATH-hiding) is the reliable guard here: PATH-hiding gets reset by
+  # every later stub_hide_command call in a given test (each call replaces
+  # PATH with a fresh shadow dir), so a test that hides some other command
+  # would silently un-hide zellij again - confirmed this the hard way
+  # (inconsistent hangs depending on which tests ran and in what order).
+  # The zellij tests below that need the real exec behavior explicitly
+  # `unset ZELLIJ` themselves to override this default.
+  export ZELLIJ=0
 }
 
 @test "copies bashrc and inputrc into HOME" {
@@ -283,4 +295,64 @@ EOF
   [ "$status" -eq 0 ]
   [[ "$output" != *'\u@\h'* ]]
   [[ "$output" == *'\[\e]0;\w\a\]'* ]]
+}
+
+# --- zellij auto-launch (Omakub parity: every new interactive shell drops
+# into zellij, the way Alacritty's own `[shell] program = "zellij"` does it
+# upstream - omawsl has no Alacritty equivalent, so this lives in bashrc
+# itself instead, terminal-emulator-agnostic) ---
+
+@test "execs into zellij on shell start when zellij is on PATH and not already inside a session" {
+  # setup() exports ZELLIJ=0 by default (see its own comment) - this is
+  # the one test that needs it genuinely unset, to exercise the real
+  # positive case.
+  unset ZELLIJ
+  export HOME="$BATS_TEST_TMPDIR/home_zellij_autostart"
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/zellij" <<'EOF'
+#!/usr/bin/env bash
+echo "ZELLIJ_STARTED" > "$HOME/zellij_marker"
+EOF
+  chmod +x "$HOME/.local/bin/zellij"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'true'
+  [ "$status" -eq 0 ]
+  [ -f "$HOME/zellij_marker" ]
+  [[ "$(cat "$HOME/zellij_marker")" == "ZELLIJ_STARTED" ]]
+}
+
+@test "does not exec into zellij when already inside a zellij session" {
+  # Regression guard: without this, opening a new pane/tab INSIDE an
+  # existing zellij session would try to exec another zellij, breaking
+  # nested panes entirely. zellij itself sets $ZELLIJ in any shell it
+  # spawns - the same guard zellij's own docs recommend.
+  export HOME="$BATS_TEST_TMPDIR/home_zellij_nested"
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/zellij" <<'EOF'
+#!/usr/bin/env bash
+echo "ZELLIJ_STARTED" > "$HOME/zellij_marker"
+EOF
+  chmod +x "$HOME/.local/bin/zellij"
+  export PATH="$HOME/.local/bin:$PATH"
+  export ZELLIJ=0
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STILL_RUNNING"* ]]
+  [ ! -f "$HOME/zellij_marker" ]
+}
+
+@test "does not attempt to exec into zellij when zellij is not on PATH" {
+  # ZELLIJ must be genuinely unset here too, otherwise this would pass
+  # trivially via the ZELLIJ guard rather than actually exercising the
+  # command -v zellij branch this test is named for.
+  unset ZELLIJ
+  export HOME="$BATS_TEST_TMPDIR/home_zellij_missing"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command zellij
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STILL_RUNNING"* ]]
 }
