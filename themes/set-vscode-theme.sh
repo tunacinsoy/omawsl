@@ -35,14 +35,23 @@ omawsl_theme_set_vscode_settings() {
   [[ -f "$settings_file" ]] || return 0
   command -v jq &>/dev/null || return 0
 
-  cp "$settings_file" "$settings_file.bak"
+  cp "$settings_file" "$settings_file.bak" || {
+    echo "omawsl: couldn't back up $settings_file - skipping the color sync." >&2
+    echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
+    return 0
+  }
 
   # Fast path: strict JSON, no comments - merge directly with jq.
   if jq empty "$settings_file" 2>/dev/null; then
     local tmp
     tmp="$(mktemp)"
     jq --arg theme "$color_theme" '.["workbench.colorTheme"] = $theme' "$settings_file" > "$tmp"
-    cp "$tmp" "$settings_file"
+    cp "$tmp" "$settings_file" || {
+      echo "omawsl: couldn't write to $settings_file - skipping the color sync." >&2
+      echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
+      rm -f "$tmp"
+      return 0
+    }
     rm -f "$tmp"
     return 0
   fi
@@ -85,9 +94,15 @@ omawsl_theme_set_vscode_settings() {
   recheck="$(mktemp)"
   omawsl_strip_jsonc_comments "$tmp_edited" > "$recheck"
   if jq empty "$recheck" 2>/dev/null; then
-    cp "$tmp_edited" "$settings_file"
+    cp "$tmp_edited" "$settings_file" || {
+      echo "omawsl: couldn't write to $settings_file - skipping the color sync." >&2
+      echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
+      rm -f "$stripped" "$tmp_edited" "$recheck"
+      return 0
+    }
   else
     echo "omawsl: the color sync edit to $settings_file produced invalid JSON - leaving it untouched (backup at $settings_file.bak)." >&2
+    echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
   fi
 
   rm -f "$stripped" "$tmp_edited" "$recheck"
