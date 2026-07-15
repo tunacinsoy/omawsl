@@ -9,7 +9,7 @@ omawsl_install_libraries() {
     libffi-dev libgdbm-dev libjemalloc2 \
     libvips imagemagick libmagickwand-dev mupdf mupdf-tools \
     redis-tools sqlite3 libsqlite3-0 libsqlite3-dev libmysqlclient-dev libpq-dev \
-    libcurl4-openssl-dev \
+    libcurl4-openssl-dev libgd-dev libicu-dev libzip-dev \
     postgresql-client postgresql-client-common
 }
 
