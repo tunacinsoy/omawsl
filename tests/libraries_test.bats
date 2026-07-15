@@ -18,5 +18,6 @@ setup() {
   [[ "$calls" == *"libvips imagemagick"* ]]
   [[ "$calls" == *"libsqlite3-dev"* ]]
   [[ "$calls" == *"libmysqlclient-dev libpq-dev"* ]]
+  [[ "$calls" == *"libcurl4-openssl-dev"* ]]
   [[ "$calls" == *"postgresql-client-common"* ]]
 }
