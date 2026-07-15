@@ -349,6 +349,27 @@ EOF
   [[ "$(cat "$HOME/zellij_marker")" == "ZELLIJ_STARTED" ]]
 }
 
+@test "sets ZELLIJ_SOCKET_DIR to a /tmp path before exec'ing zellij (WSL2/WSLg XDG_RUNTIME_DIR workaround)" {
+  # Regression guard for microsoft/WSL#9689/#10896/#11542 + zellij-org/zellij#4155:
+  # WSLg's $XDG_RUNTIME_DIR mount doesn't reliably support the chmod zellij
+  # needs on its own socket dir, causing a raw Rust panic instead of a
+  # graceful error. bashrc must override ZELLIJ_SOCKET_DIR to sidestep it.
+  unset ZELLIJ
+  export HOME="$BATS_TEST_TMPDIR/home_zellij_socket_dir"
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/zellij" <<'EOF'
+#!/usr/bin/env bash
+echo "$ZELLIJ_SOCKET_DIR" > "$HOME/zellij_socket_dir_seen"
+EOF
+  chmod +x "$HOME/.local/bin/zellij"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'true'
+  [ "$status" -eq 0 ]
+  [ -f "$HOME/zellij_socket_dir_seen" ]
+  [[ "$(cat "$HOME/zellij_socket_dir_seen")" == "/tmp/zellij-$(id -u)" ]]
+}
+
 @test "does not exec into zellij when already inside a zellij session" {
   # Regression guard: without this, opening a new pane/tab INSIDE an
   # existing zellij session would try to exec another zellij, breaking

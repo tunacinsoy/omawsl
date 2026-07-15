@@ -167,5 +167,13 @@ fi
 # INSIDE an existing session doesn't try to exec another zellij - the
 # same guard zellij's own docs recommend.
 if [[ -z "${ZELLIJ:-}" ]] && command -v zellij &>/dev/null; then
+  # WSL2/WSLg's $XDG_RUNTIME_DIR (/mnt/wslg/runtime-dir) is a synthetic
+  # mount hardcoded to UID 1000 that doesn't reliably support the chmod
+  # 0700 zellij needs on its own socket dir (microsoft/WSL#9689, #10896,
+  # #11542) - zellij panics with a raw "Permission denied" instead of
+  # degrading gracefully (zellij-org/zellij#4155). Point it at the same
+  # /tmp-based directory zellij already falls back to when
+  # XDG_RUNTIME_DIR is unset, sidestepping the broken mount entirely.
+  export ZELLIJ_SOCKET_DIR="/tmp/zellij-$(id -u)"
   exec zellij
 fi
