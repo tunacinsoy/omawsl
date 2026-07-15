@@ -46,10 +46,18 @@ setup() {
   [[ "$(stub_calls)" == *"mise use --global python@latest"* ]]
 }
 
-@test "installs elixir when Elixir is selected" {
+@test "installs erlang before elixir when Elixir is selected" {
   export OMAWSL_LANGUAGES="Elixir"
   omawsl_select_dev_language
-  [[ "$(stub_calls)" == *"mise use --global elixir@latest"* ]]
+  local calls; calls="$(stub_calls)"
+  [[ "$calls" == *"mise use --global erlang@latest"* ]]
+  [[ "$calls" == *"mise use --global elixir@latest"* ]]
+  # erlang must be installed first - elixir's own post-install step needs
+  # `erl` already on PATH, or it fails looking for it.
+  local erlang_pos elixir_pos
+  erlang_pos="${calls%%mise use --global erlang@latest*}"
+  elixir_pos="${calls%%mise use --global elixir@latest*}"
+  [ "${#erlang_pos}" -lt "${#elixir_pos}" ]
 }
 
 @test "installs rust when Rust is selected" {
@@ -83,6 +91,7 @@ setup() {
   [[ "$(stub_calls)" == *"mise use --global go@latest"* ]]
   [[ "$(stub_calls)" == *"mise use --global php@latest"* ]]
   [[ "$(stub_calls)" == *"mise use --global python@latest"* ]]
+  [[ "$(stub_calls)" == *"mise use --global erlang@latest"* ]]
   [[ "$(stub_calls)" == *"mise use --global elixir@latest"* ]]
   [[ "$(stub_calls)" == *"mise use --global rust@latest"* ]]
   [[ "$(stub_calls)" == *"mise use --global java@latest"* ]]

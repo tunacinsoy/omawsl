@@ -51,6 +51,11 @@ omawsl_select_dev_language() {
   fi
 
   if omawsl_list_has "$languages" "Elixir"; then
+    # Elixir's compiler is written in Erlang, and mise's elixir plugin doesn't
+    # pull Erlang in for you - erlang must already be mise-installed and on
+    # PATH before elixir's own post-install step runs, or it fails looking
+    # for `erl`. Installing erlang first (not in parallel) avoids that.
+    omawsl_install_language erlang
     omawsl_install_language elixir
   fi
 

@@ -26,6 +26,13 @@ setup() {
   [[ "$(stub_calls)" == *"mise unuse --global ruby@latest"* ]]
 }
 
+@test "omawsl_uninstall_language handles Elixir by unpinning both elixir and erlang" {
+  run omawsl_uninstall_language "Elixir"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"mise unuse --global elixir@latest"* ]]
+  [[ "$(stub_calls)" == *"mise unuse --global erlang@latest"* ]]
+}
+
 @test "omawsl_uninstall_language purges terraform and removes its apt source" {
   # Override sudo to actually perform rm operations (needed to verify file
   # deletion in tests), while still logging calls for stub_calls assertions

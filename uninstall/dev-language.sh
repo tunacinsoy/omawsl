@@ -74,7 +74,13 @@ omawsl_uninstall_language() {
     "Go")             omawsl_uninstall_mise_tool go "Go" ;;
     "PHP")            omawsl_uninstall_mise_tool php "PHP" ;;
     "Python")         omawsl_uninstall_mise_tool python "Python" ;;
-    "Elixir")         omawsl_uninstall_mise_tool elixir "Elixir" ;;
+    "Elixir")
+      omawsl_uninstall_mise_tool elixir "Elixir"
+      # erlang is never independently selectable - it's only ever installed
+      # as Elixir's own compiler dependency (select-dev-language.sh), so it
+      # should go when Elixir does.
+      omawsl_uninstall_mise_tool erlang "Erlang"
+      ;;
     "Rust")           omawsl_uninstall_mise_tool rust "Rust" ;;
     "Java")           omawsl_uninstall_mise_tool java "Java" ;;
     "Terraform")      omawsl_uninstall_terraform ;;
