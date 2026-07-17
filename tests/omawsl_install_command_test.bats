@@ -15,7 +15,7 @@ setup() {
   stub_command sudo
   stub_command mise
   stub_command gem
-  stub_hide_command docker terraform az code cursor claude codex gemini opencode
+  stub_hide_command docker terraform az gcloud aws code cursor claude codex gemini opencode
 }
 
 @test "omawsl install language go - installs go directly and merges it into OMAWSL_LANGUAGES" {
@@ -37,6 +37,19 @@ setup() {
   run omawsl_install_command storage mysql
   [ "$status" -eq 0 ]
   [[ "$(omawsl_load_choice OMAWSL_STORAGE)" == "MySQL" ]]
+}
+
+@test "omawsl install cloud azure - installs azure directly and merges it into OMAWSL_CLOUD_CLIS" {
+  stub_command curl
+  run omawsl_install_command cloud azure
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_CLOUD_CLIS)" == "Azure CLI" ]]
+}
+
+@test "omawsl install rejects a cloud item that doesn't belong to the cloud category" {
+  run omawsl_install_command cloud go
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"isn't in the 'cloud' category"* ]]
 }
 
 @test "omawsl install rejects an item that doesn't belong to the given category" {

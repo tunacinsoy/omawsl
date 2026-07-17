@@ -64,6 +64,17 @@ omawsl_install_apply_storage() {
   omawsl_install_storage
 }
 
+# omawsl_install_apply_cloud <picked_labels_csv> <existing_labels_csv>
+omawsl_install_apply_cloud() {
+  local picked="$1" existing="$2"
+  local merged; merged="$(omawsl_merge_csv "$existing" "$picked")"
+  export OMAWSL_CLOUD_CLIS="$merged"
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "$merged"
+  # shellcheck source=/dev/null
+  source "$OMAWSL_ROOT_DIR/install/terminal/cloud-clis.sh"
+  omawsl_cloud_clis
+}
+
 # omawsl_install_category_language
 omawsl_install_category_language() {
   local existing; existing="$(omawsl_load_choice OMAWSL_LANGUAGES)"
@@ -94,6 +105,16 @@ omawsl_install_category_storage() {
   omawsl_install_apply_storage "$picked" "$existing"
 }
 
+# omawsl_install_category_cloud
+omawsl_install_category_cloud() {
+  local existing; existing="$(omawsl_load_choice OMAWSL_CLOUD_CLIS)"
+  local labels=() slug
+  while IFS= read -r slug; do labels+=("$(omawsl_item_label "$slug")"); done < <(omawsl_item_slugs cloud)
+  local picked
+  picked="$(omawsl_install_prompt_multi "Cloud CLIs (already-installed items are pre-checked)" "$existing" "${labels[@]}")" || picked=""
+  omawsl_install_apply_cloud "$picked" "$existing"
+}
+
 # omawsl_install_direct <category> <slug>
 omawsl_install_direct() {
   local category="$1" slug="$2"
@@ -110,6 +131,7 @@ omawsl_install_direct() {
   local label; label="$(omawsl_item_label "$slug")"
   case "$category" in
     language) omawsl_install_apply_language "$label" "$(omawsl_load_choice OMAWSL_LANGUAGES)" ;;
+    cloud)    omawsl_install_apply_cloud    "$label" "$(omawsl_load_choice OMAWSL_CLOUD_CLIS)" ;;
     editor)   omawsl_install_apply_editor   "$label" "$(omawsl_load_choice OMAWSL_EDITORS)" ;;
     storage)  omawsl_install_apply_storage  "$label" "$(omawsl_load_choice OMAWSL_STORAGE)" ;;
   esac
@@ -121,10 +143,11 @@ omawsl_install_direct() {
 # pre-checked.
 omawsl_install_interactive() {
   local category
-  category="$(gum choose --header "What do you want to add?" "Language/tool" "Editors & AI tooling" "Storage")" || category=""
+  category="$(gum choose --header "What do you want to add?" "Language/tool" "Cloud CLIs" "Editors & AI tooling" "Storage")" || category=""
   [[ -n "$category" ]] || return 0
   case "$category" in
     "Language/tool")         omawsl_install_category_language ;;
+    "Cloud CLIs")            omawsl_install_category_cloud ;;
     "Editors & AI tooling")  omawsl_install_category_editor ;;
     "Storage")               omawsl_install_category_storage ;;
   esac
@@ -145,14 +168,14 @@ omawsl_install_command() {
 
   if [[ -z "$item" ]]; then
     echo "Usage: omawsl install [category] [item]" >&2
-    echo "Categories: language, editor, storage" >&2
+    echo "Categories: language, cloud, editor, storage" >&2
     return 1
   fi
 
   case "$category" in
-    language|editor|storage) omawsl_install_direct "$category" "$item" ;;
+    language|cloud|editor|storage) omawsl_install_direct "$category" "$item" ;;
     *)
-      echo "omawsl: unknown category '$category' (expected language, editor, or storage)" >&2
+      echo "omawsl: unknown category '$category' (expected language, cloud, editor, or storage)" >&2
       return 1
       ;;
   esac

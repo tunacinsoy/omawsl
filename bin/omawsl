@@ -29,8 +29,8 @@ Commands:
   update                    Pull the latest omawsl and run pending
                              migrations.
   migrate                   Run pending migrations only, without pulling.
-  install [category] [item] Add a language/editor/storage item. With no
-                             args, choose interactively.
+  install [category] [item] Add a language/cloud/editor/storage item. With
+                             no args, choose interactively.
   uninstall <name>          Remove one installed item by name.
   doctor                    Report what's installed/configured, and what's
                              still pending.
