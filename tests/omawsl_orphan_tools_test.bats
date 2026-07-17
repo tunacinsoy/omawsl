@@ -12,7 +12,7 @@ setup() {
   source "$REPO_ROOT/bin/omawsl-sub/orphan-tools.sh"
 }
 
-@test "omawsl_orphan_tool_slugs lists all 7 orphan tools" {
+@test "omawsl_orphan_tool_slugs lists all 8 orphan tools" {
   run omawsl_orphan_tool_slugs
   [ "$status" -eq 0 ]
   [[ "$output" == *"zellij"* ]]
@@ -22,7 +22,8 @@ setup() {
   [[ "$output" == *"codex"* ]]
   [[ "$output" == *"gemini"* ]]
   [[ "$output" == *"gh-copilot"* ]]
-  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 7 ]
+  [[ "$output" == *"aws"* ]]
+  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 8 ]
 }
 
 @test "omawsl_orphan_tool_label returns Zellij/LazyDocker directly and reuses items.sh for the rest" {
@@ -30,6 +31,7 @@ setup() {
   [ "$(omawsl_orphan_tool_label lazydocker)" = "LazyDocker" ]
   [ "$(omawsl_orphan_tool_label codex)" = "$(omawsl_item_label codex)" ]
   [ "$(omawsl_orphan_tool_label gh-copilot)" = "GitHub Copilot CLI" ]
+  [ "$(omawsl_orphan_tool_label aws)" = "AWS CLI" ]
 }
 
 @test "omawsl_orphan_tool_label fails for an unknown slug" {
@@ -50,6 +52,35 @@ setup() {
   stub_command gh
   run omawsl_orphan_tool_installed gh-copilot
   [ "$status" -ne 0 ]
+}
+
+@test "omawsl_orphan_tool_installed checks aws via command -v" {
+  stub_hide_command aws
+  run omawsl_orphan_tool_installed aws
+  [ "$status" -ne 0 ]
+  stub_command aws
+  run omawsl_orphan_tool_installed aws
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl_orphan_tool_version_installed extracts aws-cli's semver from its --version output" {
+  aws() { echo "aws-cli/2.15.30 Python/3.11.6 Linux/6.18.33.2 exe/x86_64.ubuntu.26"; }
+  export -f aws
+  [ "$(omawsl_orphan_tool_version_installed aws)" = "2.15.30" ]
+}
+
+@test "omawsl_orphan_tool_version_latest resolves aws via the aws/aws-cli GitHub repo" {
+  curl() { echo '{"tag_name":"2.19.0"}'; }
+  export -f curl
+  [ "$(omawsl_orphan_tool_version_latest aws)" = "2.19.0" ]
+}
+
+@test "omawsl_orphan_tool_apply_update calls aws_cli_install_steps for aws" {
+  omawsl_aws_cli_install_steps() { echo "aws-cli-updated" >> "$STUB_LOG"; }
+  export -f omawsl_aws_cli_install_steps
+  run omawsl_orphan_tool_apply_update aws
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"aws-cli-updated"* ]]
 }
 
 @test "omawsl_orphan_extract_semver pulls the first X.Y.Z token out of arbitrary text" {
@@ -108,7 +139,7 @@ setup() {
   for fn in omawsl_zellij_install_steps omawsl_lazydocker_install_steps \
             omawsl_opencode_install_steps omawsl_claude_cli_install_steps \
             omawsl_codex_cli_install_steps omawsl_gemini_cli_install_steps \
-            omawsl_gh_copilot_update_steps; do
+            omawsl_gh_copilot_update_steps omawsl_aws_cli_install_steps; do
     declare -F "$fn" >/dev/null || { echo "missing function: $fn"; return 1; }
   done
 }
