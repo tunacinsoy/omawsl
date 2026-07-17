@@ -14,6 +14,13 @@ setup() {
   mkdir -p "$HOME"
   source "$REPO_ROOT/install/terminal/mise.sh"
   stub_command curl
+  # Isolating $HOME above isn't enough on its own: omawsl_install_mise's
+  # `command -v mise` check runs against the *inherited* $PATH, which
+  # already contains this WSL instance's real mise install dir regardless
+  # of $HOME - same class of gap already fixed for terraform/az in
+  # cloud_tools_test.bats. Hide the real binary so "not already present"
+  # tests actually exercise the install path instead of short-circuiting.
+  stub_hide_command mise
 }
 
 @test "installs mise via the official installer when not already present" {
