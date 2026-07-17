@@ -62,10 +62,22 @@ setup() {
 
   omawsl_migrate() { echo "migrate-called" >> "$STUB_LOG"; }
   export -f omawsl_migrate
+  # omawsl_update also calls the real omawsl_orphan_tools_update after
+  # migrate (bin/omawsl-sub/update.sh) - left unstubbed, this test was
+  # exercising the real version-check/update flow against whatever AI
+  # CLIs happen to be installed on the machine running it, including real
+  # network calls. Found by tracing a real hang: `mise exec node@lts --
+  # codex --version` landed in an uninterruptible kernel sleep (ps STAT
+  # "D"), which no in-process timeout can preempt, wedging this one test
+  # (and the whole suite behind it) indefinitely. Stub it so this test
+  # only exercises what it's named for: pull + migrate dispatch.
+  omawsl_orphan_tools_update() { echo "orphan-tools-update-called" >> "$STUB_LOG"; }
+  export -f omawsl_orphan_tools_update
 
   run omawsl_update
   [ "$status" -eq 0 ]
   [ "$(cat "$OMAWSL_HOME/version")" = "2" ]
   [[ "$(stub_calls)" == *"migrate-called"* ]]
+  [[ "$(stub_calls)" == *"orphan-tools-update-called"* ]]
   [[ "$output" == *"update complete"* ]]
 }

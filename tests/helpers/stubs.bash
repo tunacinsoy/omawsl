@@ -75,18 +75,22 @@ export -f gum
 stub_hide_command() {
   local hide_names=("$@")
   local shadow_dir; shadow_dir="$(mktemp -d)"
-  local sysdir f base hide
+  local sysdir hide
   for sysdir in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /usr/games /usr/local/games /usr/lib/wsl/lib; do
     [[ -d "$sysdir" ]] || continue
-    for f in "$sysdir"/*; do
-      [[ -e "$f" ]] || continue
-      base="${f##*/}"
-      for hide in "${hide_names[@]}"; do
-        [[ "$base" == "$hide" ]] && continue 2
-      done
-      [[ -e "$shadow_dir/$base" ]] && continue
-      ln -s "$f" "$shadow_dir/$base" 2>/dev/null || true
-    done
+    # One `ln` invocation per directory (target-directory mode) instead of
+    # one per file: forking `ln` per file - thousands of forks on a real
+    # dev machine (/usr/bin alone can hold 1000+ entries) - made this
+    # helper, which runs in `setup()` for every single test across the
+    # whole suite, the dominant cost of a full bats run (multiple minutes
+    # for what should be a sub-second stub setup). A later sysdir's file
+    # of the same name fails silently (2>/dev/null) since the earlier
+    # symlink already exists, preserving the original first-sysdir-wins
+    # precedence.
+    ln -s -t "$shadow_dir" "$sysdir"/* 2>/dev/null || true
+  done
+  for hide in "${hide_names[@]}"; do
+    rm -f "$shadow_dir/$hide"
   done
   export PATH="$shadow_dir"
 }
