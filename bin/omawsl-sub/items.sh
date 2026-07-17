@@ -8,7 +8,8 @@
 # omawsl_item_category <slug>
 omawsl_item_category() {
   case "$1" in
-    ruby|node|go|php|python|elixir|rust|java|terraform|azure) echo "language" ;;
+    ruby|node|go|php|python|elixir|rust|java|terraform) echo "language" ;;
+    azure|aws|gcp) echo "cloud" ;;
     vscode|neovim|opencode|cursor|claude|codex|gh-copilot|gemini) echo "editor" ;;
     mysql|redis|postgresql) echo "storage" ;;
     docker) echo "docker" ;;
@@ -33,6 +34,8 @@ omawsl_item_label() {
     java) echo "Java" ;;
     terraform) echo "Terraform" ;;
     azure) echo "Azure CLI" ;;
+    aws) echo "AWS CLI" ;;
+    gcp) echo "GCP CLI" ;;
     vscode) echo "VS Code" ;;
     neovim) echo "Neovim" ;;
     opencode) echo "opencode" ;;
@@ -53,7 +56,8 @@ omawsl_item_label() {
 # picker order.
 omawsl_item_slugs() {
   case "$1" in
-    language) printf '%s\n' ruby node go php python elixir rust java terraform azure ;;
+    language) printf '%s\n' ruby node go php python elixir rust java terraform ;;
+    cloud) printf '%s\n' azure aws gcp ;;
     editor) printf '%s\n' vscode neovim opencode cursor claude codex gh-copilot gemini ;;
     storage) printf '%s\n' mysql redis postgresql ;;
     *) return 1 ;;
