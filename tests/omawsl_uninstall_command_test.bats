@@ -83,6 +83,24 @@ setup() {
   [[ "$(omawsl_load_choice OMAWSL_STORAGE)" == "Redis" ]]
 }
 
+@test "omawsl_uninstall_command dispatches azure to uninstall/cloud-clis.sh" {
+  stub_command sudo
+  stub_command az
+  run omawsl_uninstall_command azure
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo apt-get purge -y azure-cli"* ]]
+}
+
+@test "omawsl_uninstall_command deselects a cloud CLI from OMAWSL_CLOUD_CLIS" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  stub_command sudo
+  stub_command az
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "Azure CLI,AWS CLI"
+  run omawsl_uninstall_command azure
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_CLOUD_CLIS)" == "AWS CLI" ]]
+}
+
 @test "omawsl_uninstall_command does not touch choices.env at all for the docker slug" {
   export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
   stub_command sudo

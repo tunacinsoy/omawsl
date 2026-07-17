@@ -16,11 +16,17 @@ omawsl_uninstall_dispatch() {
   local slug="$1"
   local label
   case "$slug" in
-    ruby|node|go|php|python|elixir|rust|java|terraform|azure)
+    ruby|node|go|php|python|elixir|rust|java|terraform)
       label="$(omawsl_item_label "$slug")"
       # shellcheck source=/dev/null
       source "$OMAWSL_ROOT_DIR/uninstall/dev-language.sh"
       omawsl_uninstall_language "$label"
+      ;;
+    azure|aws|gcp)
+      label="$(omawsl_item_label "$slug")"
+      # shellcheck source=/dev/null
+      source "$OMAWSL_ROOT_DIR/uninstall/cloud-clis.sh"
+      omawsl_uninstall_cloud_cli "$label"
       ;;
     mysql|redis|postgresql)
       label="$(omawsl_item_label "$slug")"
@@ -96,6 +102,7 @@ omawsl_uninstall_deselect() {
   local key
   case "$category" in
     language) key=OMAWSL_LANGUAGES ;;
+    cloud)    key=OMAWSL_CLOUD_CLIS ;;
     editor)   key=OMAWSL_EDITORS ;;
     storage)  key=OMAWSL_STORAGE ;;
     *) return 0 ;;
