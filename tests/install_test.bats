@@ -17,7 +17,7 @@ setup() {
   stub_command gem
   stub_command tar
   stub_command gh
-  stub_hide_command docker terraform az lazydocker zellij code cursor claude codex gemini opencode
+  stub_hide_command docker terraform az gcloud aws lazydocker zellij code cursor claude codex gemini opencode
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"
@@ -48,6 +48,7 @@ setup() {
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
   gum_stub_respond $'VS Code\nNeovim\nGitHub Copilot CLI'
   gum_stub_respond $'Go\nTerraform'
+  gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond "Nerd Font (enhanced)"
   gum_stub_respond "Ada Lovelace"
@@ -93,6 +94,7 @@ setup() {
   # already handled by setup()'s stub_hide_command call above.
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Desktop for Windows"
+  gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond ""

@@ -11,11 +11,12 @@ setup() {
   source "$REPO_ROOT/install/first-run-choices.sh"
 }
 
-@test "persists all six choices and exports them for the current run" {
+@test "persists all seven choices and exports them for the current run" {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
   gum_stub_respond $'VS Code\nNeovim'
   gum_stub_respond $'Go\nRust'
+  gum_stub_respond $'Azure CLI\nAWS CLI'
   gum_stub_respond "PostgreSQL"
   gum_stub_respond "Nerd Font (enhanced)"
 
@@ -25,11 +26,14 @@ setup() {
   [ "$OMAWSL_DOCKER_MODE" = "Docker Engine only, inside WSL (recommended)" ]
   [ "$OMAWSL_EDITORS" = "VS Code,Neovim" ]
   [ "$OMAWSL_LANGUAGES" = "Go,Rust" ]
+  [ "$OMAWSL_CLOUD_CLIS" = "Azure CLI,AWS CLI" ]
   [ "$OMAWSL_STORAGE" = "PostgreSQL" ]
   [ "$OMAWSL_FONT_MODE" = "Nerd Font (enhanced)" ]
 
   run omawsl_load_choice OMAWSL_LANGUAGES
   [ "$output" = "Go,Rust" ]
+  run omawsl_load_choice OMAWSL_CLOUD_CLIS
+  [ "$output" = "Azure CLI,AWS CLI" ]
   run omawsl_load_choice OMAWSL_STORAGE
   [ "$output" = "PostgreSQL" ]
   run omawsl_load_choice OMAWSL_FONT_MODE
@@ -42,6 +46,7 @@ setup() {
   gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond ""
+  gum_stub_respond ""
   gum_stub_respond "Cascadia Mono (zero install)"
 
   run omawsl_first_run_choices
@@ -50,5 +55,6 @@ setup() {
   omawsl_first_run_choices
   [ "$OMAWSL_EDITORS" = "" ]
   [ "$OMAWSL_LANGUAGES" = "" ]
+  [ "$OMAWSL_CLOUD_CLIS" = "" ]
   [ "$OMAWSL_STORAGE" = "" ]
 }

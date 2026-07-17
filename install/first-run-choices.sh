@@ -33,7 +33,10 @@ omawsl_first_run_choices() {
 
   OMAWSL_LANGUAGES="$(omawsl_prompt_multi "Languages & cloud tools" \
     "Ruby on Rails" "Node.js" "Go" "PHP" "Python" "Elixir" "Rust" "Java" \
-    "Terraform" "Azure CLI")"
+    "Terraform")"
+
+  OMAWSL_CLOUD_CLIS="$(omawsl_prompt_multi "Cloud CLIs" \
+    "Azure CLI" "AWS CLI" "GCP CLI")"
 
   OMAWSL_STORAGE="$(omawsl_prompt_multi "Storage (Docker containers)" \
     "MySQL" "Redis" "PostgreSQL")"
@@ -50,12 +53,13 @@ omawsl_first_run_choices() {
   OMAWSL_FONT_MODE="$(omawsl_prompt_single "Which font did you set up in Windows Terminal? (docs/windows-setup.md#fonts)" \
     "Nerd Font (enhanced)" "Cascadia Mono (zero install)")"
 
-  export OMAWSL_NETWORK_MODE OMAWSL_DOCKER_MODE OMAWSL_EDITORS OMAWSL_LANGUAGES OMAWSL_STORAGE OMAWSL_FONT_MODE
+  export OMAWSL_NETWORK_MODE OMAWSL_DOCKER_MODE OMAWSL_EDITORS OMAWSL_LANGUAGES OMAWSL_CLOUD_CLIS OMAWSL_STORAGE OMAWSL_FONT_MODE
 
   omawsl_save_choice OMAWSL_NETWORK_MODE "$OMAWSL_NETWORK_MODE"
   omawsl_save_choice OMAWSL_DOCKER_MODE "$OMAWSL_DOCKER_MODE"
   omawsl_save_choice OMAWSL_EDITORS "$OMAWSL_EDITORS"
   omawsl_save_choice OMAWSL_LANGUAGES "$OMAWSL_LANGUAGES"
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "$OMAWSL_CLOUD_CLIS"
   omawsl_save_choice OMAWSL_STORAGE "$OMAWSL_STORAGE"
   omawsl_save_choice OMAWSL_FONT_MODE "$OMAWSL_FONT_MODE"
 }
