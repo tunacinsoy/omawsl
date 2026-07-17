@@ -80,9 +80,23 @@ omawsl_install_azure_cli() {
   local ok=1
   {
     if [[ ! -f "$apt_sources_file" ]]; then
+      local codename
+      codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+      # Microsoft's azure-cli apt repo lags behind new Ubuntu releases - it
+      # has no Release file for 26.04's "resolute" yet (confirmed against
+      # https://packages.microsoft.com/repos/azure-cli/dists/), which would
+      # otherwise make apt-get update fail below every time on a current
+      # Ubuntu install. Fall back to "jammy" - the same default Microsoft's
+      # own installer (https://aka.ms/InstallAzureCLIDeb) uses for Ubuntu
+      # once the detected codename isn't published - since the .deb itself
+      # carries no codename-specific dependencies and installs fine either
+      # way. This check's own failure (network down, repo unreachable) is
+      # harmless: it just falls back to jammy and lets the real repo-add
+      # below hit the same failure and get isolated as usual.
+      curl -fsSL -o /dev/null "https://packages.microsoft.com/repos/azure-cli/dists/$codename/Release" || codename="jammy"
       sudo install -m 0755 -d "$keyrings_dir" &&
       curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --yes --dearmor -o "$keyrings_dir/microsoft.gpg" &&
-      sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(. /etc/os-release && echo "$VERSION_CODENAME") main" &&
+      sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $codename main" &&
       sudo apt-get update -qq
     fi &&
     sudo apt-get install -y azure-cli

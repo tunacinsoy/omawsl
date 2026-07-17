@@ -109,10 +109,38 @@ setup() {
   keyrings_dir="$BATS_TEST_TMPDIR/keyrings"
   run omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
   [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"curl -fsSL -o /dev/null https://packages.microsoft.com/repos/azure-cli/dists/"*"/Release"* ]]
   [[ "$(stub_calls)" == *"curl -fsSL https://packages.microsoft.com/keys/microsoft.asc"* ]]
   [[ "$(stub_calls)" == *"sudo gpg --yes --dearmor -o $keyrings_dir/microsoft.gpg"* ]]
   [[ "$(stub_calls)" == *"sudo tee $sources_file"* ]]
   [[ "$(stub_calls)" == *"sudo apt-get install -y azure-cli"* ]]
+}
+
+@test "azure-cli: falls back to the jammy codename when the repo has no Release file for the host's codename" {
+  # Regression test: on a real WSL2 run, Microsoft's azure-cli repo had no
+  # Release file for Ubuntu 26.04's "resolute" codename, so apt-get update
+  # failed every time and the tool was always skipped. Simulates that by
+  # failing only the dists/.../Release curl (the new pre-check), while the
+  # rest of the repo-add succeeds - the apt source line written to
+  # apt_sources_file should use "jammy" instead of the host's own codename.
+  curl() {
+    echo "curl $*" >> "$STUB_LOG"
+    [[ "$*" == *"/dists/"* ]] && return 1
+    return 0
+  }
+  export -f curl
+  tee_stdin="$BATS_TEST_TMPDIR/azure-cli-tee-stdin"
+  sudo() {
+    echo "sudo $*" >> "$STUB_LOG"
+    [[ "$1" == "tee" ]] && cat > "$tee_stdin"
+    return 0
+  }
+  export -f sudo
+  sources_file="$BATS_TEST_TMPDIR/azure-cli-fallback.list"
+  keyrings_dir="$BATS_TEST_TMPDIR/keyrings"
+  run omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$tee_stdin")" == *"https://packages.microsoft.com/repos/azure-cli/ jammy main" ]]
 }
 
 @test "azure-cli: no-ops when already installed" {
