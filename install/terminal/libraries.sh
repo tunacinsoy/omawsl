@@ -10,7 +10,8 @@ omawsl_install_libraries() {
     libvips imagemagick libmagickwand-dev mupdf mupdf-tools \
     redis-tools sqlite3 libsqlite3-0 libsqlite3-dev libmysqlclient-dev libpq-dev \
     libcurl4-openssl-dev libgd-dev libicu-dev libzip-dev libonig-dev \
-    postgresql-client postgresql-client-common
+    postgresql-client postgresql-client-common \
+    unzip
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
