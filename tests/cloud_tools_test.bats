@@ -10,10 +10,10 @@ setup() {
   stub_command sudo
   stub_command gpg
   # This WSL instance has real terraform installed on it (from a real
-  # Task 6 verification run) - hide it (and az, pre-emptively) so
-  # `command -v terraform`/`command -v az` behave the same on this
-  # machine as on a fresh one, regardless of what's actually installed.
-  stub_hide_command terraform az
+  # Task 6 verification run) - hide it so `command -v terraform` behaves
+  # the same on this machine as on a fresh one, regardless of what's
+  # actually installed.
+  stub_hide_command terraform
   # Same reason: this instance also has a real, already-configured
   # /etc/apt/sources.list.d/hashicorp.list. The omawsl_cloud_tools-level
   # tests below call the dispatcher with no explicit paths, which falls
@@ -21,8 +21,6 @@ setup() {
   # see a fresh, non-existent sources file regardless of host state.
   export OMAWSL_TERRAFORM_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/hashicorp-default.list"
   export OMAWSL_TERRAFORM_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings-default"
-  export OMAWSL_AZURE_CLI_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/azure-cli-default.list"
-  export OMAWSL_AZURE_CLI_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings-default"
 }
 
 # --- omawsl_install_terraform ------------------------------------------------
@@ -101,126 +99,17 @@ setup() {
   [[ "$output" == *"Terraform install failed"* ]]
 }
 
-# --- omawsl_install_azure_cli -------------------------------------------------
-
-@test "azure-cli: installs via apt when not already present" {
-  stub_command curl
-  sources_file="$BATS_TEST_TMPDIR/azure-cli.list"
-  keyrings_dir="$BATS_TEST_TMPDIR/keyrings"
-  run omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"curl -fsSL -o /dev/null https://packages.microsoft.com/repos/azure-cli/dists/"*"/Release"* ]]
-  [[ "$(stub_calls)" == *"curl -fsSL https://packages.microsoft.com/keys/microsoft.asc"* ]]
-  [[ "$(stub_calls)" == *"sudo gpg --yes --dearmor -o $keyrings_dir/microsoft.gpg"* ]]
-  [[ "$(stub_calls)" == *"sudo tee $sources_file"* ]]
-  [[ "$(stub_calls)" == *"sudo apt-get install -y azure-cli"* ]]
-}
-
-@test "azure-cli: falls back to the jammy codename when the repo has no Release file for the host's codename" {
-  # Regression test: on a real WSL2 run, Microsoft's azure-cli repo had no
-  # Release file for Ubuntu 26.04's "resolute" codename, so apt-get update
-  # failed every time and the tool was always skipped. Simulates that by
-  # failing only the dists/.../Release curl (the new pre-check), while the
-  # rest of the repo-add succeeds - the apt source line written to
-  # apt_sources_file should use "jammy" instead of the host's own codename.
-  curl() {
-    echo "curl $*" >> "$STUB_LOG"
-    [[ "$*" == *"/dists/"* ]] && return 1
-    return 0
-  }
-  export -f curl
-  tee_stdin="$BATS_TEST_TMPDIR/azure-cli-tee-stdin"
-  sudo() {
-    echo "sudo $*" >> "$STUB_LOG"
-    [[ "$1" == "tee" ]] && cat > "$tee_stdin"
-    return 0
-  }
-  export -f sudo
-  sources_file="$BATS_TEST_TMPDIR/azure-cli-fallback.list"
-  keyrings_dir="$BATS_TEST_TMPDIR/keyrings"
-  run omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
-  [ "$status" -eq 0 ]
-  [[ "$(cat "$tee_stdin")" == *"https://packages.microsoft.com/repos/azure-cli/ jammy main" ]]
-}
-
-@test "azure-cli: no-ops when already installed" {
-  stub_command curl
-  stub_command az
-  run omawsl_install_azure_cli "$BATS_TEST_TMPDIR/azure-cli.list" "$BATS_TEST_TMPDIR/keyrings"
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" != *"curl"* ]]
-}
-
-@test "azure-cli: skips the repo-add step when the sources file already exists" {
-  stub_command curl
-  sources_file="$BATS_TEST_TMPDIR/azure-cli-existing.list"
-  : > "$sources_file"
-  run omawsl_install_azure_cli "$sources_file" "$BATS_TEST_TMPDIR/keyrings"
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" != *"curl"* ]]
-  [[ "$(stub_calls)" == *"sudo apt-get install -y azure-cli"* ]]
-}
-
-@test "azure-cli: isolates a repo-add failure instead of aborting" {
-  stub_command curl 1
-  sources_file="$BATS_TEST_TMPDIR/azure-cli-fail.list"
-  run omawsl_install_azure_cli "$sources_file" "$BATS_TEST_TMPDIR/keyrings"
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Azure CLI install failed"* ]]
-  [[ "$(stub_calls)" != *"apt-get install -y azure-cli"* ]]
-}
-
-@test "azure-cli: removes the sources file when apt-get itself fails, so a retry doesn't inherit a broken repo listing" {
-  sudo() {
-    echo "sudo $*" >> "$STUB_LOG"
-    if [[ "$1" == "apt-get" ]]; then
-      return 1
-    fi
-    if [[ "$1" == "rm" ]]; then
-      shift
-      command rm "$@"
-      return $?
-    fi
-    return 0
-  }
-  export -f sudo
-  sources_file="$BATS_TEST_TMPDIR/azure-cli-preexisting.list"
-  : > "$sources_file"
-  run omawsl_install_azure_cli "$sources_file" "$BATS_TEST_TMPDIR/keyrings"
-  [ "$status" -eq 0 ]
-  [ ! -f "$sources_file" ]
-  [[ "$output" == *"Azure CLI install failed"* ]]
-}
-
 # --- omawsl_cloud_tools --------------------------------------------------------
 
-@test "cloud_tools: installs both when both are selected" {
-  stub_command curl
-  export OMAWSL_LANGUAGES="Terraform,Azure CLI"
-  omawsl_cloud_tools
-  [[ "$(stub_calls)" == *"apt-get install -y terraform"* ]]
-  [[ "$(stub_calls)" == *"apt-get install -y azure-cli"* ]]
-}
-
-@test "cloud_tools: installs only the one selected" {
+@test "cloud_tools: installs terraform when selected" {
   stub_command curl
   export OMAWSL_LANGUAGES="Terraform"
   omawsl_cloud_tools
   [[ "$(stub_calls)" == *"apt-get install -y terraform"* ]]
-  [[ "$(stub_calls)" != *"azure-cli"* ]]
 }
 
-@test "cloud_tools: selecting neither installs nothing" {
+@test "cloud_tools: selecting nothing installs nothing" {
   export OMAWSL_LANGUAGES="Go,Rust"
   omawsl_cloud_tools
   [[ "$(stub_calls)" != *"terraform"* ]]
-  [[ "$(stub_calls)" != *"azure-cli"* ]]
-}
-
-@test "cloud_tools: a failed terraform repo-add doesn't prevent azure-cli from being attempted" {
-  stub_command curl 1
-  export OMAWSL_LANGUAGES="Terraform,Azure CLI"
-  omawsl_cloud_tools
-  [[ "$(stub_calls)" == *"curl -fsSL https://apt.releases.hashicorp.com/gpg"* ]]
-  [[ "$(stub_calls)" == *"curl -fsSL https://packages.microsoft.com/keys/microsoft.asc"* ]]
 }
