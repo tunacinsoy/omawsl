@@ -97,7 +97,7 @@ omawsl_doctor_report_category() {
 omawsl_doctor() {
   echo "omawsl doctor - checking what's installed/configured:"
   echo
-  echo "Languages & cloud tools:"
+  echo "Languages:"
   omawsl_doctor_report_category language omawsl_doctor_language_installed OMAWSL_LANGUAGES
   echo
   echo "Cloud CLIs:"

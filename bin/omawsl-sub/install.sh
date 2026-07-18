@@ -156,7 +156,7 @@ omawsl_install_interactive() {
 # omawsl_install_command [category] [item]
 # Entry point for `bin/omawsl install [category] [item]` (design spec
 # §14). Category names here are the human words used in the interactive
-# picker's own choices ("language", "editor", "storage"), matching the
+# picker's own choices ("language", "cloud", "editor", "storage"), matching the
 # spec's own examples ("install language go", "install editor vscode").
 omawsl_install_command() {
   local category="${1:-}" item="${2:-}"
