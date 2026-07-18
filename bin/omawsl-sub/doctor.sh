@@ -19,7 +19,6 @@ omawsl_doctor_language_installed() {
   local slug="$1"
   case "$slug" in
     terraform) command -v terraform &>/dev/null ;;
-    azure) command -v az &>/dev/null ;;
     *)
       local mise_tool
       case "$slug" in
@@ -29,6 +28,16 @@ omawsl_doctor_language_installed() {
       esac
       command -v mise &>/dev/null && mise ls --current 2>/dev/null | awk '{print $1}' | grep -qx "$mise_tool"
       ;;
+  esac
+}
+
+# omawsl_doctor_cloud_installed <slug>
+omawsl_doctor_cloud_installed() {
+  local slug="$1"
+  case "$slug" in
+    azure) command -v az &>/dev/null ;;
+    aws) command -v aws &>/dev/null ;;
+    gcp) command -v gcloud &>/dev/null ;;
   esac
 }
 
@@ -88,8 +97,11 @@ omawsl_doctor_report_category() {
 omawsl_doctor() {
   echo "omawsl doctor - checking what's installed/configured:"
   echo
-  echo "Languages & cloud tools:"
+  echo "Languages:"
   omawsl_doctor_report_category language omawsl_doctor_language_installed OMAWSL_LANGUAGES
+  echo
+  echo "Cloud CLIs:"
+  omawsl_doctor_report_category cloud omawsl_doctor_cloud_installed OMAWSL_CLOUD_CLIS
   echo
   echo "Editors & AI tooling:"
   omawsl_doctor_report_category editor omawsl_doctor_editor_installed OMAWSL_EDITORS

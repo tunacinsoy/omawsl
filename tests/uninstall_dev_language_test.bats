@@ -73,29 +73,6 @@ setup() {
   [[ "$(stub_calls)" != *"mise unuse"* ]]
 }
 
-@test "omawsl_uninstall_language purges azure-cli and removes its apt source" {
-  # Override sudo to actually perform rm operations (needed to verify file
-  # deletion in tests), while still logging calls for stub_calls assertions
-  sudo() {
-    echo "sudo $*" >> "$STUB_LOG"
-    if [[ "$1" == "rm" ]]; then
-      shift
-      command rm "$@"
-      return $?
-    fi
-    return 0
-  }
-  export -f sudo
-  export OMAWSL_AZURE_CLI_APT_SOURCES_FILE="$BATS_TEST_TMPDIR/azure-cli.list"
-  export OMAWSL_AZURE_CLI_APT_KEYRINGS_DIR="$BATS_TEST_TMPDIR/keyrings"
-  touch "$OMAWSL_AZURE_CLI_APT_SOURCES_FILE"
-  stub_command az
-  run omawsl_uninstall_language "Azure CLI"
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"sudo apt-get purge -y azure-cli"* ]]
-  [ ! -f "$OMAWSL_AZURE_CLI_APT_SOURCES_FILE" ]
-}
-
 @test "omawsl_uninstall_language rejects an unknown label" {
   run omawsl_uninstall_language "Not A Real Language"
   [ "$status" -ne 0 ]

@@ -46,22 +46,6 @@ omawsl_uninstall_terraform() {
   echo "omawsl: Terraform removed."
 }
 
-# omawsl_uninstall_azure_cli [apt_sources_file] [keyrings_dir]
-# Inverse of omawsl_install_azure_cli.
-omawsl_uninstall_azure_cli() {
-  local apt_sources_file="${1:-${OMAWSL_AZURE_CLI_APT_SOURCES_FILE:-/etc/apt/sources.list.d/azure-cli.list}}"
-  local keyrings_dir="${2:-${OMAWSL_AZURE_CLI_APT_KEYRINGS_DIR:-/etc/apt/keyrings}}"
-
-  if ! command -v az &>/dev/null; then
-    echo "omawsl: Azure CLI isn't installed - nothing to do."
-    return 0
-  fi
-
-  sudo apt-get purge -y azure-cli
-  sudo rm -f "$apt_sources_file" "$keyrings_dir/microsoft.gpg"
-  echo "omawsl: Azure CLI removed."
-}
-
 # omawsl_uninstall_language <label>
 # Takes the exact picker label (matches OMAWSL_LANGUAGES's own comma-list
 # values) rather than a mise tool name or CLI slug - callers translate a
@@ -84,7 +68,6 @@ omawsl_uninstall_language() {
     "Rust")           omawsl_uninstall_mise_tool rust "Rust" ;;
     "Java")           omawsl_uninstall_mise_tool java "Java" ;;
     "Terraform")      omawsl_uninstall_terraform ;;
-    "Azure CLI")      omawsl_uninstall_azure_cli ;;
     *)
       echo "omawsl: unknown language/tool '$label'" >&2
       return 1

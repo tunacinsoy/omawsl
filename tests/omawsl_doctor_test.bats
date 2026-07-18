@@ -33,6 +33,22 @@ setup() {
   [[ "$output" == *"[PENDING] Rust - run: omawsl install language rust"* ]]
 }
 
+@test "omawsl_doctor reports PENDING for a selected-but-missing cloud CLI" {
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "AWS CLI"
+  stub_hide_command aws
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] AWS CLI - run: omawsl install cloud aws"* ]]
+}
+
+@test "omawsl_doctor reports OK for an installed, selected cloud CLI" {
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "GCP CLI"
+  stub_command gcloud
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]      GCP CLI"* ]]
+}
+
 @test "omawsl_doctor skips categories where nothing was selected" {
   run omawsl_doctor
   [ "$status" -eq 0 ]

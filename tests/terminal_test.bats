@@ -64,6 +64,7 @@ terminal/libraries.sh
 terminal/mise.sh
 terminal/select-dev-language.sh
 terminal/cloud-tools.sh
+terminal/cloud-clis.sh
 terminal/select-dev-storage.sh
 terminal/app-vscode.sh
 terminal/app-neovim.sh

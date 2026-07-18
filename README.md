@@ -41,11 +41,11 @@ what gets you there in the first place - and optionally a little further.
 
 Fully automated on the WSL/Linux side: shell and terminal tooling (zellij, btop, fastfetch,
 lazygit, lazydocker, `gh`), Docker (native Engine by default, or Docker Desktop detect-and-defer
-if you opt in), your choice of language runtimes and cloud CLIs via `mise` (Ruby on Rails,
-Node.js, Go, PHP, Python, Elixir, Rust, Java, Terraform, Azure CLI), containerized storage
-(MySQL, Redis, PostgreSQL), and your choice of editors/AI tooling (VS Code, Neovim, opencode,
-Cursor, Claude Code CLI, Codex CLI, GitHub Copilot CLI, Gemini CLI). Nothing in any picker is
-pre-selected - what you get is exactly what you choose, every time.
+if you opt in), your choice of language runtimes (Ruby on Rails, Node.js, Go, PHP, Python,
+Elixir, Rust, Java, Terraform), your choice of cloud provider CLIs (Azure CLI, AWS CLI, GCP
+CLI), containerized storage (MySQL, Redis, PostgreSQL), and your choice of editors/AI tooling
+(VS Code, Neovim, opencode, Cursor, Claude Code CLI, Codex CLI, GitHub Copilot CLI, Gemini CLI).
+Nothing in any picker is pre-selected - what you get is exactly what you choose, every time.
 
 Ten ported Omakub themes are available via `bin/omawsl theme <name>`, applied consistently
 across zellij, btop, Neovim, VS Code/Cursor, opencode (where it has a matching built-in

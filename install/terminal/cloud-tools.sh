@@ -66,64 +66,16 @@ omawsl_install_terraform() {
   fi
 }
 
-# omawsl_install_azure_cli [apt_sources_file] [keyrings_dir]
-# Same idempotent + failure-isolated shape as omawsl_install_terraform,
-# for Microsoft's apt repo instead of HashiCorp's (design spec §12).
-omawsl_install_azure_cli() {
-  local apt_sources_file="${1:-${OMAWSL_AZURE_CLI_APT_SOURCES_FILE:-/etc/apt/sources.list.d/azure-cli.list}}"
-  local keyrings_dir="${2:-${OMAWSL_AZURE_CLI_APT_KEYRINGS_DIR:-/etc/apt/keyrings}}"
-
-  if command -v az &>/dev/null; then
-    return 0
-  fi
-
-  local ok=1
-  {
-    if [[ ! -f "$apt_sources_file" ]]; then
-      local codename
-      codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
-      # Microsoft's azure-cli apt repo lags behind new Ubuntu releases - it
-      # has no Release file for 26.04's "resolute" yet (confirmed against
-      # https://packages.microsoft.com/repos/azure-cli/dists/), which would
-      # otherwise make apt-get update fail below every time on a current
-      # Ubuntu install. Fall back to "jammy" - the same default Microsoft's
-      # own installer (https://aka.ms/InstallAzureCLIDeb) uses for Ubuntu
-      # once the detected codename isn't published - since the .deb itself
-      # carries no codename-specific dependencies and installs fine either
-      # way. This check's own failure (network down, repo unreachable) is
-      # harmless: it just falls back to jammy and lets the real repo-add
-      # below hit the same failure and get isolated as usual.
-      curl -fsSL -o /dev/null "https://packages.microsoft.com/repos/azure-cli/dists/$codename/Release" || codename="jammy"
-      sudo install -m 0755 -d "$keyrings_dir" &&
-      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --yes --dearmor -o "$keyrings_dir/microsoft.gpg" &&
-      sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $codename main" &&
-      sudo apt-get update -qq
-    fi &&
-    sudo apt-get install -y azure-cli
-  } || ok=0
-
-  if [[ "$ok" -eq 0 ]]; then
-    sudo rm -f "$apt_sources_file"
-    echo "omawsl: Azure CLI install failed (repo unreachable?) - skipping, continuing with the rest of the run."
-  fi
-}
-
 # omawsl_cloud_tools
-# Reads OMAWSL_LANGUAGES (Terraform/Azure CLI live in the same picker as
-# the 8 languages - design spec §6) and installs each selected tool.
-# Nothing pre-selected by default; selecting neither is a valid no-op.
-# Each install function already swallows its own failure internally and
-# always returns 0, so no extra isolation logic is needed here - a failed
-# Terraform install simply doesn't stop Azure CLI from still being tried.
+# Reads OMAWSL_LANGUAGES (Terraform lives in the same picker as the 8
+# languages - design spec §6) and installs it if selected. Cloud provider
+# CLIs (Azure/AWS/GCP) live in their own OMAWSL_CLOUD_CLIS-driven picker -
+# see install/terminal/cloud-clis.sh.
 omawsl_cloud_tools() {
   local languages="${OMAWSL_LANGUAGES:-}"
 
   if omawsl_list_has "$languages" "Terraform"; then
     omawsl_install_terraform
-  fi
-
-  if omawsl_list_has "$languages" "Azure CLI"; then
-    omawsl_install_azure_cli
   fi
 }
 

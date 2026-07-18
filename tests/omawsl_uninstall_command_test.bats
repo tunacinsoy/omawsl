@@ -15,6 +15,9 @@ setup() {
 @test "omawsl_item_category classifies every known slug correctly" {
   [[ "$(omawsl_item_category go)" == "language" ]]
   [[ "$(omawsl_item_category terraform)" == "language" ]]
+  [[ "$(omawsl_item_category azure)" == "cloud" ]]
+  [[ "$(omawsl_item_category aws)" == "cloud" ]]
+  [[ "$(omawsl_item_category gcp)" == "cloud" ]]
   [[ "$(omawsl_item_category vscode)" == "editor" ]]
   [[ "$(omawsl_item_category gh-copilot)" == "editor" ]]
   [[ "$(omawsl_item_category mysql)" == "storage" ]]
@@ -27,10 +30,18 @@ setup() {
   [[ "$(omawsl_item_label vscode)" == "VS Code" ]]
   [[ "$(omawsl_item_label gh-copilot)" == "GitHub Copilot CLI" ]]
   [[ "$(omawsl_item_label postgresql)" == "PostgreSQL" ]]
+  [[ "$(omawsl_item_label azure)" == "Azure CLI" ]]
+  [[ "$(omawsl_item_label aws)" == "AWS CLI" ]]
+  [[ "$(omawsl_item_label gcp)" == "GCP CLI" ]]
 }
 
-@test "omawsl_item_slugs lists all 10 language slugs, 8 editor slugs, 3 storage slugs" {
-  [[ "$(omawsl_item_slugs language | wc -l)" -eq 10 ]]
+@test "omawsl_item_slugs lists all 9 language slugs, 3 cloud slugs, 8 editor slugs, 3 storage slugs" {
+  [[ "$(omawsl_item_slugs language | wc -l)" -eq 9 ]]
+  [[ "$(omawsl_item_slugs language)" != *"azure"* ]]
+  [[ "$(omawsl_item_slugs cloud | wc -l)" -eq 3 ]]
+  [[ "$(omawsl_item_slugs cloud)" == *"azure"* ]]
+  [[ "$(omawsl_item_slugs cloud)" == *"aws"* ]]
+  [[ "$(omawsl_item_slugs cloud)" == *"gcp"* ]]
   [[ "$(omawsl_item_slugs editor | wc -l)" -eq 8 ]]
   [[ "$(omawsl_item_slugs storage | wc -l)" -eq 3 ]]
 }
@@ -70,6 +81,24 @@ setup() {
   run omawsl_uninstall_command mysql
   [ "$status" -eq 0 ]
   [[ "$(omawsl_load_choice OMAWSL_STORAGE)" == "Redis" ]]
+}
+
+@test "omawsl_uninstall_command dispatches azure to uninstall/cloud-clis.sh" {
+  stub_command sudo
+  stub_command az
+  run omawsl_uninstall_command azure
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo apt-get purge -y azure-cli"* ]]
+}
+
+@test "omawsl_uninstall_command deselects a cloud CLI from OMAWSL_CLOUD_CLIS" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  stub_command sudo
+  stub_command az
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "Azure CLI,AWS CLI"
+  run omawsl_uninstall_command azure
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_CLOUD_CLIS)" == "AWS CLI" ]]
 }
 
 @test "omawsl_uninstall_command does not touch choices.env at all for the docker slug" {

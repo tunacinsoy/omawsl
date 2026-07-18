@@ -19,6 +19,8 @@ source "$OMAWSL_ROOT_DIR/install/terminal/app-codex-cli.sh"
 source "$OMAWSL_ROOT_DIR/install/terminal/app-gemini-cli.sh"
 # shellcheck source=../../install/terminal/app-gh-copilot.sh
 source "$OMAWSL_ROOT_DIR/install/terminal/app-gh-copilot.sh"
+# shellcheck source=../../install/terminal/cloud-clis.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/cloud-clis.sh"
 
 # Registry + version-check adapters for omawsl's "orphan" tools - tools
 # omawsl installs that have no native update command of their own (no
@@ -30,22 +32,22 @@ source "$OMAWSL_ROOT_DIR/install/terminal/app-gh-copilot.sh"
 # belong there.
 
 # omawsl_orphan_tool_slugs
-# All 7 orphan-tool slugs, in a fixed display order.
+# All 8 orphan-tool slugs, in a fixed display order.
 omawsl_orphan_tool_slugs() {
-  printf '%s\n' zellij lazydocker opencode claude codex gemini gh-copilot
+  printf '%s\n' zellij lazydocker opencode claude codex gemini gh-copilot aws
 }
 
 # omawsl_orphan_tool_label <slug>
 # zellij/lazydocker aren't in items.sh (always-on, not a picker target),
-# so they get their own labels here; the other 5 slugs are already
+# so they get their own labels here; the other 6 slugs are already
 # registered there under the exact same slug names install/uninstall/
 # doctor use - reused via omawsl_item_label rather than duplicating the
-# same 5 label strings a second time.
+# same 6 label strings a second time.
 omawsl_orphan_tool_label() {
   case "$1" in
     zellij) echo "Zellij" ;;
     lazydocker) echo "LazyDocker" ;;
-    opencode|claude|codex|gemini|gh-copilot) omawsl_item_label "$1" ;;
+    opencode|claude|codex|gemini|gh-copilot|aws) omawsl_item_label "$1" ;;
     *) return 1 ;;
   esac
 }
@@ -54,7 +56,7 @@ omawsl_orphan_tool_label() {
 # Is this orphan tool actually present right now? zellij/lazydocker get a
 # direct command -v check (they're not in items.sh, so
 # bin/omawsl-sub/doctor.sh's own per-slug checks don't cover them
-# either); the other 5 repeat the same one-line checks doctor.sh and
+# either); the other 6 repeat the same one-line checks doctor.sh and
 # each tool's own install-script guard already use - this repo already
 # has that exact check duplicated in at least two places per tool
 # (app-codex-cli.sh's own guard, doctor.sh's omawsl_doctor_editor_installed),
@@ -70,6 +72,7 @@ omawsl_orphan_tool_installed() {
     codex) command -v codex &>/dev/null ;;
     gemini) command -v gemini &>/dev/null ;;
     gh-copilot) gh extension list 2>/dev/null | grep -q 'github/gh-copilot' ;;
+    aws) command -v aws &>/dev/null ;;
     *) return 1 ;;
   esac
 }
@@ -119,16 +122,18 @@ omawsl_orphan_tool_version_installed() {
     codex) omawsl_orphan_extract_semver "$(codex --version 2>/dev/null || true)" ;;
     gemini) omawsl_orphan_extract_semver "$(gemini --version 2>/dev/null || true)" ;;
     gh-copilot) omawsl_orphan_extract_semver "$(gh extension list 2>/dev/null | grep 'github/gh-copilot' || true)" ;;
+    aws) omawsl_orphan_extract_semver "$(aws --version 2>/dev/null || true)" ;;
     *) return 1 ;;
   esac
 }
 
 # omawsl_orphan_tool_version_latest <slug>
-# GitHub Releases API for the 5 binary/curl-script-distributed tools
+# GitHub Releases API for the 6 binary/curl-script-distributed tools
 # (repo slugs confirmed live: zellij-org/zellij, jesseduffield/lazydocker,
 # anomalyco/opencode [formerly sst/opencode - GitHub redirects the old
-# path], anthropics/claude-code, github/gh-copilot); npm registry for the
-# 2 tools installed via a private mise-managed Node runtime.
+# path], anthropics/claude-code, github/gh-copilot, aws/aws-cli); npm
+# registry for the 2 tools installed via a private mise-managed Node
+# runtime.
 omawsl_orphan_tool_version_latest() {
   local slug="$1"
   case "$slug" in
@@ -139,6 +144,7 @@ omawsl_orphan_tool_version_latest() {
     codex) omawsl_orphan_latest_from_npm "@openai/codex" ;;
     gemini) omawsl_orphan_latest_from_npm "@google/gemini-cli" ;;
     gh-copilot) omawsl_orphan_latest_from_github github/gh-copilot ;;
+    aws) omawsl_orphan_latest_from_github aws/aws-cli ;;
     *) return 1 ;;
   esac
 }
@@ -263,6 +269,7 @@ omawsl_orphan_tool_apply_update() {
     codex) omawsl_codex_cli_install_steps || ok=0 ;;
     gemini) omawsl_gemini_cli_install_steps || ok=0 ;;
     gh-copilot) omawsl_gh_copilot_update_steps || ok=0 ;;
+    aws) omawsl_aws_cli_install_steps || ok=0 ;;
     *) echo "omawsl: unknown orphan tool slug '$slug'" >&2; return 1 ;;
   esac
   if [[ "$ok" -eq 0 ]]; then
@@ -273,7 +280,7 @@ omawsl_orphan_tool_apply_update() {
 }
 
 # omawsl_orphan_tools_installed_slugs
-# Which of the 7 orphan tools are actually installed right now, in
+# Which of the 8 orphan tools are actually installed right now, in
 # registry order.
 omawsl_orphan_tools_installed_slugs() {
   local slug
