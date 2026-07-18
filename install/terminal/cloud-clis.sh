@@ -103,6 +103,7 @@ omawsl_aws_cli_install_steps() {
 
   if [[ "$ok" -eq 0 ]]; then
     echo "omawsl: AWS CLI install failed (download unreachable?) - skipping, continuing with the rest of the run."
+    return 1
   fi
 }
 
@@ -115,7 +116,11 @@ omawsl_install_aws_cli() {
     return 0
   fi
 
-  omawsl_aws_cli_install_steps
+  # Unlike the update path (bin/omawsl-sub/orphan-tools.sh), which needs the
+  # real exit code to tell a failed update from a successful one, a failed
+  # install here must not abort the rest of an install.sh run (set -e) - so
+  # swallow it, same as omawsl_install_azure_cli/omawsl_install_gcp_cli above.
+  omawsl_aws_cli_install_steps || true
 }
 
 # omawsl_cloud_clis

@@ -139,7 +139,7 @@ setup() {
   export -f dpkg
   stub_command curl 1
   run omawsl_aws_cli_install_steps
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 1 ]
   [[ "$output" == *"AWS CLI install failed"* ]]
 }
 
@@ -156,6 +156,15 @@ setup() {
   run omawsl_install_aws_cli
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"aws-install-steps-called"* ]]
+}
+
+@test "aws-cli: omawsl_install_aws_cli swallows a real install_steps failure so a fresh install run isn't aborted" {
+  dpkg() { echo "amd64"; }
+  export -f dpkg
+  stub_command curl 1
+  run omawsl_install_aws_cli
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"AWS CLI install failed"* ]]
 }
 
 # --- omawsl_cloud_clis ---------------------------------------------------------

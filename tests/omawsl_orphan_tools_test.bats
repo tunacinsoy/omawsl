@@ -135,6 +135,17 @@ setup() {
   [[ "$output" == *"failed to update"* ]]
 }
 
+@test "omawsl_orphan_tool_apply_update reports a real AWS CLI download failure as failed to update, not updated" {
+  dpkg() { echo "amd64"; }
+  export -f dpkg
+  curl() { return 1; }
+  export -f curl
+  run omawsl_orphan_tool_apply_update aws
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"failed to update"* ]]
+  [[ "$output" != *"updated AWS CLI"* ]]
+}
+
 @test "every function omawsl_orphan_tool_apply_update dispatches to actually exists" {
   for fn in omawsl_zellij_install_steps omawsl_lazydocker_install_steps \
             omawsl_opencode_install_steps omawsl_claude_cli_install_steps \
