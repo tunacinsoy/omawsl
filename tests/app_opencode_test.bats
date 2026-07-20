@@ -41,3 +41,14 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"opencode.ai/install"* ]]
 }
+
+@test "no-ops when installed but not yet on PATH in the current shell" {
+  export OMAWSL_EDITORS="opencode"
+  stub_hide_command opencode
+  mkdir -p "$HOME/.opencode/bin"
+  : > "$HOME/.opencode/bin/opencode"
+  chmod +x "$HOME/.opencode/bin/opencode"
+  run omawsl_install_opencode
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"curl"* ]]
+}
