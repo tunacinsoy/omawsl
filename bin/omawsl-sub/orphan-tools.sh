@@ -71,7 +71,7 @@ omawsl_orphan_tool_installed() {
     claude) command -v claude &>/dev/null ;;
     codex) command -v codex &>/dev/null ;;
     gemini) command -v gemini &>/dev/null ;;
-    gh-copilot) gh extension list 2>/dev/null | grep -q 'github/gh-copilot' ;;
+    gh-copilot) command -v copilot &>/dev/null ;;
     aws) command -v aws &>/dev/null ;;
     *) return 1 ;;
   esac
@@ -89,11 +89,10 @@ omawsl_orphan_extract_semver() {
 
 # omawsl_orphan_latest_from_github <owner/repo>
 # Latest release tag from the public GitHub REST API, unauthenticated -
-# this must work on a fresh machine before any `gh auth login` has
-# happened (the exact same real constraint already documented for
-# gh-copilot's own install in app-gh-copilot.sh). Empty output on any
-# failure (network, rate limit, malformed JSON) rather than erroring -
-# the caller (Task 3) is what bounds the wait, not this function itself.
+# this must work on a fresh machine with no prior setup at all. Empty
+# output on any failure (network, rate limit, malformed JSON) rather than
+# erroring - the caller (Task 3) is what bounds the wait, not this
+# function itself.
 omawsl_orphan_latest_from_github() {
   local repo="$1"
   local tag
@@ -121,19 +120,20 @@ omawsl_orphan_tool_version_installed() {
     claude) omawsl_orphan_extract_semver "$(claude --version 2>/dev/null || true)" ;;
     codex) omawsl_orphan_extract_semver "$(codex --version 2>/dev/null || true)" ;;
     gemini) omawsl_orphan_extract_semver "$(gemini --version 2>/dev/null || true)" ;;
-    gh-copilot) omawsl_orphan_extract_semver "$(gh extension list 2>/dev/null | grep 'github/gh-copilot' || true)" ;;
+    gh-copilot) omawsl_orphan_extract_semver "$(copilot --version 2>/dev/null || true)" ;;
     aws) omawsl_orphan_extract_semver "$(aws --version 2>/dev/null || true)" ;;
     *) return 1 ;;
   esac
 }
 
 # omawsl_orphan_tool_version_latest <slug>
-# GitHub Releases API for the 6 binary/curl-script-distributed tools
+# GitHub Releases API for the 5 binary/curl-script-distributed tools
 # (repo slugs confirmed live: zellij-org/zellij, jesseduffield/lazydocker,
 # anomalyco/opencode [formerly sst/opencode - GitHub redirects the old
-# path], anthropics/claude-code, github/gh-copilot, aws/aws-cli); npm
-# registry for the 2 tools installed via a private mise-managed Node
-# runtime.
+# path], anthropics/claude-code, aws/aws-cli); npm registry for the 3
+# tools installed via a private mise-managed Node runtime, gh-copilot
+# included since it switched from the retired `gh extension install
+# github/gh-copilot` to the standalone `@github/copilot` npm package.
 omawsl_orphan_tool_version_latest() {
   local slug="$1"
   case "$slug" in
@@ -143,7 +143,7 @@ omawsl_orphan_tool_version_latest() {
     claude) omawsl_orphan_latest_from_github anthropics/claude-code ;;
     codex) omawsl_orphan_latest_from_npm "@openai/codex" ;;
     gemini) omawsl_orphan_latest_from_npm "@google/gemini-cli" ;;
-    gh-copilot) omawsl_orphan_latest_from_github github/gh-copilot ;;
+    gh-copilot) omawsl_orphan_latest_from_npm "@github/copilot" ;;
     aws) omawsl_orphan_latest_from_github aws/aws-cli ;;
     *) return 1 ;;
   esac
@@ -250,13 +250,13 @@ omawsl_orphan_tools_format_line() {
 # Re-runs the given orphan tool's install steps, guard bypassed, so an
 # already-installed tool gets a genuine fresh install/update rather than
 # the no-op its normal command -v guard would otherwise produce.
-# gh-copilot is the one exception: its own "steps" function for THIS
-# purpose is omawsl_gh_copilot_update_steps (`gh extension upgrade`), not
-# omawsl_gh_copilot_install_steps (`gh extension install`, which errors
-# on an already-present extension rather than upgrading it - Task 7).
-# Isolated per tool (cloud-tools.sh's own `{ ... } || ok=0` pattern) so
-# one tool's failed update doesn't abort the rest of the selected
-# updates or the overall omawsl update run.
+# gh-copilot reuses omawsl_gh_copilot_install_steps like codex/gemini -
+# now that it's plain `npm install -g @github/copilot` (no separate
+# update-steps function needed) rather than the old `gh extension
+# install`, which used to error on an already-present extension instead
+# of upgrading it in place. Isolated per tool (cloud-tools.sh's own
+# `{ ... } || ok=0` pattern) so one tool's failed update doesn't abort
+# the rest of the selected updates or the overall omawsl update run.
 omawsl_orphan_tool_apply_update() {
   local slug="$1"
   local label; label="$(omawsl_orphan_tool_label "$slug")"
@@ -268,7 +268,7 @@ omawsl_orphan_tool_apply_update() {
     claude) omawsl_claude_cli_install_steps || ok=0 ;;
     codex) omawsl_codex_cli_install_steps || ok=0 ;;
     gemini) omawsl_gemini_cli_install_steps || ok=0 ;;
-    gh-copilot) omawsl_gh_copilot_update_steps || ok=0 ;;
+    gh-copilot) omawsl_gh_copilot_install_steps || ok=0 ;;
     aws) omawsl_aws_cli_install_steps || ok=0 ;;
     *) echo "omawsl: unknown orphan tool slug '$slug'" >&2; return 1 ;;
   esac

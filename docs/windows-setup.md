@@ -17,7 +17,7 @@ here instead of repeating these steps.
 | Docker backend: Docker Desktop for Windows | Install Docker Desktop, enable WSL integration | [#docker-desktop](#docker-desktop) |
 | Editors & AI tooling: VS Code | Install VS Code, enable the WSL extension | [#vscode](#vscode) |
 | Editors & AI tooling: Cursor | Install Cursor, connect to this WSL distro once | [#cursor](#cursor) |
-| Editors & AI tooling: GitHub Copilot CLI | Run `gh auth login` before `install.sh` | [#github-copilot-cli](#github-copilot-cli) |
+| Editors & AI tooling: GitHub Copilot CLI | Nothing - installs automatically, no `gh auth login` needed | [#github-copilot-cli](#github-copilot-cli) |
 | After running `bin/omawsl theme` (Windows Terminal) | Nothing - the color sync happens automatically | [#windows-terminal-theme](#windows-terminal-theme) |
 | After running `bin/omawsl theme` (VS Code / Cursor, if installed natively on Windows) | Nothing - the color sync happens automatically | [#vscode-theme](#vscode-theme) |
 
@@ -113,18 +113,16 @@ Microsoft-published extensions, so this repo only deploys what's clearly specifi
 <a id="github-copilot-cli"></a>
 ## GitHub Copilot CLI
 
-Installing GitHub Copilot CLI runs `gh extension install github/gh-copilot`, which needs an
-authenticated `gh` session - something a fresh machine doesn't have yet. If you're going to
-pick "GitHub Copilot CLI" in the Editors & AI tooling picker, run this **before** `install.sh`:
+Nothing to do here by hand - picking "GitHub Copilot CLI" in the Editors & AI tooling picker
+installs the standalone `@github/copilot` npm package (via a private mise-managed Node
+runtime, same as Codex CLI and Gemini CLI) and gives you a `copilot` command directly. No
+`gh auth login` or any other prerequisite is needed; authenticate on first launch instead, via
+`copilot`'s own `/login` prompt.
 
-```bash
-gh auth login
-```
-
-If you skip this and pick it anyway, nothing else in `install.sh` is affected - the failure is
-isolated and reported, not fatal to the rest of the run - but the extension itself won't
-install until you run `gh auth login` yourself and then either
-`gh extension install github/gh-copilot` or re-run `install.sh`.
+GitHub retired the older `gh extension install github/gh-copilot` path (invoked as
+`gh copilot ...`) in favor of this standalone CLI. If you picked "GitHub Copilot CLI" before
+that switch, `install.sh` cleans up the old `gh-copilot` extension automatically the next time
+it runs - nothing to do manually there either.
 
 <a id="windows-terminal-theme"></a>
 ## Windows Terminal theme

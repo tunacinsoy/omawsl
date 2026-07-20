@@ -48,10 +48,13 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "omawsl_orphan_tool_installed checks gh-copilot via gh extension list" {
-  stub_command gh
+@test "omawsl_orphan_tool_installed checks gh-copilot via command -v copilot" {
+  stub_hide_command copilot
   run omawsl_orphan_tool_installed gh-copilot
   [ "$status" -ne 0 ]
+  stub_command copilot
+  run omawsl_orphan_tool_installed gh-copilot
+  [ "$status" -eq 0 ]
 }
 
 @test "omawsl_orphan_tool_installed checks aws via command -v" {
@@ -116,15 +119,12 @@ setup() {
   [[ "$(stub_calls)" == *"codex-updated"* ]]
 }
 
-@test "omawsl_orphan_tool_apply_update calls gh_copilot's update_steps, not install_steps" {
-  omawsl_gh_copilot_update_steps() { echo "gh-copilot-updated" >> "$STUB_LOG"; }
-  export -f omawsl_gh_copilot_update_steps
-  omawsl_gh_copilot_install_steps() { echo "gh-copilot-installed" >> "$STUB_LOG"; }
+@test "omawsl_orphan_tool_apply_update calls gh_copilot_install_steps for gh-copilot" {
+  omawsl_gh_copilot_install_steps() { echo "gh-copilot-updated" >> "$STUB_LOG"; }
   export -f omawsl_gh_copilot_install_steps
   run omawsl_orphan_tool_apply_update gh-copilot
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"gh-copilot-updated"* ]]
-  [[ "$(stub_calls)" != *"gh-copilot-installed"* ]]
 }
 
 @test "omawsl_orphan_tool_apply_update isolates a failure and keeps a zero exit" {
@@ -150,7 +150,7 @@ setup() {
   for fn in omawsl_zellij_install_steps omawsl_lazydocker_install_steps \
             omawsl_opencode_install_steps omawsl_claude_cli_install_steps \
             omawsl_codex_cli_install_steps omawsl_gemini_cli_install_steps \
-            omawsl_gh_copilot_update_steps omawsl_aws_cli_install_steps; do
+            omawsl_gh_copilot_install_steps omawsl_aws_cli_install_steps; do
     declare -F "$fn" >/dev/null || { echo "missing function: $fn"; return 1; }
   done
 }
@@ -199,7 +199,7 @@ setup() {
   [ "$(omawsl_orphan_tool_version_installed zellij)" = "0.44.3" ]
 }
 
-@test "omawsl_orphan_tool_version_latest dispatches to github for binary-release tools and npm for the two npm globals" {
+@test "omawsl_orphan_tool_version_latest dispatches to github for binary-release tools and npm for the three npm globals" {
   curl() { echo '{"tag_name":"v9.9.9"}'; }
   export -f curl
   [ "$(omawsl_orphan_tool_version_latest zellij)" = "9.9.9" ]
@@ -211,6 +211,7 @@ setup() {
   export -f mise
   [ "$(omawsl_orphan_tool_version_latest codex)" = "8.8.8" ]
   [ "$(omawsl_orphan_tool_version_latest gemini)" = "8.8.8" ]
+  [ "$(omawsl_orphan_tool_version_latest gh-copilot)" = "8.8.8" ]
 }
 
 @test "omawsl_orphan_wait_with_timeout returns 0 for a process that exits on its own" {
@@ -277,7 +278,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_installed_slugs lists only what's actually installed" {
-  stub_hide_command zellij lazydocker opencode claude codex gemini gh
+  stub_hide_command zellij lazydocker opencode claude codex gemini gh copilot
   stub_command zellij
   stub_command codex
   run omawsl_orphan_tools_installed_slugs
@@ -288,14 +289,14 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update no-ops cleanly when no orphan tool is installed" {
-  stub_hide_command zellij lazydocker opencode claude codex gemini gh
+  stub_hide_command zellij lazydocker opencode claude codex gemini gh copilot
   run omawsl_orphan_tools_update
   [ "$status" -eq 0 ]
   [[ "$output" == *"no orphan tools installed"* ]]
 }
 
 @test "omawsl_orphan_tools_update skips the picker when everything is confirmed up to date" {
-  stub_hide_command lazydocker opencode claude codex gemini gh
+  stub_hide_command lazydocker opencode claude codex gemini gh copilot
   stub_command zellij
   zellij() { echo "zellij 1.0.0"; }
   export -f zellij
@@ -308,7 +309,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update shows the picker, pre-selecting only outdated tools, and applies what's picked" {
-  stub_hide_command lazydocker opencode claude codex gemini gh
+  stub_hide_command lazydocker opencode claude codex gemini gh copilot
   stub_command zellij
   gum_stub_init
   zellij() { echo "zellij 1.0.0"; }
@@ -327,7 +328,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update still shows the picker when a tool is unknown, even with none confirmed outdated" {
-  stub_hide_command lazydocker opencode claude codex gemini gh
+  stub_hide_command lazydocker opencode claude codex gemini gh copilot
   stub_command zellij
   gum_stub_init
   zellij() { echo "zellij 1.0.0"; }

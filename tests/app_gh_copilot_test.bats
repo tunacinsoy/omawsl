@@ -5,8 +5,11 @@ load 'helpers/stubs'
 setup() {
   stub_init
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+  export HOME="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$HOME"
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/install/terminal/app-gh-copilot.sh"
+  stub_command mise
   stub_command gh
 }
 
@@ -15,58 +18,75 @@ setup() {
   run omawsl_install_gh_copilot
   [ "$status" -eq 0 ]
   [ -z "$(stub_calls)" ]
+  [ ! -f "$HOME/.local/bin/copilot" ]
 }
 
-@test "installs the gh-copilot extension when selected" {
+@test "installs via a private mise-managed Node and writes a wrapper" {
   export OMAWSL_EDITORS="GitHub Copilot CLI"
+  stub_hide_command copilot
   run omawsl_install_gh_copilot
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"gh extension install github/gh-copilot"* ]]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @github/copilot"* ]]
+  [ -x "$HOME/.local/bin/copilot" ]
+  [[ "$(cat "$HOME/.local/bin/copilot")" == *"exec mise exec node@lts -- copilot"* ]]
 }
 
-@test "skips a redundant install when the gh-copilot extension is already present" {
+@test "no-ops the npm install when already installed" {
   export OMAWSL_EDITORS="GitHub Copilot CLI"
+  stub_command copilot
+  run omawsl_install_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"npm install"* ]]
+}
+
+@test "cleans up the old gh-copilot extension even when copilot is already installed" {
+  export OMAWSL_EDITORS="GitHub Copilot CLI"
+  stub_command copilot
   gh() {
     echo "gh $*" >> "$STUB_LOG"
-    # Real `gh extension list` output (confirmed live on a real WSL2
-    # instance): the first column is "gh copilot" - space-separated, the
-    # invocation name - not the hyphenated "gh-copilot" repo/dir name.
-    if [[ "$1" == "extension" && "$2" == "list" ]]; then
+    if [[ "$1 $2" == "extension list" ]]; then
       echo "gh copilot	github/gh-copilot	v1.2.3"
     fi
   }
   export -f gh
   run omawsl_install_gh_copilot
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" != *"gh extension install"* ]]
+  [[ "$(stub_calls)" == *"gh extension remove gh-copilot"* ]]
+  [[ "$(stub_calls)" != *"npm install"* ]]
 }
 
-@test "isolates an install failure (e.g. gh not authenticated yet) instead of aborting the run" {
+@test "skips the old-extension removal when it was never installed" {
   export OMAWSL_EDITORS="GitHub Copilot CLI"
+  stub_hide_command copilot
+  run omawsl_install_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"gh extension remove"* ]]
+}
+
+@test "omawsl_gh_copilot_install_steps runs unconditionally and (re)writes the wrapper" {
+  stub_command copilot
+  rm -f "$HOME/.local/bin/copilot"
+  run omawsl_gh_copilot_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @github/copilot"* ]]
+  [ -x "$HOME/.local/bin/copilot" ]
+}
+
+@test "omawsl_gh_copilot_remove_old_extension removes the extension when present" {
   gh() {
     echo "gh $*" >> "$STUB_LOG"
-    if [[ "$1" == "extension" && "$2" == "install" ]]; then
-      return 1
+    if [[ "$1 $2" == "extension list" ]]; then
+      echo "gh copilot	github/gh-copilot	v1.2.3"
     fi
   }
   export -f gh
-  run omawsl_install_gh_copilot
+  run omawsl_gh_copilot_remove_old_extension
   [ "$status" -eq 0 ]
-  [[ "$output" == *"GitHub Copilot CLI install failed"* ]]
-  [[ "$output" == *"docs/windows-setup.md#github-copilot-cli"* ]]
+  [[ "$(stub_calls)" == *"gh extension remove gh-copilot"* ]]
 }
 
-@test "omawsl_gh_copilot_install_steps runs the install command directly" {
-  stub_command gh
-  run omawsl_gh_copilot_install_steps
+@test "omawsl_gh_copilot_remove_old_extension no-ops cleanly when gh isn't on PATH" {
+  stub_hide_command gh
+  run omawsl_gh_copilot_remove_old_extension
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"gh extension install github/gh-copilot"* ]]
-}
-
-@test "omawsl_gh_copilot_update_steps runs 'gh extension upgrade', not 'install'" {
-  stub_command gh
-  run omawsl_gh_copilot_update_steps
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"gh extension upgrade gh-copilot"* ]]
-  [[ "$(stub_calls)" != *"extension install"* ]]
 }

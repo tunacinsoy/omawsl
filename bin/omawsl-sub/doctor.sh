@@ -52,7 +52,7 @@ omawsl_doctor_editor_installed() {
     claude) command -v claude &>/dev/null ;;
     codex) command -v codex &>/dev/null ;;
     gemini) command -v gemini &>/dev/null ;;
-    gh-copilot) gh extension list 2>/dev/null | grep -q '^gh-copilot\|^gh copilot' ;;
+    gh-copilot) command -v copilot &>/dev/null ;;
   esac
 }
 

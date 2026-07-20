@@ -17,7 +17,7 @@ setup() {
   stub_command gem
   stub_command tar
   stub_command gh
-  stub_hide_command docker terraform az gcloud aws lazydocker zellij code cursor claude codex gemini opencode
+  stub_hide_command docker terraform az gcloud aws lazydocker zellij code cursor claude codex gemini opencode copilot
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"
@@ -78,7 +78,7 @@ setup() {
   [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit"* ]]
   [ -f "$HOME/.vscode-server/data/Machine/settings.json" ]
   [[ "$(stub_calls)" == *"git clone https://github.com/LazyVim/starter $HOME/.config/nvim"* ]]
-  [[ "$(stub_calls)" == *"gh extension install github/gh-copilot"* ]]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @github/copilot"* ]]
   [[ "$(stub_calls)" != *"cursor-server"* ]]
   # Not a bare "opencode" substring check: the gum stub logs its own
   # invocation verbatim, including every offered-but-unselected choice

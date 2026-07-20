@@ -6,51 +6,62 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib.sh"
 
 # omawsl_gh_copilot_install_steps
-# The actual first-time install command, no guard. Not reused for
-# updates: `gh extension install` errors on an already-present extension
-# rather than upgrading it in place, so bin/omawsl update's apply phase
-# calls omawsl_gh_copilot_update_steps below instead of this function.
+# The actual install + wrapper-write commands, no guard - same split
+# rationale as omawsl_codex_cli_install_steps/omawsl_gemini_cli_install_steps.
+# GitHub retired the `gh extension install github/gh-copilot` path this used
+# to go through - Copilot CLI is now the standalone `@github/copilot` npm
+# package, invoked as a bare `copilot` command, not `gh copilot` (confirmed
+# via GitHub's own install docs). Re-running this always reinstalls at
+# whatever version @github/copilot currently resolves to and rewrites the
+# wrapper unconditionally, same as the codex/gemini equivalents - so
+# bin/omawsl update's orphan-tool apply phase can reuse this function
+# directly instead of needing its own separate update-steps function.
 omawsl_gh_copilot_install_steps() {
-  gh extension install github/gh-copilot
+  mise exec node@lts -- npm install -g @github/copilot
+
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/copilot" <<'WRAPPER'
+#!/usr/bin/env bash
+exec mise exec node@lts -- copilot "$@"
+WRAPPER
+  chmod +x "$HOME/.local/bin/copilot"
 }
 
-# omawsl_gh_copilot_update_steps
-# The actual update command for an already-installed GitHub Copilot CLI.
-# Genuinely a different command from the install step above, not just
-# the same command with a guard removed - `gh extension upgrade` is
-# gh's own dedicated update path for an extension already present.
-omawsl_gh_copilot_update_steps() {
-  gh extension upgrade gh-copilot
+# omawsl_gh_copilot_remove_old_extension
+# One-time migration cleanup: removes the deprecated `gh-copilot` gh
+# extension (invoked as `gh copilot ...`) this script used to install
+# before GitHub retired that path in favor of the standalone `copilot`
+# npm package above. Matches on the "github/gh-copilot" repo-slug column
+# like the old uninstall script did - `gh extension list`'s first column
+# is actually "gh copilot" (space-separated, the invocation name), not
+# "gh-copilot" (hyphenated). Silent no-op if `gh` isn't on PATH or the old
+# extension was never installed.
+omawsl_gh_copilot_remove_old_extension() {
+  if gh extension list 2>/dev/null | grep -q '^gh-copilot\|^gh copilot'; then
+    gh extension remove gh-copilot 2>/dev/null || true
+  fi
 }
 
 # omawsl_install_gh_copilot
-# GitHub Copilot CLI, installed as a gh extension - depends only on gh
-# itself, which apps-terminal.sh installs unconditionally regardless of
-# any picker. Idempotent via `gh extension list` (installing an
-# already-present extension errors instead of no-opping). Failure-isolated
-# the same way cloud-tools.sh isolates a repo-add failure: confirmed on a
-# real WSL2 run that `gh extension install` itself needs an authenticated
-# session, not just Copilot usage afterward - `gh auth login` hasn't run
-# yet on a fresh install, so this is the default case, not an edge case.
-#
-# The idempotency check matches on the "github/gh-copilot" repo-slug
-# column, not the extension's invocation-name column - `gh extension
-# list`'s first column is actually "gh copilot" (space-separated, the
-# invocation name), not "gh-copilot" (hyphenated).
+# GitHub Copilot CLI - same shape as app-codex-cli.sh/app-gemini-cli.sh:
+# npm-only distribution (@github/copilot), installed via a private
+# mise-managed Node runtime plus an explicit $HOME/.local/bin/copilot
+# wrapper. Idempotent via a command -v guard. Always runs the old-extension
+# migration cleanup first (even if `copilot` is already installed), so
+# anyone who picked "GitHub Copilot CLI" before this switch doesn't end up
+# with both the old gh extension and the new standalone binary.
 omawsl_install_gh_copilot() {
   if ! omawsl_list_has "${OMAWSL_EDITORS:-}" "GitHub Copilot CLI"; then
     return 0
   fi
 
-  if gh extension list 2>/dev/null | grep -q 'github/gh-copilot'; then
+  omawsl_gh_copilot_remove_old_extension
+
+  if command -v copilot &>/dev/null; then
     return 0
   fi
 
-  if ! omawsl_gh_copilot_install_steps; then
-    echo "omawsl: GitHub Copilot CLI install failed (gh not authenticated yet?) - skipping, continuing with the rest of the run."
-    echo "Run 'gh auth login', then 'gh extension install github/gh-copilot' yourself, or re-run install.sh."
-    echo "See docs/windows-setup.md#github-copilot-cli for why this needs to happen before install.sh, not after."
-  fi
+  omawsl_gh_copilot_install_steps
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
