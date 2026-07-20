@@ -33,7 +33,7 @@ OMAWSL_TERMINAL_SCRIPTS=(
   "terminal/app-claude-cli.sh"
   "terminal/app-codex-cli.sh"
   "terminal/app-gh-copilot.sh"
-  "terminal/app-gemini-cli.sh"
+  "terminal/app-antigravity-cli.sh"
 )
 
 omawsl_run_terminal_scripts() {
@@ -58,7 +58,7 @@ omawsl_run_terminal_scripts() {
     ["terminal/app-claude-cli.sh"]="omawsl_install_claude_cli"
     ["terminal/app-codex-cli.sh"]="omawsl_install_codex_cli"
     ["terminal/app-gh-copilot.sh"]="omawsl_install_gh_copilot"
-    ["terminal/app-gemini-cli.sh"]="omawsl_install_gemini_cli"
+    ["terminal/app-antigravity-cli.sh"]="omawsl_install_antigravity_cli"
   )
 
   for script in "${OMAWSL_TERMINAL_SCRIPTS[@]}"; do

@@ -39,7 +39,7 @@ omawsl_install_apply_editor() {
   export OMAWSL_EDITORS="$merged"
   omawsl_save_choice OMAWSL_EDITORS "$merged"
   local f
-  for f in app-vscode app-neovim app-opencode app-cursor app-claude-cli app-codex-cli app-gh-copilot app-gemini-cli; do
+  for f in app-vscode app-neovim app-opencode app-cursor app-claude-cli app-codex-cli app-gh-copilot app-antigravity-cli; do
     # shellcheck source=/dev/null
     source "$OMAWSL_ROOT_DIR/install/terminal/$f.sh"
   done
@@ -50,7 +50,7 @@ omawsl_install_apply_editor() {
   omawsl_install_claude_cli
   omawsl_install_codex_cli
   omawsl_install_gh_copilot
-  omawsl_install_gemini_cli
+  omawsl_install_antigravity_cli
 }
 
 # omawsl_install_apply_storage <picked_labels_csv> <existing_labels_csv>

@@ -115,7 +115,7 @@ Microsoft-published extensions, so this repo only deploys what's clearly specifi
 
 Nothing to do here by hand - picking "GitHub Copilot CLI" in the Editors & AI tooling picker
 installs the standalone `@github/copilot` npm package (via a private mise-managed Node
-runtime, same as Codex CLI and Gemini CLI) and gives you a `copilot` command directly. No
+runtime, same as Codex CLI) and gives you a `copilot` command directly. No
 `gh auth login` or any other prerequisite is needed; authenticate on first launch instead, via
 `copilot`'s own `/login` prompt.
 

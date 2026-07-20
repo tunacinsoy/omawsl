@@ -51,7 +51,7 @@ omawsl_doctor_editor_installed() {
     opencode) command -v opencode &>/dev/null ;;
     claude) command -v claude &>/dev/null ;;
     codex) command -v codex &>/dev/null ;;
-    gemini) command -v gemini &>/dev/null ;;
+    antigravity) command -v agy &>/dev/null ;;
     gh-copilot) command -v copilot &>/dev/null ;;
   esac
 }

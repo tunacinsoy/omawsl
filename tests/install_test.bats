@@ -17,7 +17,7 @@ setup() {
   stub_command gem
   stub_command tar
   stub_command gh
-  stub_hide_command docker terraform az gcloud aws lazydocker zellij code cursor claude codex gemini opencode copilot
+  stub_hide_command docker terraform az gcloud aws lazydocker zellij code cursor claude codex agy opencode copilot
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"

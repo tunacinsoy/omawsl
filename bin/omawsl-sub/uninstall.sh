@@ -69,10 +69,10 @@ omawsl_uninstall_dispatch() {
       source "$OMAWSL_ROOT_DIR/uninstall/app-codex-cli.sh"
       omawsl_uninstall_codex_cli
       ;;
-    gemini)
+    antigravity)
       # shellcheck source=/dev/null
-      source "$OMAWSL_ROOT_DIR/uninstall/app-gemini-cli.sh"
-      omawsl_uninstall_gemini_cli
+      source "$OMAWSL_ROOT_DIR/uninstall/app-antigravity-cli.sh"
+      omawsl_uninstall_antigravity_cli
       ;;
     gh-copilot)
       # shellcheck source=/dev/null

@@ -20,7 +20,7 @@ setup() {
   [[ "$output" == *"opencode"* ]]
   [[ "$output" == *"claude"* ]]
   [[ "$output" == *"codex"* ]]
-  [[ "$output" == *"gemini"* ]]
+  [[ "$output" == *"antigravity"* ]]
   [[ "$output" == *"gh-copilot"* ]]
   [[ "$output" == *"aws"* ]]
   [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 8 ]
@@ -102,7 +102,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_format_line reports up to date when versions match" {
-  run omawsl_orphan_tools_format_line gemini "2.1.0" "2.1.0"
+  run omawsl_orphan_tools_format_line antigravity "2.1.0" "2.1.0"
   [[ "$output" == *"up to date"* ]]
 }
 
@@ -149,7 +149,7 @@ setup() {
 @test "every function omawsl_orphan_tool_apply_update dispatches to actually exists" {
   for fn in omawsl_zellij_install_steps omawsl_lazydocker_install_steps \
             omawsl_opencode_install_steps omawsl_claude_cli_install_steps \
-            omawsl_codex_cli_install_steps omawsl_gemini_cli_install_steps \
+            omawsl_codex_cli_install_steps omawsl_antigravity_cli_install_steps \
             omawsl_gh_copilot_install_steps omawsl_aws_cli_install_steps; do
     declare -F "$fn" >/dev/null || { echo "missing function: $fn"; return 1; }
   done
@@ -199,7 +199,7 @@ setup() {
   [ "$(omawsl_orphan_tool_version_installed zellij)" = "0.44.3" ]
 }
 
-@test "omawsl_orphan_tool_version_latest dispatches to github for binary-release tools and npm for the three npm globals" {
+@test "omawsl_orphan_tool_version_latest dispatches to github for binary-release tools and npm for the two npm globals" {
   curl() { echo '{"tag_name":"v9.9.9"}'; }
   export -f curl
   [ "$(omawsl_orphan_tool_version_latest zellij)" = "9.9.9" ]
@@ -210,8 +210,16 @@ setup() {
   mise() { echo "8.8.8"; }
   export -f mise
   [ "$(omawsl_orphan_tool_version_latest codex)" = "8.8.8" ]
-  [ "$(omawsl_orphan_tool_version_latest gemini)" = "8.8.8" ]
   [ "$(omawsl_orphan_tool_version_latest gh-copilot)" = "8.8.8" ]
+}
+
+@test "omawsl_orphan_tool_version_latest always reports unknown for antigravity - no public releases feed" {
+  curl() { echo '{"tag_name":"v9.9.9"}'; }
+  export -f curl
+  stub_command mise
+  mise() { echo "8.8.8"; }
+  export -f mise
+  [ "$(omawsl_orphan_tool_version_latest antigravity)" = "" ]
 }
 
 @test "omawsl_orphan_wait_with_timeout returns 0 for a process that exits on its own" {
@@ -278,7 +286,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_installed_slugs lists only what's actually installed" {
-  stub_hide_command zellij lazydocker opencode claude codex gemini gh copilot
+  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot
   stub_command zellij
   stub_command codex
   run omawsl_orphan_tools_installed_slugs
@@ -289,14 +297,14 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update no-ops cleanly when no orphan tool is installed" {
-  stub_hide_command zellij lazydocker opencode claude codex gemini gh copilot
+  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot
   run omawsl_orphan_tools_update
   [ "$status" -eq 0 ]
   [[ "$output" == *"no orphan tools installed"* ]]
 }
 
 @test "omawsl_orphan_tools_update skips the picker when everything is confirmed up to date" {
-  stub_hide_command lazydocker opencode claude codex gemini gh copilot
+  stub_hide_command lazydocker opencode claude codex agy gh copilot
   stub_command zellij
   zellij() { echo "zellij 1.0.0"; }
   export -f zellij
@@ -309,7 +317,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update shows the picker, pre-selecting only outdated tools, and applies what's picked" {
-  stub_hide_command lazydocker opencode claude codex gemini gh copilot
+  stub_hide_command lazydocker opencode claude codex agy gh copilot
   stub_command zellij
   gum_stub_init
   zellij() { echo "zellij 1.0.0"; }
@@ -328,7 +336,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update still shows the picker when a tool is unknown, even with none confirmed outdated" {
-  stub_hide_command lazydocker opencode claude codex gemini gh copilot
+  stub_hide_command lazydocker opencode claude codex agy gh copilot
   stub_command zellij
   gum_stub_init
   zellij() { echo "zellij 1.0.0"; }

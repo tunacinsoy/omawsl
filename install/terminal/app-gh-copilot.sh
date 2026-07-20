@@ -7,13 +7,13 @@ source "$SCRIPT_DIR/../lib.sh"
 
 # omawsl_gh_copilot_install_steps
 # The actual install + wrapper-write commands, no guard - same split
-# rationale as omawsl_codex_cli_install_steps/omawsl_gemini_cli_install_steps.
+# rationale as omawsl_codex_cli_install_steps.
 # GitHub retired the `gh extension install github/gh-copilot` path this used
 # to go through - Copilot CLI is now the standalone `@github/copilot` npm
 # package, invoked as a bare `copilot` command, not `gh copilot` (confirmed
 # via GitHub's own install docs). Re-running this always reinstalls at
 # whatever version @github/copilot currently resolves to and rewrites the
-# wrapper unconditionally, same as the codex/gemini equivalents - so
+# wrapper unconditionally, same as the codex equivalent - so
 # bin/omawsl update's orphan-tool apply phase can reuse this function
 # directly instead of needing its own separate update-steps function.
 omawsl_gh_copilot_install_steps() {
@@ -43,7 +43,7 @@ omawsl_gh_copilot_remove_old_extension() {
 }
 
 # omawsl_install_gh_copilot
-# GitHub Copilot CLI - same shape as app-codex-cli.sh/app-gemini-cli.sh:
+# GitHub Copilot CLI - same shape as app-codex-cli.sh:
 # npm-only distribution (@github/copilot), installed via a private
 # mise-managed Node runtime plus an explicit $HOME/.local/bin/copilot
 # wrapper. Idempotent via a command -v guard. Always runs the old-extension

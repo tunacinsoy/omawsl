@@ -15,8 +15,8 @@ source "$OMAWSL_ROOT_DIR/install/terminal/app-opencode.sh"
 source "$OMAWSL_ROOT_DIR/install/terminal/app-claude-cli.sh"
 # shellcheck source=../../install/terminal/app-codex-cli.sh
 source "$OMAWSL_ROOT_DIR/install/terminal/app-codex-cli.sh"
-# shellcheck source=../../install/terminal/app-gemini-cli.sh
-source "$OMAWSL_ROOT_DIR/install/terminal/app-gemini-cli.sh"
+# shellcheck source=../../install/terminal/app-antigravity-cli.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-antigravity-cli.sh"
 # shellcheck source=../../install/terminal/app-gh-copilot.sh
 source "$OMAWSL_ROOT_DIR/install/terminal/app-gh-copilot.sh"
 # shellcheck source=../../install/terminal/cloud-clis.sh
@@ -34,7 +34,7 @@ source "$OMAWSL_ROOT_DIR/install/terminal/cloud-clis.sh"
 # omawsl_orphan_tool_slugs
 # All 8 orphan-tool slugs, in a fixed display order.
 omawsl_orphan_tool_slugs() {
-  printf '%s\n' zellij lazydocker opencode claude codex gemini gh-copilot aws
+  printf '%s\n' zellij lazydocker opencode claude codex antigravity gh-copilot aws
 }
 
 # omawsl_orphan_tool_label <slug>
@@ -47,7 +47,7 @@ omawsl_orphan_tool_label() {
   case "$1" in
     zellij) echo "Zellij" ;;
     lazydocker) echo "LazyDocker" ;;
-    opencode|claude|codex|gemini|gh-copilot|aws) omawsl_item_label "$1" ;;
+    opencode|claude|codex|antigravity|gh-copilot|aws) omawsl_item_label "$1" ;;
     *) return 1 ;;
   esac
 }
@@ -70,7 +70,7 @@ omawsl_orphan_tool_installed() {
     opencode) command -v opencode &>/dev/null ;;
     claude) command -v claude &>/dev/null ;;
     codex) command -v codex &>/dev/null ;;
-    gemini) command -v gemini &>/dev/null ;;
+    antigravity) command -v agy &>/dev/null ;;
     gh-copilot) command -v copilot &>/dev/null ;;
     aws) command -v aws &>/dev/null ;;
     *) return 1 ;;
@@ -102,7 +102,7 @@ omawsl_orphan_latest_from_github() {
 
 # omawsl_orphan_latest_from_npm <package>
 # Latest published version from the npm registry, via the same private
-# mise-managed Node runtime app-codex-cli.sh/app-gemini-cli.sh already
+# mise-managed Node runtime app-codex-cli.sh/app-gh-copilot.sh already
 # use to install these two tools (`mise exec node@lts`) - never a bare
 # `npm`, which isn't guaranteed on PATH at all (design spec §5).
 omawsl_orphan_latest_from_npm() {
@@ -119,7 +119,7 @@ omawsl_orphan_tool_version_installed() {
     opencode) omawsl_orphan_extract_semver "$(opencode --version 2>/dev/null || true)" ;;
     claude) omawsl_orphan_extract_semver "$(claude --version 2>/dev/null || true)" ;;
     codex) omawsl_orphan_extract_semver "$(codex --version 2>/dev/null || true)" ;;
-    gemini) omawsl_orphan_extract_semver "$(gemini --version 2>/dev/null || true)" ;;
+    antigravity) omawsl_orphan_extract_semver "$(agy --version 2>/dev/null || true)" ;;
     gh-copilot) omawsl_orphan_extract_semver "$(copilot --version 2>/dev/null || true)" ;;
     aws) omawsl_orphan_extract_semver "$(aws --version 2>/dev/null || true)" ;;
     *) return 1 ;;
@@ -130,10 +130,11 @@ omawsl_orphan_tool_version_installed() {
 # GitHub Releases API for the 5 binary/curl-script-distributed tools
 # (repo slugs confirmed live: zellij-org/zellij, jesseduffield/lazydocker,
 # anomalyco/opencode [formerly sst/opencode - GitHub redirects the old
-# path], anthropics/claude-code, aws/aws-cli); npm registry for the 3
+# path], anthropics/claude-code, aws/aws-cli); npm registry for the 2
 # tools installed via a private mise-managed Node runtime, gh-copilot
 # included since it switched from the retired `gh extension install
 # github/gh-copilot` to the standalone `@github/copilot` npm package.
+# Antigravity CLI is neither - see its own case arm below.
 omawsl_orphan_tool_version_latest() {
   local slug="$1"
   case "$slug" in
@@ -142,7 +143,13 @@ omawsl_orphan_tool_version_latest() {
     opencode) omawsl_orphan_latest_from_github anomalyco/opencode ;;
     claude) omawsl_orphan_latest_from_github anthropics/claude-code ;;
     codex) omawsl_orphan_latest_from_npm "@openai/codex" ;;
-    gemini) omawsl_orphan_latest_from_npm "@google/gemini-cli" ;;
+    # Antigravity CLI is closed-source with no public releases feed (no
+    # GitHub repo, no npm package) - always "unknown" here, which
+    # omawsl_orphan_tools_format_line already renders gracefully. It's
+    # still worth keeping in the picker: selecting it re-runs the curl
+    # installer, and `agy` also self-updates itself in the background
+    # regardless (confirmed via antigravity.google/docs/cli/troubleshooting).
+    antigravity) echo "" ;;
     gh-copilot) omawsl_orphan_latest_from_npm "@github/copilot" ;;
     aws) omawsl_orphan_latest_from_github aws/aws-cli ;;
     *) return 1 ;;
@@ -250,7 +257,7 @@ omawsl_orphan_tools_format_line() {
 # Re-runs the given orphan tool's install steps, guard bypassed, so an
 # already-installed tool gets a genuine fresh install/update rather than
 # the no-op its normal command -v guard would otherwise produce.
-# gh-copilot reuses omawsl_gh_copilot_install_steps like codex/gemini -
+# gh-copilot reuses omawsl_gh_copilot_install_steps like codex/antigravity -
 # now that it's plain `npm install -g @github/copilot` (no separate
 # update-steps function needed) rather than the old `gh extension
 # install`, which used to error on an already-present extension instead
@@ -267,7 +274,7 @@ omawsl_orphan_tool_apply_update() {
     opencode) omawsl_opencode_install_steps || ok=0 ;;
     claude) omawsl_claude_cli_install_steps || ok=0 ;;
     codex) omawsl_codex_cli_install_steps || ok=0 ;;
-    gemini) omawsl_gemini_cli_install_steps || ok=0 ;;
+    antigravity) omawsl_antigravity_cli_install_steps || ok=0 ;;
     gh-copilot) omawsl_gh_copilot_install_steps || ok=0 ;;
     aws) omawsl_aws_cli_install_steps || ok=0 ;;
     *) echo "omawsl: unknown orphan tool slug '$slug'" >&2; return 1 ;;

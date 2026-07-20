@@ -10,7 +10,7 @@ omawsl_item_category() {
   case "$1" in
     ruby|node|go|php|python|elixir|rust|java|terraform) echo "language" ;;
     azure|aws|gcp) echo "cloud" ;;
-    vscode|neovim|opencode|cursor|claude|codex|gh-copilot|gemini) echo "editor" ;;
+    vscode|neovim|opencode|cursor|claude|codex|gh-copilot|antigravity) echo "editor" ;;
     mysql|redis|postgresql) echo "storage" ;;
     docker) echo "docker" ;;
     *) return 1 ;;
@@ -43,7 +43,7 @@ omawsl_item_label() {
     claude) echo "Claude Code CLI" ;;
     codex) echo "Codex CLI" ;;
     gh-copilot) echo "GitHub Copilot CLI" ;;
-    gemini) echo "Gemini CLI" ;;
+    antigravity) echo "Antigravity CLI" ;;
     mysql) echo "MySQL" ;;
     redis) echo "Redis" ;;
     postgresql) echo "PostgreSQL" ;;
@@ -58,7 +58,7 @@ omawsl_item_slugs() {
   case "$1" in
     language) printf '%s\n' ruby node go php python elixir rust java terraform ;;
     cloud) printf '%s\n' azure aws gcp ;;
-    editor) printf '%s\n' vscode neovim opencode cursor claude codex gh-copilot gemini ;;
+    editor) printf '%s\n' vscode neovim opencode cursor claude codex gh-copilot antigravity ;;
     storage) printf '%s\n' mysql redis postgresql ;;
     *) return 1 ;;
   esac

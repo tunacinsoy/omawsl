@@ -44,7 +44,7 @@ current:
 - opencode
 - Claude Code CLI
 - Codex CLI
-- Gemini CLI
+- Antigravity CLI
 - GitHub Copilot CLI
 - AWS CLI
 

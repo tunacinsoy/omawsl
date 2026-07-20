@@ -10,7 +10,7 @@ setup() {
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/uninstall/app-claude-cli.sh"
   source "$REPO_ROOT/uninstall/app-codex-cli.sh"
-  source "$REPO_ROOT/uninstall/app-gemini-cli.sh"
+  source "$REPO_ROOT/uninstall/app-antigravity-cli.sh"
 }
 
 @test "omawsl_uninstall_claude_cli removes the binary and its data dir" {
@@ -36,14 +36,13 @@ EOF
   [[ "$(stub_calls)" == *"mise exec node@lts -- npm uninstall -g @openai/codex"* ]]
 }
 
-@test "omawsl_uninstall_gemini_cli uninstalls the npm package and removes the wrapper" {
-  stub_command mise
-  mkdir -p "$HOME/.local/bin"
-  touch "$HOME/.local/bin/gemini"
-  run omawsl_uninstall_gemini_cli
+@test "omawsl_uninstall_antigravity_cli removes the binary and its updater state dir" {
+  mkdir -p "$HOME/.local/bin" "$HOME/.gemini/antigravity-cli"
+  touch "$HOME/.local/bin/agy"
+  run omawsl_uninstall_antigravity_cli
   [ "$status" -eq 0 ]
-  [ ! -f "$HOME/.local/bin/gemini" ]
-  [[ "$(stub_calls)" == *"mise exec node@lts -- npm uninstall -g @google/gemini-cli"* ]]
+  [ ! -f "$HOME/.local/bin/agy" ]
+  [ ! -d "$HOME/.gemini/antigravity-cli" ]
 }
 
 @test "omawsl_uninstall_codex_cli no-ops cleanly when mise isn't reachable" {

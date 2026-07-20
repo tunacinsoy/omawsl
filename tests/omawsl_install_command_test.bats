@@ -15,7 +15,7 @@ setup() {
   stub_command sudo
   stub_command mise
   stub_command gem
-  stub_hide_command docker terraform az gcloud aws code cursor claude codex gemini opencode
+  stub_hide_command docker terraform az gcloud aws code cursor claude codex agy opencode
 }
 
 @test "omawsl install language go - installs go directly and merges it into OMAWSL_LANGUAGES" {
