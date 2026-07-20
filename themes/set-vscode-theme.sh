@@ -209,7 +209,17 @@ omawsl_theme_apply_vscode() {
     # real, alarming-looking, and repeated on every `bin/omawsl theme`
     # call. This is the standard Node.js env var for suppressing runtime
     # deprecation warnings without touching stderr for genuine errors.
-    NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null
+    #
+    # Isolated (|| ...), not left to abort under this file's set -e:
+    # `code` being reachable on PATH doesn't guarantee it actually runs -
+    # confirmed live, a broken/misconfigured Remote-WSL interop setup can
+    # make `code --install-extension` fail outright ("Exec format error")
+    # even though `command -v code` succeeds. That's a third-party tool
+    # failure outside omawsl's control, and shouldn't take the rest of
+    # the theme sync (Windows Terminal, opencode, etc.) down with it.
+    if ! NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null; then
+      echo "omawsl: 'code --install-extension $extension_id' failed - skipping, continuing with the rest of the theme sync." >&2
+    fi
 
     # `code --install-extension` invoked directly from this WSL shell
     # only ever reaches the Remote-WSL extension host

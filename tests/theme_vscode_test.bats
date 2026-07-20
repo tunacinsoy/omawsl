@@ -56,6 +56,29 @@ setup() {
   [[ "$(stub_calls)" == *"code --install-extension enkia.tokyo-night"* ]]
 }
 
+@test "omawsl_theme_apply_vscode isolates a failing WSL-side code --install-extension instead of aborting the rest of the sync" {
+  # Real-world trigger (confirmed live): `code` can be genuinely reachable
+  # on PATH via /mnt/c interop yet still fail to actually run (e.g. "Exec
+  # format error" from a broken/misconfigured Remote-WSL interop setup on
+  # a given machine) - a third-party tool failure, not something omawsl's
+  # own code controls. That shouldn't abort the rest of the theme sync,
+  # same as the cmd.exe native-install path right below it is already
+  # isolated.
+  mkdir -p "$HOME/.vscode-server/data/Machine"
+  cp "$REPO_ROOT/configs/vscode.json" "$HOME/.vscode-server/data/Machine/settings.json"
+  code() { echo "code $*" >> "$STUB_LOG"; return 1; }
+  export -f code
+  # theme.sh/set-vscode-theme.sh run under `set -euo pipefail`. bats' `run`
+  # normally disables errexit for the duration of the call (masking this
+  # exact bug), so force it back on via BATS_RUN_ERREXIT to actually
+  # exercise set -e behavior.
+  BATS_RUN_ERREXIT=1 run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  [ "$status" -eq 0 ]
+  [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" == "Tokyo Night" ]]
+  [[ "$(stub_calls)" == *"code --install-extension enkia.tokyo-night"* ]]
+  [[ "$(stub_calls)" == *"cmd.exe /c set NODE_NO_WARNINGS=1&&code --install-extension enkia.tokyo-night"* ]]
+}
+
 @test "omawsl_theme_apply_vscode skips the extension install when code isn't reachable" {
   stub_hide_command code
   run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
