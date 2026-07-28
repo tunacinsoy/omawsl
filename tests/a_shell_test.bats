@@ -21,21 +21,45 @@ setup() {
   export ZELLIJ=0
 }
 
-@test "copies bashrc and inputrc into HOME" {
+@test "adds a marker-guarded source line to ~/.bashrc, does not copy configs/bashrc's content in" {
   run bash "$REPO_ROOT/install/terminal/a-shell.sh"
   [ "$status" -eq 0 ]
   [ -f "$HOME/.bashrc" ]
-  [ -f "$HOME/.inputrc" ]
-  diff "$HOME/.bashrc" "$REPO_ROOT/configs/bashrc"
-  diff "$HOME/.inputrc" "$REPO_ROOT/configs/inputrc"
+  grep -qF '# >>> omawsl >>>' "$HOME/.bashrc"
+  grep -qF "source \"$REPO_ROOT/configs/bashrc\"" "$HOME/.bashrc"
+  ! diff -q "$HOME/.bashrc" "$REPO_ROOT/configs/bashrc" >/dev/null 2>&1
+  [ ! -f "$HOME/.inputrc" ]
 }
 
-@test "re-running overwrites deterministically (idempotent)" {
+@test "re-running is idempotent and never touches pre-existing ~/.bashrc content" {
+  printf 'export SOME_CORP_VAR=1\n' > "$HOME/.bashrc"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   echo "some line the user added by hand" >> "$HOME/.bashrc"
   run bash "$REPO_ROOT/install/terminal/a-shell.sh"
   [ "$status" -eq 0 ]
-  diff "$HOME/.bashrc" "$REPO_ROOT/configs/bashrc"
+  grep -qF 'export SOME_CORP_VAR=1' "$HOME/.bashrc"
+  grep -qF 'some line the user added by hand' "$HOME/.bashrc"
+  [ "$(grep -c '# >>> omawsl >>>' "$HOME/.bashrc")" -eq 1 ]
+}
+
+@test "INPUTRC points at omawsl's own inputrc when the user has no ~/.inputrc" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_inputrc"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "$INPUTRC"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == "$REPO_ROOT/configs/inputrc" ]]
+}
+
+@test "a pre-existing ~/.inputrc is left untouched and INPUTRC is not overridden" {
+  export HOME="$BATS_TEST_TMPDIR/home_own_inputrc"
+  mkdir -p "$HOME"
+  printf 'set editing-mode vi\n' > "$HOME/.inputrc"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "$INPUTRC"'
+  [ "$status" -eq 0 ]
+  [[ "$output" != "$REPO_ROOT/configs/inputrc" ]]
+  [[ "$(cat "$HOME/.inputrc")" == "set editing-mode vi" ]]
 }
 
 @test "EDITOR/VISUAL default to nano when nvim is not on PATH" {

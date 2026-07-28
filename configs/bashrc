@@ -28,8 +28,13 @@ else
   export VISUAL=nano
 fi
 
-if [ -f ~/.inputrc ]; then
-  export INPUTRC=~/.inputrc
+# Only points at omawsl's own inputrc when the user (or a corp policy) has
+# no ~/.inputrc of their own - corp-safe config editing policy (design spec
+# docs/superpowers/specs/2026-07-28-corp-safe-config-editing-design.md).
+# ${BASH_SOURCE[0]} here resolves to this file's own real path (baked in
+# by a-shell.sh's source line), so this needs no separate path variable.
+if [ -z "${INPUTRC:-}" ] && [ ! -f "$HOME/.inputrc" ]; then
+  export INPUTRC="$(dirname "${BASH_SOURCE[0]}")/inputrc"
 fi
 
 # Omakub-parity icon-only prompt: a single Nerd Font glyph in the prompt
