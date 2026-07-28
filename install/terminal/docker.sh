@@ -99,7 +99,7 @@ omawsl_docker_engine() {
   # restart, so this returns immediately rather than installing docker-ce
   # against a not-yet-systemd WSL instance. Re-running install.sh afterward
   # resumes cleanly since this guard becomes a no-op.
-  if ! grep -q "^systemd=true" "$wsl_conf" 2>/dev/null; then
+  if ! grep -Eq '^[[:space:]]*systemd[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$wsl_conf" 2>/dev/null; then
     printf '[boot]\nsystemd=true\n' | sudo tee -a "$wsl_conf" >/dev/null
     echo "omawsl: WSL systemd support was just enabled."
     echo "Run 'wsl --shutdown' from Windows (PowerShell/cmd), reopen this terminal, then re-run install.sh to finish Docker setup."

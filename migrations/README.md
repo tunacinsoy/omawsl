@@ -11,5 +11,7 @@ ones with a greater timestamp. There is no other tracking file - the
 timestamp comparison is the only source of truth (matching Omakub's own
 migration convention).
 
-This directory is intentionally empty for the very first release: there is
-no prior version to migrate from yet.
+This directory is no longer empty: `1785266018.sh` handles the one-time
+transition off the old `cp`-based `~/.bashrc`/`~/.inputrc` model (see
+`docs/config-safety.md`). Future breaking changes each get their own new
+`<unix-timestamp>.sh` file alongside it, following the same convention.

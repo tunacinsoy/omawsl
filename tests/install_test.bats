@@ -65,7 +65,8 @@ setup() {
   [[ "$output" == *"install complete"* ]]
   [[ "$output" == *"remember to open a new terminal"* ]]
   [ -f "$HOME/.bashrc" ]
-  [ -f "$HOME/.inputrc" ]
+  grep -qF '# >>> omawsl >>>' "$HOME/.bashrc"
+  [ ! -f "$HOME/.inputrc" ]
   [ -f "$OMAWSL_STATE_DIR/version" ]
   [ "$(cat "$OMAWSL_STATE_DIR/version")" = "$(cat "$REPO_ROOT/version")" ]
   [ -f "$OMAWSL_STATE_DIR/choices.env" ]

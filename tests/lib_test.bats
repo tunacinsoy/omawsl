@@ -212,3 +212,30 @@ setup() {
 @test "omawsl_remove_from_csv does not match as a bare substring" {
   [[ "$(omawsl_remove_from_csv "GoLang,Python" "Go")" == "GoLang,Python" ]]
 }
+
+@test "omawsl_ensure_bashrc_source_line: creates the file and appends the guarded source line when the file doesn't exist yet" {
+  local bashrc="$BATS_TEST_TMPDIR/bashrc_missing"
+  omawsl_ensure_bashrc_source_line "$bashrc" "$BATS_TEST_TMPDIR/configs/bashrc"
+  [ -f "$bashrc" ]
+  grep -qF '# >>> omawsl >>>' "$bashrc"
+  grep -qF "[ -f \"$BATS_TEST_TMPDIR/configs/bashrc\" ] && source \"$BATS_TEST_TMPDIR/configs/bashrc\"" "$bashrc"
+  grep -qF '# <<< omawsl <<<' "$bashrc"
+}
+
+@test "omawsl_ensure_bashrc_source_line: leaves pre-existing content untouched and appends after it" {
+  local bashrc="$BATS_TEST_TMPDIR/bashrc_existing"
+  printf 'export SOME_CORP_VAR=1\n' > "$bashrc"
+  omawsl_ensure_bashrc_source_line "$bashrc" "$BATS_TEST_TMPDIR/configs/bashrc"
+  grep -qF 'export SOME_CORP_VAR=1' "$bashrc"
+  grep -qF '# >>> omawsl >>>' "$bashrc"
+  [ "$(grep -c 'export SOME_CORP_VAR=1' "$bashrc")" -eq 1 ]
+}
+
+@test "omawsl_ensure_bashrc_source_line: re-running is idempotent, marker appears exactly once, hand-added lines survive" {
+  local bashrc="$BATS_TEST_TMPDIR/bashrc_idempotent"
+  omawsl_ensure_bashrc_source_line "$bashrc" "$BATS_TEST_TMPDIR/configs/bashrc"
+  printf 'some line the user added by hand\n' >> "$bashrc"
+  omawsl_ensure_bashrc_source_line "$bashrc" "$BATS_TEST_TMPDIR/configs/bashrc"
+  [ "$(grep -c '# >>> omawsl >>>' "$bashrc")" -eq 1 ]
+  grep -qF 'some line the user added by hand' "$bashrc"
+}
