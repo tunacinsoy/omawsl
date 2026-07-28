@@ -9,11 +9,11 @@ setup() {
   mkdir -p "$HOME"
 }
 
-@test "converts an untouched old-style ~/.bashrc to the new source line, losing nothing" {
+@test "appends the guarded source line to an old-style ~/.bashrc without removing its existing content" {
   printf '# omawsl bashrc - baseline dev environment configuration for WSL2 Ubuntu.\nsome old omawsl content\n' > "$HOME/.bashrc"
   run bash "$REPO_ROOT/migrations/1785266018.sh"
   [ "$status" -eq 0 ]
-  ! grep -qF 'some old omawsl content' "$HOME/.bashrc"
+  grep -qF 'some old omawsl content' "$HOME/.bashrc"
   grep -qF '# >>> omawsl >>>' "$HOME/.bashrc"
   grep -qF "source \"$REPO_ROOT/configs/bashrc\"" "$HOME/.bashrc"
 }
@@ -33,11 +33,12 @@ setup() {
   grep -qF '# >>> omawsl >>>' "$HOME/.bashrc"
 }
 
-@test "deletes an untouched old-style ~/.inputrc, leaving INPUTRC's new fallback to take over" {
+@test "leaves an old-style ~/.inputrc completely untouched (never deletes it)" {
   printf '# omawsl inputrc - readline configuration for more usable bash history search.\nset show-all-if-ambiguous on\n' > "$HOME/.inputrc"
   run bash "$REPO_ROOT/migrations/1785266018.sh"
   [ "$status" -eq 0 ]
-  [ ! -f "$HOME/.inputrc" ]
+  [ -f "$HOME/.inputrc" ]
+  [[ "$(cat "$HOME/.inputrc")" == $'# omawsl inputrc - readline configuration for more usable bash history search.\nset show-all-if-ambiguous on' ]]
 }
 
 @test "leaves a user's own non-omawsl ~/.inputrc completely untouched" {
