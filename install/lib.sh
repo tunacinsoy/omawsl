@@ -193,3 +193,24 @@ omawsl_remove_from_csv() {
   done
   echo "$result"
 }
+
+# omawsl_ensure_bashrc_source_line <bashrc_file> <target_file>
+# Appends exactly one guarded, marker-delimited `source <target_file>` line
+# to <bashrc_file>, only if not already present - the corp-safe config
+# editing policy (design spec
+# docs/superpowers/specs/2026-07-28-corp-safe-config-editing-design.md):
+# omawsl owns <target_file> outright (freely rewritten elsewhere) but adds
+# at most one small, idempotent line to a file it doesn't own, never
+# touching anything already there. Creates <bashrc_file> if missing.
+omawsl_ensure_bashrc_source_line() {
+  local bashrc_file="$1" target_file="$2"
+  touch "$bashrc_file"
+  if grep -qF '# >>> omawsl >>>' "$bashrc_file"; then
+    return 0
+  fi
+  {
+    printf '\n# >>> omawsl >>>\n'
+    printf '[ -f "%s" ] && source "%s"\n' "$target_file" "$target_file"
+    printf '# <<< omawsl <<<\n'
+  } >> "$bashrc_file"
+}
