@@ -48,3 +48,17 @@ setup() {
   [ -f "$HOME/.inputrc" ]
   [[ "$(cat "$HOME/.inputrc")" == "set editing-mode vi" ]]
 }
+
+@test "prints an advisory about the old bashrc copy when ~/.bashrc starts with the omawsl banner" {
+  printf '# omawsl bashrc - baseline dev environment configuration for WSL2 Ubuntu.\nsome old omawsl content\n' > "$HOME/.bashrc"
+  run bash "$REPO_ROOT/migrations/1785266018.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"omawsl: ~/.bashrc still has a full copy of an older omawsl config"* ]]
+}
+
+@test "does not print the old-bashrc-copy advisory when ~/.bashrc has no omawsl banner" {
+  printf 'export SOME_CORP_VAR=1\n' > "$HOME/.bashrc"
+  run bash "$REPO_ROOT/migrations/1785266018.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"omawsl: ~/.bashrc still has a full copy of an older omawsl config"* ]]
+}

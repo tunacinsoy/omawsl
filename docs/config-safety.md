@@ -36,3 +36,20 @@ any one of them. Instead it follows one rule, everywhere:
 
 Enforced by `tests/config_safety_test.bats`, a static regression guard that
 fails the suite if a future change ever adds a write to one of these paths.
+
+## Migrating from a pre-source-line install
+
+Every existing install's `~/.bashrc` is a full old-style copy of a past
+`configs/bashrc` revision (see "What this looks like in practice" above -
+that's exactly the pattern this feature replaced). The one-time migration
+(`migrations/1785266018.sh`) never deletes that old copy - it only appends
+the new guarded `# >>> omawsl >>>` marker block below it, same as it would
+for any other pre-existing `~/.bashrc` content.
+
+That's safe, but it's worth cleaning up by hand: the old copy ends in
+`exec zellij`, and on any fresh outer shell where zellij is installed, that
+`exec` replaces the shell process before ever reaching the newly-appended
+marker block - so the new sourced `configs/bashrc` never actually loads.
+Everything above the `# >>> omawsl >>>` line in `~/.bashrc` is safe to
+delete by hand once you've migrated; the migration script itself prints
+this same advisory to stdout when it detects an old-style `~/.bashrc`.

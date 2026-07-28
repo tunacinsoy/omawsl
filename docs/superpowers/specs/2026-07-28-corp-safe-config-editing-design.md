@@ -100,6 +100,16 @@ normal lookup — omawsl never touches the file.
 
 ### 3. Migration for existing installs
 
+**Superseded during implementation:** the delete/replace-based approach described in this section
+was replaced with a strictly non-destructive approach after task review found it could delete real
+hand-edits a user (or corp IT) made to `~/.bashrc`/`~/.inputrc` after their last `omawsl update` -
+a content match against a known old revision doesn't prove the file has had nothing else appended
+to it since. The shipped migration (`migrations/1785266018.sh`) now only ever appends the guarded
+`# >>> omawsl >>>` marker line to `~/.bashrc` via `omawsl_ensure_bashrc_source_line`, regardless of
+whether the banner matches, and never deletes anything. It takes no action at all on `~/.inputrc` -
+there's nothing safe to do to an existing file once deletion is off the table, so any
+`~/.inputrc`, omawsl-authored or not, is left exactly as-is.
+
 Existing installs already have the *old* full-content `.bashrc`/`.inputrc` written by `cp`. A new
 `migrations/<timestamp>.sh` (using the existing `bin/omawsl migrate` mechanism) handles the
 one-time transition, run automatically the next time the user runs `bin/omawsl migrate` (which

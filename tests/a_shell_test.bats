@@ -19,6 +19,11 @@ setup() {
   # The zellij tests below that need the real exec behavior explicitly
   # `unset ZELLIJ` themselves to override this default.
   export ZELLIJ=0
+  # Tests below assert on $INPUTRC's value (configs/bashrc:36's
+  # [ -z "${INPUTRC:-}" ] guard) - unset here so they're deterministic
+  # regardless of whether the host shell running this suite already has
+  # its own INPUTRC exported.
+  unset INPUTRC
 }
 
 @test "adds a marker-guarded source line to ~/.bashrc, does not copy configs/bashrc's content in" {

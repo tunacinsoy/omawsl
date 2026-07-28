@@ -27,4 +27,23 @@ omawsl_migrate_bashrc_to_source_line() {
 # from the new INPUTRC-fallback pointing at omawsl's own copy, since that
 # fallback only activates when ~/.inputrc is absent.
 
+# Print-only advisory (no file mutation beyond what the append above already
+# did): every old-style ~/.bashrc omawsl ever wrote starts with this exact
+# banner line and ends in `exec zellij`. That old copy now sits ABOVE the
+# newly-appended marker block, which is harmless on its own (the migration
+# never deletes it - see above), but on a fresh outer shell with zellij
+# installed, the old copy's `exec zellij` replaces the shell process before
+# ever reaching the new marker block below it, so the new sourced
+# configs/bashrc never loads at all. Nudge the user to clean it up by hand
+# rather than doing it automatically ourselves.
+omawsl_warn_if_old_bashrc_copy_present() {
+  [[ -f "$HOME/.bashrc" ]] || return 0
+  if head -n1 "$HOME/.bashrc" | grep -qF '# omawsl bashrc - baseline dev environment configuration for WSL2 Ubuntu.'; then
+    echo "omawsl: ~/.bashrc still has a full copy of an older omawsl config above the new '# >>> omawsl >>>' block."
+    echo "omawsl: it's safe to delete everything above that marker by hand."
+    echo "omawsl: leaving it in place may stop the new config from loading, if the old copy ends in 'exec zellij'."
+  fi
+}
+
 omawsl_migrate_bashrc_to_source_line
+omawsl_warn_if_old_bashrc_copy_present
