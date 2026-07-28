@@ -188,3 +188,23 @@ setup() {
   [[ "$(stub_calls)" == *"sudo usermod -aG docker testuser"* ]]
   [[ "$(stub_calls)" != *"sudo tee -a $wsl_conf"* ]]
 }
+
+@test "engine mode: recognizes systemd=true with surrounding whitespace as already enabled" {
+  wsl_conf="$BATS_TEST_TMPDIR/wsl-whitespace.conf"
+  printf '[boot]\n  systemd = true \n' > "$wsl_conf"
+
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/terminal/docker.sh"
+    omawsl_install_docker_ce() { echo "DOCKER_CE_INSTALLED"; }
+    export USER=testuser
+    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings"
+    echo "REACHED_END"
+  '
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"DOCKER_CE_INSTALLED"* ]]
+  [[ "$output" == *"REACHED_END"* ]]
+  [[ "$output" != *"WSL systemd support was just enabled"* ]]
+  [[ "$(stub_calls)" != *"sudo tee -a $wsl_conf"* ]]
+}
