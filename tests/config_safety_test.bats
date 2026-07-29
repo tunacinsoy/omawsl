@@ -26,7 +26,6 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     '\.git-templates'
     '\.config/direnv/direnvrc'
     'wsl-vpnkit\.service'
-    'docker\.service\.d'
   )
   local pattern
   for pattern in "${forbidden[@]}"; do
@@ -35,4 +34,39 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
       return 1
     fi
   done
+}
+
+# docker.service.d/* is never-touch except omawsl's own exclusively-owned
+# omawsl-proxy.conf (design spec
+# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md):
+# omawsl writes only that one distinctly-named file, never the conventional
+# http-proxy.conf name a corp manual would use, and never at all if another
+# file in that directory already configures a proxy. This checks the real
+# codebase for a write to anything else under docker.service.d/.
+@test "docker.service.d writes are limited to omawsl's own omawsl-proxy.conf" {
+  local matches
+  matches="$(grep -rnE "(cp |> |>> |tee |cat > )[^|]*docker\.service\.d" "$REPO_ROOT/install" "$REPO_ROOT/uninstall" "$REPO_ROOT/migrations" "$REPO_ROOT/bin" 2>/dev/null | grep -v 'omawsl-proxy\.conf' || true)"
+  if [[ -n "$matches" ]]; then
+    echo "found a write targeting docker.service.d/ that isn't omawsl-proxy.conf:"
+    echo "$matches"
+    return 1
+  fi
+}
+
+# Proves the exception above is narrow in both directions, independent of
+# whatever the real codebase currently contains: a fixture write to the
+# conventional http-proxy.conf name must still be caught, while a fixture
+# write to omawsl-proxy.conf must be allowed.
+@test "docker.service.d exception: a write to http-proxy.conf would still be caught" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.sh"
+  echo 'echo "content" | sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf' > "$fixture"
+  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -v 'omawsl-proxy\.conf'"
+  [ -n "$output" ]
+}
+
+@test "docker.service.d exception: a write to omawsl-proxy.conf is allowed" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.sh"
+  echo 'echo "content" | sudo tee /etc/systemd/system/docker.service.d/omawsl-proxy.conf' > "$fixture"
+  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -v 'omawsl-proxy\.conf'"
+  [ -z "$output" ]
 }

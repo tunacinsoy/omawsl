@@ -32,7 +32,11 @@ any one of them. Instead it follows one rule, everywhere:
 - `~/.git-templates/**`
 - `~/.config/direnv/direnvrc`
 - `/etc/systemd/system/wsl-vpnkit.service`
-- `/etc/systemd/system/docker.service.d/*`
+- `/etc/systemd/system/docker.service.d/*` - except `omawsl-proxy.conf`, which omawsl
+  exclusively creates, rewrites, and removes itself. It's never the conventional
+  `http-proxy.conf` name a corp manual would use, and it's never written at all if another
+  file in that directory already configures a proxy - see
+  `docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md`.
 
 Enforced by `tests/config_safety_test.bats`, a static regression guard that
 fails the suite if a future change ever adds a write to one of these paths.
