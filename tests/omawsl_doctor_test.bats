@@ -12,6 +12,7 @@ setup() {
   source "$REPO_ROOT/bin/omawsl-sub/items.sh"
   source "$REPO_ROOT/bin/omawsl-sub/doctor.sh"
   stub_command sudo
+  unset HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy || true
 }
 
 @test "omawsl_doctor reports OK for an installed, configured language" {
@@ -100,6 +101,44 @@ setup() {
   local dir="$BATS_TEST_TMPDIR/docker.service.d-other-proxy"
   mkdir -p "$dir"
   printf '[Service]\nEnvironment="HTTP_PROXY=http://webproxy.example:8080"\n' > "$dir/99-other-proxy.conf"
+  export OMAWSL_DOCKER_SERVICE_D_DIR="$dir"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Docker daemon proxy config"* ]]
+}
+
+@test "omawsl_doctor flags a stale docker daemon proxy drop-in when the proxy is gone" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy || true
+  local dir="$BATS_TEST_TMPDIR/docker.service.d-stale"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://webproxy.example:8080"\n' > "$dir/omawsl-proxy.conf"
+  export OMAWSL_DOCKER_SERVICE_D_DIR="$dir"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] Docker daemon proxy config looks stale"* ]]
+  [[ "$output" == *"re-run install.sh"* ]]
+}
+
+@test "omawsl_doctor stays silent on stale check when a proxy is present and the file exists" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  export HTTP_PROXY="http://webproxy.example:8080"
+  local dir="$BATS_TEST_TMPDIR/docker.service.d-configured-present"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://webproxy.example:8080"\n' > "$dir/omawsl-proxy.conf"
+  export OMAWSL_DOCKER_SERVICE_D_DIR="$dir"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Docker daemon proxy config"* ]]
+}
+
+@test "omawsl_doctor stays silent on stale check for Docker Desktop mode even if omawsl-proxy.conf exists with no proxy" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Desktop for Windows"
+  stub_command docker
+  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy || true
+  local dir="$BATS_TEST_TMPDIR/docker.service.d-desktop-stale"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://webproxy.example:8080"\n' > "$dir/omawsl-proxy.conf"
   export OMAWSL_DOCKER_SERVICE_D_DIR="$dir"
   run omawsl_doctor
   [ "$status" -eq 0 ]

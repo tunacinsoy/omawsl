@@ -116,13 +116,27 @@ omawsl_configure_docker_proxy() {
   https_proxy_val="$(omawsl_detect_proxy_env HTTPS_PROXY)"
   no_proxy_val="$(omawsl_detect_proxy_env NO_PROXY)"
 
+  # systemd resolves %-specifiers in unit file directives including
+  # Environment= - a literal % must be escaped to %% or systemd may mangle
+  # or reject the value. Corp proxy URLs with percent-encoded credentials
+  # (e.g. http://DOMAIN%5Cuser:pass@webproxy:8080) are an ordinary shape for
+  # exactly the environment this feature targets. Escaping an empty string
+  # is a no-op, so doing this before the no-proxy early return is harmless.
+  http_proxy_val="${http_proxy_val//%/%%}"
+  https_proxy_val="${https_proxy_val//%/%%}"
+  no_proxy_val="${no_proxy_val//%/%%}"
+
   if [[ -z "$http_proxy_val" && -z "$https_proxy_val" ]]; then
     return 0
   fi
 
   if omawsl_docker_proxy_conflict "$dir" "$own_file"; then
     echo "omawsl: found an existing proxy config elsewhere in $dir - leaving it as-is, not adding omawsl's own."
-    sudo rm -f "$own_file"
+    if [[ -f "$own_file" ]]; then
+      sudo rm -f "$own_file"
+      sudo systemctl daemon-reload
+      sudo systemctl restart docker
+    fi
     return 0
   fi
 
@@ -133,13 +147,14 @@ omawsl_configure_docker_proxy() {
   local content; content="$(printf '%s\n' "${lines[@]}")"
 
   local existing=""
-  [[ -f "$own_file" ]] && existing="$(cat "$own_file")"
+  existing="$(sudo cat "$own_file" 2>/dev/null || true)"
   if [[ "$existing" == "$content" ]]; then
     return 0
   fi
 
   sudo mkdir -p "$dir"
   printf '%s\n' "$content" | sudo tee "$own_file" >/dev/null
+  sudo chmod 0600 "$own_file"
   sudo systemctl daemon-reload
   sudo systemctl restart docker
   echo "omawsl: configured Docker daemon proxy from HTTP_PROXY/HTTPS_PROXY."

@@ -91,6 +91,24 @@ omawsl_doctor_docker_proxy_pending() {
   return 0
 }
 
+# omawsl_doctor_docker_proxy_stale [dir]
+# True if omawsl's own proxy drop-in exists but no proxy is currently
+# present in the environment - e.g. the machine moved off the corp
+# network since the drop-in was written. omawsl never auto-removes this:
+# a false positive (install.sh run from a shell that simply forgot to
+# export the proxy vars) would silently break a working corp setup if
+# acted on automatically, so this is report-only, same as
+# omawsl_doctor_docker_proxy_pending.
+omawsl_doctor_docker_proxy_stale() {
+  local dir="${1:-${OMAWSL_DOCKER_SERVICE_D_DIR:-/etc/systemd/system/docker.service.d}}"
+  [[ "$(omawsl_load_choice OMAWSL_DOCKER_MODE)" == "Docker Desktop for Windows" ]] && return 1
+  [[ -f "$dir/omawsl-proxy.conf" ]] || return 1
+  local http_proxy_val https_proxy_val
+  http_proxy_val="$(omawsl_detect_proxy_env HTTP_PROXY)"
+  https_proxy_val="$(omawsl_detect_proxy_env HTTPS_PROXY)"
+  [[ -z "$http_proxy_val" && -z "$https_proxy_val" ]]
+}
+
 # omawsl_doctor_report_category <category> <check_fn> <choices_key>
 # Cross-checks every selected item in one category against its check
 # function, printing [OK]/[PENDING] with the exact `omawsl install`
@@ -141,6 +159,10 @@ omawsl_doctor() {
     echo
     echo "Docker:"
     echo "  [PENDING] Docker daemon proxy config - re-run install.sh to pick up your HTTP_PROXY/HTTPS_PROXY"
+  elif omawsl_doctor_docker_proxy_stale; then
+    echo
+    echo "Docker:"
+    echo "  [PENDING] Docker daemon proxy config looks stale - no HTTP_PROXY/HTTPS_PROXY is set in this shell, but omawsl-proxy.conf still exists. Off that network now? sudo rm <path-to-omawsl-proxy.conf> && sudo systemctl daemon-reload && sudo systemctl restart docker. Still on it? Export the proxy vars and re-run install.sh instead."
   fi
 }
 

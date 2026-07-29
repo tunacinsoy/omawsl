@@ -11,6 +11,7 @@ setup() {
   stub_command curl
   stub_command gpg
   export USER=testuser
+  unset HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy || true
 }
 
 # --- omawsl_docker_desktop ------------------------------------------------
@@ -164,6 +165,7 @@ _stub_sudo_forwarding() {
     case "$1" in
       mkdir) shift; command mkdir "$@" ;;
       tee) shift; command tee "$@" ;;
+      cat) shift; command cat "$@" ;;
       rm) shift; command rm "$@" 2>/dev/null || true ;;
       systemctl) : ;;
       *) : ;;
@@ -197,8 +199,18 @@ _stub_sudo_forwarding() {
   [[ "$(cat "$dir/omawsl-proxy.conf")" == *'Environment="HTTPS_PROXY=http://webproxy.example:8080"'* ]]
   [[ "$(cat "$dir/omawsl-proxy.conf")" == *'Environment="NO_PROXY=localhost,127.0.0.1"'* ]]
   [[ "$(stub_calls)" == *"sudo mkdir -p $dir"* ]]
+  [[ "$(stub_calls)" == *"sudo chmod 0600 $dir/omawsl-proxy.conf"* ]]
   [[ "$(stub_calls)" == *"sudo systemctl daemon-reload"* ]]
   [[ "$(stub_calls)" == *"sudo systemctl restart docker"* ]]
+}
+
+@test "configure_docker_proxy: escapes literal % in proxy values for systemd" {
+  export HTTP_PROXY="http://user%40corp:pass@webproxy.example:8080"
+  _stub_sudo_forwarding
+  local dir="$BATS_TEST_TMPDIR/svc-percent"
+  run omawsl_configure_docker_proxy "$dir"
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$dir/omawsl-proxy.conf")" == *'HTTP_PROXY=http://user%%40corp:pass@webproxy.example:8080'* ]]
 }
 
 @test "configure_docker_proxy: idempotent - unchanged content skips write and restart" {
@@ -212,7 +224,12 @@ _stub_sudo_forwarding() {
   run omawsl_configure_docker_proxy "$dir"
   [ "$status" -eq 0 ]
   [ -z "$output" ]
-  [ -z "$(stub_calls)" ]
+  # The read-back via `sudo cat` still happens (that's the idempotency
+  # check itself), but no write or restart should occur.
+  [[ "$(stub_calls)" != *"mkdir"* ]]
+  [[ "$(stub_calls)" != *"tee"* ]]
+  [[ "$(stub_calls)" != *"chmod"* ]]
+  [[ "$(stub_calls)" != *"systemctl"* ]]
 }
 
 @test "configure_docker_proxy: backs off when another file already configures a proxy" {
@@ -238,6 +255,7 @@ _stub_sudo_forwarding() {
   run omawsl_configure_docker_proxy "$dir"
   [ "$status" -eq 0 ]
   [ ! -f "$dir/omawsl-proxy.conf" ]
+  [[ "$(stub_calls)" == *"systemctl restart docker"* ]]
 }
 
 # --- omawsl_install_docker_ce ------------------------------------------------

@@ -43,6 +43,12 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 # http-proxy.conf name a corp manual would use, and never at all if another
 # file in that directory already configures a proxy. This checks the real
 # codebase for a write to anything else under docker.service.d/.
+# Note: the real write in install/terminal/docker.sh is `sudo tee "$own_file"`
+# (a variable, not a literal path containing "docker.service.d"), so this
+# particular check currently passes vacuously against the real codebase -
+# the two fixture-based tests below are what actually prove the exception is
+# narrow. This one exists as a tripwire against any *future* code that
+# hardcodes a docker.service.d path directly.
 @test "docker.service.d writes are limited to omawsl's own omawsl-proxy.conf" {
   local matches
   matches="$(grep -rnE "(cp |> |>> |tee |cat > )[^|]*docker\.service\.d" "$REPO_ROOT/install" "$REPO_ROOT/uninstall" "$REPO_ROOT/migrations" "$REPO_ROOT/bin" 2>/dev/null | grep -vE "docker\.service\.d/omawsl-proxy\.conf($|[\\\"'[:space:]])" || true)"
