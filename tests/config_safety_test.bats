@@ -45,7 +45,7 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 # codebase for a write to anything else under docker.service.d/.
 @test "docker.service.d writes are limited to omawsl's own omawsl-proxy.conf" {
   local matches
-  matches="$(grep -rnE "(cp |> |>> |tee |cat > )[^|]*docker\.service\.d" "$REPO_ROOT/install" "$REPO_ROOT/uninstall" "$REPO_ROOT/migrations" "$REPO_ROOT/bin" 2>/dev/null | grep -v 'omawsl-proxy\.conf' || true)"
+  matches="$(grep -rnE "(cp |> |>> |tee |cat > )[^|]*docker\.service\.d" "$REPO_ROOT/install" "$REPO_ROOT/uninstall" "$REPO_ROOT/migrations" "$REPO_ROOT/bin" 2>/dev/null | grep -vE "docker\.service\.d/omawsl-proxy\.conf($|[\\\"'[:space:]])" || true)"
   if [[ -n "$matches" ]]; then
     echo "found a write targeting docker.service.d/ that isn't omawsl-proxy.conf:"
     echo "$matches"
@@ -60,13 +60,29 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 @test "docker.service.d exception: a write to http-proxy.conf would still be caught" {
   local fixture="$BATS_TEST_TMPDIR/fixture.sh"
   echo 'echo "content" | sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf' > "$fixture"
-  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -v 'omawsl-proxy\.conf'"
+  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -vE \"docker\.service\.d/omawsl-proxy\.conf(\$|[\\\"'[:space:]])\""
   [ -n "$output" ]
 }
 
 @test "docker.service.d exception: a write to omawsl-proxy.conf is allowed" {
   local fixture="$BATS_TEST_TMPDIR/fixture.sh"
   echo 'echo "content" | sudo tee /etc/systemd/system/docker.service.d/omawsl-proxy.conf' > "$fixture"
-  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -v 'omawsl-proxy\.conf'"
+  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -vE \"docker\.service\.d/omawsl-proxy\.conf(\$|[\\\"'[:space:]])\""
   [ -z "$output" ]
+}
+
+# Proves the anchored exception is narrow: a write to omawsl-proxy.conf.bak (not the exact filename) must still be caught.
+@test "docker.service.d exception: a write to omawsl-proxy.conf.bak would still be caught" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.sh"
+  echo 'echo "content" | sudo tee /etc/systemd/system/docker.service.d/omawsl-proxy.conf.bak' > "$fixture"
+  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -vE \"docker\.service\.d/omawsl-proxy\.conf(\$|[\\\"'[:space:]])\""
+  [ -n "$output" ]
+}
+
+# Proves the anchored exception is narrow: a write to not-omawsl-proxy.conf (contains the substring but is not the exact filename) must still be caught.
+@test "docker.service.d exception: a write to not-omawsl-proxy.conf would still be caught" {
+  local fixture="$BATS_TEST_TMPDIR/fixture.sh"
+  echo 'echo "content" | sudo tee /etc/systemd/system/docker.service.d/not-omawsl-proxy.conf' > "$fixture"
+  run bash -c "grep -rnE '(cp |> |>> |tee |cat > )[^|]*docker\.service\.d' '$fixture' | grep -vE \"docker\.service\.d/omawsl-proxy\.conf(\$|[\\\"'[:space:]])\""
+  [ -n "$output" ]
 }
