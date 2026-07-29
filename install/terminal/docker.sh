@@ -169,7 +169,7 @@ omawsl_install_docker_ce() {
   sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
 
-# omawsl_docker_engine [wsl_conf_file] [apt_sources_file] [keyrings_dir]
+# omawsl_docker_engine [wsl_conf_file] [apt_sources_file] [keyrings_dir] [docker_service_d_dir]
 # Engine-only is the pre-highlighted default (design spec §6, §9): installs
 # docker-ce natively inside WSL, no Windows-side dependency. Every path
 # defaults to an OMAWSL_* env-var override (falling back to the real system
@@ -181,6 +181,7 @@ omawsl_docker_engine() {
   local wsl_conf="${1:-${OMAWSL_WSL_CONF_FILE:-/etc/wsl.conf}}"
   local apt_sources_file="${2:-${OMAWSL_DOCKER_APT_SOURCES_FILE:-/etc/apt/sources.list.d/docker.list}}"
   local keyrings_dir="${3:-${OMAWSL_DOCKER_APT_KEYRINGS_DIR:-/etc/apt/keyrings}}"
+  local docker_service_d_dir="${4:-${OMAWSL_DOCKER_SERVICE_D_DIR:-/etc/systemd/system/docker.service.d}}"
 
   # A script running inside the live WSL instance cannot restart the WSL VM
   # itself. Because install/terminal/*.sh scripts are sourced (not
@@ -198,6 +199,7 @@ omawsl_docker_engine() {
   fi
 
   omawsl_install_docker_ce "$apt_sources_file" "$keyrings_dir"
+  omawsl_configure_docker_proxy "$docker_service_d_dir"
 
   sudo usermod -aG docker "$USER"
   echo "omawsl: open a new terminal (or run 'newgrp docker') before using Docker without sudo."

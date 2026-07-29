@@ -279,7 +279,7 @@ _stub_sudo_forwarding() {
     source "'"$REPO_ROOT"'/install/terminal/docker.sh"
     omawsl_install_docker_ce() { echo "DOCKER_CE_INSTALLED"; }
     export USER=testuser
-    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings"
+    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings" "'"$BATS_TEST_TMPDIR"'/docker.service.d"
     echo "SHOULD_NOT_REACH_HERE"
   '
   [ "$status" -eq 0 ]
@@ -322,7 +322,7 @@ _stub_sudo_forwarding() {
     source "'"$REPO_ROOT"'/install/terminal/docker.sh"
     omawsl_install_docker_ce() { echo "DOCKER_CE_INSTALLED"; }
     export USER=testuser
-    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings"
+    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings" "'"$BATS_TEST_TMPDIR"'/docker.service.d"
     echo "REACHED_END"
   '
 
@@ -344,7 +344,7 @@ _stub_sudo_forwarding() {
     source "'"$REPO_ROOT"'/install/terminal/docker.sh"
     omawsl_install_docker_ce() { echo "DOCKER_CE_INSTALLED"; }
     export USER=testuser
-    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings"
+    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings" "'"$BATS_TEST_TMPDIR"'/docker.service.d"
     echo "REACHED_END"
   '
 
@@ -353,4 +353,23 @@ _stub_sudo_forwarding() {
   [[ "$output" == *"REACHED_END"* ]]
   [[ "$output" != *"WSL systemd support was just enabled"* ]]
   [[ "$(stub_calls)" != *"sudo tee -a $wsl_conf"* ]]
+}
+
+@test "engine mode: configures the docker proxy after installing docker-ce" {
+  wsl_conf="$BATS_TEST_TMPDIR/wsl-proxy.conf"
+  printf '[boot]\nsystemd=true\n' > "$wsl_conf"
+
+  run bash -c '
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/install/terminal/docker.sh"
+    omawsl_install_docker_ce() { echo "DOCKER_CE_INSTALLED"; }
+    omawsl_configure_docker_proxy() { echo "PROXY_CONFIGURED: $1"; }
+    export USER=testuser
+    omawsl_docker_engine "'"$wsl_conf"'" "'"$BATS_TEST_TMPDIR"'/docker.list" "'"$BATS_TEST_TMPDIR"'/keyrings" "'"$BATS_TEST_TMPDIR"'/docker.service.d"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"DOCKER_CE_INSTALLED"* ]]
+  [[ "$output" == *"PROXY_CONFIGURED: $BATS_TEST_TMPDIR/docker.service.d"* ]]
+  # docker-ce install must happen before proxy configuration
+  [[ "$output" == *"DOCKER_CE_INSTALLED"*"PROXY_CONFIGURED"* ]]
 }
