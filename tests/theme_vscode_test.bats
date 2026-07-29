@@ -23,6 +23,12 @@ setup() {
   }
   export -f wslpath
 
+  # Points the cmd.exe fallback at a path that deliberately doesn't
+  # exist, so the "cmd.exe unreachable" test below stays deterministic
+  # even on a real WSL2 box, where the real fallback path genuinely
+  # exists on disk regardless of what stub_hide_command does to $PATH.
+  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
+
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/themes/set-vscode-theme.sh"
   command -v jq &>/dev/null || skip "jq not installed on this test host"

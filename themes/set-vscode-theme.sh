@@ -239,8 +239,9 @@ omawsl_theme_apply_vscode() {
     # Best-effort (|| true): the WSL-side install above already
     # succeeded, so a failure here shouldn't fail the rest of
     # `bin/omawsl theme`.
-    if command -v cmd.exe &>/dev/null; then
-      cmd.exe /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
+    local cmd_exe
+    if cmd_exe="$(omawsl_resolve_cmd_exe)"; then
+      "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
     fi
   fi
 }

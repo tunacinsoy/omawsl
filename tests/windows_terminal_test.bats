@@ -22,6 +22,13 @@ setup() {
   }
   export -f wslpath
 
+  # Points the cmd.exe fallback at a path that deliberately doesn't
+  # exist, so tests stay deterministic regardless of whether they run on
+  # a real WSL2 box (where the real fallback path genuinely exists) or
+  # CI (where it doesn't). Tests exercising the fallback itself override
+  # this to a fake executable.
+  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
+
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/bin/omawsl-sub/windows-terminal.sh"
   command -v jq &>/dev/null || skip "jq not installed on this test host"
@@ -35,8 +42,50 @@ setup() {
 
 @test "omawsl_windows_userprofile fails cleanly when cmd.exe isn't reachable" {
   unset -f cmd.exe
+  stub_hide_command cmd.exe
   run omawsl_windows_userprofile
   [ "$status" -ne 0 ]
+}
+
+@test "omawsl_resolve_cmd_exe falls back to the fixed path when cmd.exe isn't on \$PATH" {
+  unset -f cmd.exe
+  stub_hide_command cmd.exe
+  local fake_cmd="$BATS_TEST_TMPDIR/fake-cmd.exe"
+  cat > "$fake_cmd" <<'SCRIPT'
+#!/usr/bin/env bash
+echo "fallback-invoked $*"
+SCRIPT
+  chmod +x "$fake_cmd"
+  export OMAWSL_CMD_EXE_FALLBACK="$fake_cmd"
+
+  run omawsl_resolve_cmd_exe
+  [ "$status" -eq 0 ]
+  [ "$output" = "$fake_cmd" ]
+}
+
+@test "omawsl_resolve_cmd_exe fails cleanly when neither \$PATH nor the fallback path have cmd.exe" {
+  unset -f cmd.exe
+  stub_hide_command cmd.exe
+  run omawsl_resolve_cmd_exe
+  [ "$status" -ne 0 ]
+}
+
+@test "omawsl_windows_userprofile uses the cmd.exe fallback path when appendWindowsPath is false" {
+  unset -f cmd.exe
+  stub_hide_command cmd.exe
+  local fake_cmd="$BATS_TEST_TMPDIR/fake-cmd.exe"
+  cat > "$fake_cmd" <<'SCRIPT'
+#!/usr/bin/env bash
+if [[ "$*" == *USERPROFILE* ]]; then
+  printf 'C:\\Users\\testuser\r\n'
+fi
+SCRIPT
+  chmod +x "$fake_cmd"
+  export OMAWSL_CMD_EXE_FALLBACK="$fake_cmd"
+
+  run omawsl_windows_userprofile
+  [ "$status" -eq 0 ]
+  [ "$output" = "$WINHOME" ]
 }
 
 @test "omawsl_windows_terminal_settings_path finds the Store-package path first" {

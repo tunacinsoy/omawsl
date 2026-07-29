@@ -127,6 +127,26 @@ omawsl_cursor_reachable() {
   command -v cursor &>/dev/null
 }
 
+# omawsl_resolve_cmd_exe
+# Finds cmd.exe even when /etc/wsl.conf has `appendWindowsPath=false` -
+# a setting corporate-managed WSL images commonly set - which keeps
+# every Windows binary off $PATH without disabling interop itself, so
+# `command -v cmd.exe` fails even though cmd.exe and the interop
+# mechanism both still work fine. Falls back to cmd.exe's fixed location
+# under the WSL /mnt/c mount rather than requiring that policy-managed
+# setting to change. OMAWSL_CMD_EXE_FALLBACK is overridable so tests can
+# point it at a path that deliberately doesn't exist - the real fallback
+# path exists on any actual WSL2 box, including whichever one happens to
+# run the test suite.
+omawsl_resolve_cmd_exe() {
+  if command -v cmd.exe &>/dev/null; then
+    echo "cmd.exe"
+    return 0
+  fi
+  local fallback="${OMAWSL_CMD_EXE_FALLBACK:-/mnt/c/Windows/System32/cmd.exe}"
+  [[ -x "$fallback" ]] && echo "$fallback"
+}
+
 # omawsl_windows_userprofile
 # Resolves the Windows user's profile directory as a WSL path
 # (e.g. /mnt/c/Users/<name>) via cmd.exe + wslpath, rather than
@@ -135,10 +155,11 @@ omawsl_cursor_reachable() {
 # cmd.exe/wslpath aren't reachable (e.g. outside real WSL2, as in the
 # bats suite unless stubbed) or the lookup comes back empty.
 omawsl_windows_userprofile() {
-  command -v cmd.exe &>/dev/null || return 1
+  local cmd_exe
+  cmd_exe="$(omawsl_resolve_cmd_exe)" || return 1
   command -v wslpath &>/dev/null || return 1
   local win_path
-  win_path="$(cmd.exe /c "echo %USERPROFILE%" 2>/dev/null | tr -d '\r\n')"
+  win_path="$("$cmd_exe" /c "echo %USERPROFILE%" 2>/dev/null | tr -d '\r\n')"
   [[ -n "$win_path" ]] || return 1
   wslpath -u "$win_path"
 }
