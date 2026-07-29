@@ -41,22 +41,47 @@ omawsl_install_terminal_apps() {
   omawsl_install_cli
 }
 
+# omawsl_lazydocker_arch
+# Maps dpkg's architecture name to the naming lazydocker's own release
+# assets use - same mapping as omawsl_lazygit_arch above (lazydocker's
+# own install script maps uname -m the same way: aarch64->arm64,
+# anything else stays x86_64).
+omawsl_lazydocker_arch() {
+  case "$(dpkg --print-architecture)" in
+    arm64) echo "arm64" ;;
+    *) echo "x86_64" ;;
+  esac
+}
+
 # omawsl_lazydocker_install_steps
 # The actual install command, no guard - called both by
 # omawsl_install_lazydocker below (guarded, unchanged behavior) and by
 # bin/omawsl update's orphan-tool apply phase (guard bypassed, so an
 # already-installed lazydocker gets a genuine fresh install rather than
-# a no-op).
+# a no-op). Installs the official prebuilt Linux binary release directly
+# from GitHub, same as omawsl_lazygit_install_steps above, rather than
+# piping the project's own install_update_linux.sh into bash: that kept
+# this one tool delegating to an unseen remote script instead of staying
+# auditable like zellij/lazygit/fastfetch, and its own internal GitHub
+# API call was the thing actually hitting 403s (anonymous API rate
+# limiting) in practice. Release asset filenames embed the version and
+# the OS name capitalized ("Linux"), e.g. lazydocker_0.23.1_Linux_x86_64.tar.gz -
+# same two-step version resolution as lazygit's.
 omawsl_lazydocker_install_steps() {
-  curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+  local version
+  version="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazydocker/releases/latest | grep -Po '"tag_name": "v\K[^"]+')"
+  local arch
+  arch="$(omawsl_lazydocker_arch)"
+  curl -fsSL "https://github.com/jesseduffield/lazydocker/releases/download/v${version}/lazydocker_${version}_Linux_${arch}.tar.gz" | tar -xz -C /tmp lazydocker
+  sudo install -m 0755 /tmp/lazydocker /usr/local/bin/lazydocker
+  rm -f /tmp/lazydocker
 }
 
 # omawsl_install_lazydocker
-# No Ubuntu package exists for lazydocker - installs via its official
-# script (jesseduffield/lazydocker), which installs to $HOME/.local/bin
-# by default (already on PATH via configs/bashrc). The script itself
-# always re-downloads/reinstalls unconditionally - this command -v guard
-# is what actually makes THIS entry point idempotent.
+# No Ubuntu package exists for lazydocker - installs the official
+# prebuilt binary release directly from GitHub (jesseduffield/lazydocker),
+# guarded the same way as omawsl_install_lazygit/omawsl_install_zellij
+# above.
 omawsl_install_lazydocker() {
   if command -v lazydocker &>/dev/null; then
     return 0

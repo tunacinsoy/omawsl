@@ -9,16 +9,14 @@ setup() {
   mkdir -p "$HOME"
   source "$REPO_ROOT/install/terminal/apps-terminal.sh"
   stub_command sudo
-  # lazygit's install steps parse a GitHub API JSON response to resolve
-  # the latest version (its release asset filenames embed the version
-  # number, unlike zellij's) - a plain dumb stub_command curl (no stdout)
-  # would make that `grep -Po` come up empty, and under this sourced
-  # script's `set -e` an empty-match grep in a bare assignment aborts the
-  # whole function. Scoped to just that one URL (rather than a blanket
-  # stub_command_output on every curl call) - lazydocker's install step
-  # is `curl ... | bash`, which would try to execute unrelated canned
-  # output as a real script.
+  # lazygit's and lazydocker's install steps both parse a GitHub API JSON
+  # response to resolve the latest version (their release asset filenames
+  # embed the version number, unlike zellij's) - a plain dumb stub_command
+  # curl (no stdout) would make that `grep -Po` come up empty, and under
+  # this sourced script's `set -e` an empty-match grep in a bare
+  # assignment aborts the whole function.
   stub_command_output_for curl "api.github.com/repos/jesseduffield/lazygit" '{"tag_name": "v9.9.9"}'
+  stub_command_output_for curl "api.github.com/repos/jesseduffield/lazydocker" '{"tag_name": "v8.8.8"}'
   stub_command tar
   stub_hide_command lazydocker zellij lazygit fastfetch
 }
@@ -30,17 +28,19 @@ setup() {
   [[ "$(stub_calls)" != *"apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch"* ]]
 }
 
-@test "installs lazydocker via its official script when not already present" {
+@test "installs lazydocker via its official GitHub release when not already present" {
   run omawsl_install_lazydocker
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh"* ]]
+  [[ "$(stub_calls)" == *"curl -fsSL https://api.github.com/repos/jesseduffield/lazydocker/releases/latest"* ]]
+  [[ "$(stub_calls)" == *"curl -fsSL https://github.com/jesseduffield/lazydocker/releases/download/v8.8.8/lazydocker_8.8.8_Linux_x86_64.tar.gz"* ]]
+  [[ "$(stub_calls)" == *"sudo install -m 0755 /tmp/lazydocker /usr/local/bin/lazydocker"* ]]
 }
 
 @test "skips lazydocker when already installed" {
   stub_command lazydocker
   run omawsl_install_lazydocker
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" != *"install_update_linux.sh"* ]]
+  [[ "$(stub_calls)" != *"jesseduffield/lazydocker"* ]]
 }
 
 @test "installs zellij via its GitHub release when not already present" {
@@ -163,5 +163,5 @@ setup() {
   stub_command lazydocker
   run omawsl_lazydocker_install_steps
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"install_update_linux.sh"* ]]
+  [[ "$(stub_calls)" == *"jesseduffield/lazydocker"* ]]
 }

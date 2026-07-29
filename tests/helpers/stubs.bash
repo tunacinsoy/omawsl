@@ -5,8 +5,14 @@
 STUB_LOG=""
 export STUB_LOG
 
+# Registry root for stub_command_output_for's per-command accumulated
+# matchers - see that function for why this exists.
+STUB_OUTPUT_REGISTRY_ROOT=""
+export STUB_OUTPUT_REGISTRY_ROOT
+
 stub_init() {
   STUB_LOG="$(mktemp)"
+  STUB_OUTPUT_REGISTRY_ROOT="$(mktemp -d)"
 }
 
 stub_calls() {
@@ -37,20 +43,36 @@ export -f ${name}
 # e.g. a GitHub API JSON response piped to grep to resolve a release
 # version. Matching only a specific substring (rather than printing
 # <output> unconditionally on every call) matters here: some commands
-# pipe this stub's stdout straight into a real interpreter (lazydocker's
-# install step is `curl ... | bash`) - printing unrelated canned output
-# on every call would feed that real `bash` a bogus script. <output> is
+# pipe this stub's stdout straight into a real interpreter. <output> is
 # captured into a temp file at stub-setup time so it survives eval's
 # quoting without any variable-indirection tricks.
+#
+# A second call for the same <name> (e.g. two different GitHub API URLs
+# both fetched via curl in the same test) accumulates onto the first
+# rather than replacing it - each <arg_substring>/<output> pair is
+# recorded in its own registry entry under STUB_OUTPUT_REGISTRY_ROOT, and
+# the stub function body is rebuilt from every entry registered so far
+# each time this is called.
 stub_command_output_for() {
   local name="$1" arg_substring="$2" output="$3"
-  local output_file; output_file="$(mktemp)"
-  printf '%s' "$output" > "$output_file"
+  local registry_dir="$STUB_OUTPUT_REGISTRY_ROOT/${name}"
+  mkdir -p "$registry_dir"
+  local entry_dir; entry_dir="$(mktemp -d "$registry_dir/XXXXXX")"
+  printf '%s' "$arg_substring" > "$entry_dir/substring"
+  printf '%s' "$output" > "$entry_dir/output"
+
+  local cases="" entry substr
+  for entry in "$registry_dir"/*/; do
+    substr="$(cat "${entry}substring")"
+    cases+="    *'${substr}'*) cat \"${entry}output\" ;;
+"
+  done
+
   eval "
 ${name}() {
   echo \"${name} \$*\" >> \"\$STUB_LOG\"
   case \"\$*\" in
-    *'${arg_substring}'*) cat \"${output_file}\" ;;
+${cases}
   esac
   return 0
 }
