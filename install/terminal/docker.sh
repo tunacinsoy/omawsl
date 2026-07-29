@@ -54,6 +54,25 @@ omawsl_check_docker_path_collision() {
   fi
 }
 
+# omawsl_detect_proxy_env <VAR>
+# Prints the value of the uppercase proxy env var <VAR> (e.g. HTTP_PROXY)
+# if it's set and non-empty, else its lowercase form (http_proxy) - a real
+# corp environment behind this feature had both set identically, so
+# either convention is honored. Prints an empty string if neither is set;
+# never errors under `set -u`, since a totally-unset variable can't be
+# read via indirect expansion (${!var}) directly - each read is guarded
+# with the `:-` default operator.
+omawsl_detect_proxy_env() {
+  local var="$1"
+  local upper_val="${!var:-}"
+  if [[ -n "$upper_val" ]]; then
+    echo "$upper_val"
+    return 0
+  fi
+  local lower_var; lower_var="$(echo "$var" | tr '[:upper:]' '[:lower:]')"
+  echo "${!lower_var:-}"
+}
+
 # omawsl_install_docker_ce [apt_sources_file] [keyrings_dir]
 # Idempotent: the repo-add + GPG-key steps only run once (guarded by the
 # sources file not existing yet); `apt-get install` itself no-ops on

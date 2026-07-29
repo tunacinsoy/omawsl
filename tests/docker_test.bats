@@ -94,6 +94,31 @@ setup() {
   [[ "$output" == *"/usr/bin/docker"* ]]
 }
 
+# --- omawsl_detect_proxy_env ------------------------------------------------
+
+@test "detect_proxy_env: prefers the uppercase form when both are set" {
+  export HTTP_PROXY="http://upper:8080"
+  export http_proxy="http://lower:8080"
+  run omawsl_detect_proxy_env HTTP_PROXY
+  [ "$status" -eq 0 ]
+  [ "$output" == "http://upper:8080" ]
+}
+
+@test "detect_proxy_env: falls back to the lowercase form when uppercase is unset" {
+  unset HTTP_PROXY || true
+  export http_proxy="http://lower:8080"
+  run omawsl_detect_proxy_env HTTP_PROXY
+  [ "$status" -eq 0 ]
+  [ "$output" == "http://lower:8080" ]
+}
+
+@test "detect_proxy_env: empty when neither form is set" {
+  unset HTTP_PROXY http_proxy || true
+  run omawsl_detect_proxy_env HTTP_PROXY
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 # --- omawsl_install_docker_ce ------------------------------------------------
 
 @test "install_docker_ce: adds the apt repo and key when the sources file doesn't exist yet" {
