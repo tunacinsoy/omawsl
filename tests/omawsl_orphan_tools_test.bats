@@ -72,8 +72,8 @@ setup() {
   [ "$(omawsl_orphan_tool_version_installed aws)" = "2.15.30" ]
 }
 
-@test "omawsl_orphan_tool_version_latest resolves aws via the aws/aws-cli GitHub repo" {
-  curl() { echo '{"tag_name":"2.19.0"}'; }
+@test "omawsl_orphan_tool_version_latest resolves aws via the aws/aws-cli tags endpoint (no GitHub Releases published)" {
+  curl() { echo '[{"name":"2.10.0"},{"name":"2.19.0"},{"name":"2.9.5"}]'; }
   export -f curl
   [ "$(omawsl_orphan_tool_version_latest aws)" = "2.19.0" ]
 }
@@ -185,6 +185,77 @@ setup() {
   curl() { echo 'not json'; }
   export -f curl
   [ "$(omawsl_orphan_latest_from_github zellij-org/zellij)" = "" ]
+}
+
+@test "omawsl_orphan_github_token prefers GH_TOKEN over everything else" {
+  export GH_TOKEN="gh-token-value"
+  export GITHUB_TOKEN="github-token-value"
+  stub_command gh
+  gh() { echo "should not be called"; return 1; }
+  export -f gh
+  [ "$(omawsl_orphan_github_token)" = "gh-token-value" ]
+}
+
+@test "omawsl_orphan_github_token falls back to GITHUB_TOKEN when GH_TOKEN is unset" {
+  unset GH_TOKEN 2>/dev/null || true
+  export GITHUB_TOKEN="github-token-value"
+  [ "$(omawsl_orphan_github_token)" = "github-token-value" ]
+}
+
+@test "omawsl_orphan_github_token falls back to gh auth token when no env var is set" {
+  unset GH_TOKEN GITHUB_TOKEN 2>/dev/null || true
+  stub_hide_command gh
+  stub_command gh
+  gh() { [[ "$*" == "auth token" ]] && echo "gh-cli-token"; }
+  export -f gh
+  [ "$(omawsl_orphan_github_token)" = "gh-cli-token" ]
+}
+
+@test "omawsl_orphan_github_token returns empty when no token source is available" {
+  unset GH_TOKEN GITHUB_TOKEN 2>/dev/null || true
+  stub_hide_command gh
+  [ "$(omawsl_orphan_github_token)" = "" ]
+}
+
+@test "omawsl_orphan_latest_from_github sends an Authorization header when a token is available" {
+  export GH_TOKEN="my-token"
+  curl() { echo "curl $*" >> "$STUB_LOG"; echo '{"tag_name":"v1.2.3"}'; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github zellij-org/zellij)" = "1.2.3" ]
+  [[ "$(stub_calls)" == *"Authorization: Bearer my-token"* ]]
+}
+
+@test "omawsl_orphan_latest_from_github omits the Authorization header when no token is available" {
+  unset GH_TOKEN GITHUB_TOKEN 2>/dev/null || true
+  stub_hide_command gh
+  curl() { echo "curl $*" >> "$STUB_LOG"; echo '{"tag_name":"v1.2.3"}'; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github zellij-org/zellij)" = "1.2.3" ]
+  [[ "$(stub_calls)" != *"Authorization"* ]]
+}
+
+@test "omawsl_orphan_latest_from_github_tags picks the highest semver tag, not the first one" {
+  curl() { echo '[{"name":"v0.10.0"},{"name":"v0.9.5"},{"name":"v0.2.0"}]'; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github_tags zellij-org/zellij)" = "0.10.0" ]
+}
+
+@test "omawsl_orphan_latest_from_github_tags ignores non-semver tag names" {
+  curl() { echo '[{"name":"nightly"},{"name":"1.2.3"},{"name":"sdk-release-marker"}]'; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github_tags zellij-org/zellij)" = "1.2.3" ]
+}
+
+@test "omawsl_orphan_latest_from_github_tags returns empty on a curl failure" {
+  curl() { return 1; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github_tags zellij-org/zellij)" = "" ]
+}
+
+@test "omawsl_orphan_latest_from_github_tags returns empty on malformed JSON" {
+  curl() { echo 'not json'; }
+  export -f curl
+  [ "$(omawsl_orphan_latest_from_github_tags zellij-org/zellij)" = "" ]
 }
 
 @test "omawsl_orphan_latest_from_npm uses the private mise Node runtime, not a bare npm" {

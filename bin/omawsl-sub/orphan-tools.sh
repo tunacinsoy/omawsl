@@ -87,17 +87,70 @@ omawsl_orphan_extract_semver() {
   grep -oE '[0-9]+\.[0-9]+\.[0-9]+' <<< "$1" | head -n1 || true
 }
 
+# omawsl_orphan_github_token
+# Best-effort GitHub token so the version-check requests below can use the
+# 5000-req/hour authenticated rate limit instead of the 60/hour
+# unauthenticated one - a shared corporate NAT egress IP can exhaust that
+# 60/hour on its own well before any of omawsl's own requests, making every
+# GitHub-based lookup report "unknown" regardless of the network actually
+# being reachable. Checked in order: $GH_TOKEN, $GITHUB_TOKEN (both names
+# gh/CI tooling already reads), then `gh auth token` if the gh CLI is
+# installed and logged in. Empty output (never an error) when none of
+# those are available - callers treat a missing token as "fall back to
+# unauthenticated", not a failure.
+omawsl_orphan_github_token() {
+  if [[ -n "${GH_TOKEN:-}" ]]; then
+    echo "$GH_TOKEN"
+  elif [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    echo "$GITHUB_TOKEN"
+  elif command -v gh &>/dev/null; then
+    gh auth token 2>/dev/null || true
+  fi
+}
+
+# omawsl_orphan_github_auth_args
+# curl arg array for omawsl_orphan_github_token's result, empty when no
+# token is available - factored out so both GitHub-lookup functions below
+# build the exact same Authorization header instead of duplicating the
+# conditional.
+omawsl_orphan_github_auth_args() {
+  local token; token="$(omawsl_orphan_github_token)"
+  [[ -n "$token" ]] && printf '%s\n' "-H" "Authorization: Bearer $token"
+  return 0
+}
+
 # omawsl_orphan_latest_from_github <owner/repo>
-# Latest release tag from the public GitHub REST API, unauthenticated -
-# this must work on a fresh machine with no prior setup at all. Empty
-# output on any failure (network, rate limit, malformed JSON) rather than
-# erroring - the caller (Task 3) is what bounds the wait, not this
-# function itself.
+# Latest release tag from the public GitHub REST API, authenticated when a
+# token is available (see omawsl_orphan_github_token) and falling back to
+# unauthenticated otherwise - the latter must still work standalone on a
+# fresh machine with no prior gh login at all. Empty output on any failure
+# (network, rate limit, malformed JSON) rather than erroring - the caller
+# (Task 3) is what bounds the wait, not this function itself.
 omawsl_orphan_latest_from_github() {
   local repo="$1"
+  local -a auth_args=()
+  while IFS= read -r arg; do auth_args+=("$arg"); done < <(omawsl_orphan_github_auth_args)
   local tag
-  tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty' 2>/dev/null)" || tag=""
+  tag="$(curl -fsSL "${auth_args[@]}" "https://api.github.com/repos/$repo/releases/latest" 2>/dev/null | jq -r '.tag_name // empty' 2>/dev/null)" || tag=""
   echo "${tag#v}"
+}
+
+# omawsl_orphan_latest_from_github_tags <owner/repo>
+# Latest version for repos that don't publish GitHub Releases at all -
+# aws/aws-cli only pushes tags, so releases/latest 404s for it every time
+# regardless of network or auth. Same GitHub REST API and same
+# opportunistic auth as omawsl_orphan_latest_from_github, just the /tags
+# endpoint instead. Tags aren't guaranteed to come back version-sorted, so
+# every X.Y.Z-shaped tag name on the (single, unpaginated) first page is
+# collected and the highest one wins via `sort -V`, rather than trusting
+# API ordering.
+omawsl_orphan_latest_from_github_tags() {
+  local repo="$1"
+  local -a auth_args=()
+  while IFS= read -r arg; do auth_args+=("$arg"); done < <(omawsl_orphan_github_auth_args)
+  local tags
+  tags="$(curl -fsSL "${auth_args[@]}" "https://api.github.com/repos/$repo/tags" 2>/dev/null | jq -r '.[].name // empty' 2>/dev/null)" || tags=""
+  { grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' <<< "$tags" 2>/dev/null || true; } | sed 's/^v//' | sort -V | tail -n1
 }
 
 # omawsl_orphan_latest_from_npm <package>
@@ -127,12 +180,15 @@ omawsl_orphan_tool_version_installed() {
 }
 
 # omawsl_orphan_tool_version_latest <slug>
-# GitHub Releases API for the 5 binary/curl-script-distributed tools
-# (repo slugs confirmed live: zellij-org/zellij, jesseduffield/lazydocker,
-# anomalyco/opencode [formerly sst/opencode - GitHub redirects the old
-# path], anthropics/claude-code, aws/aws-cli); npm registry for the 2
-# tools installed via a private mise-managed Node runtime, gh-copilot
-# included since it switched from the retired `gh extension install
+# GitHub Releases API for the 4 binary/curl-script-distributed tools that
+# actually publish releases (repo slugs confirmed live: zellij-org/zellij,
+# jesseduffield/lazydocker, anomalyco/opencode [formerly sst/opencode -
+# GitHub redirects the old path], anthropics/claude-code); GitHub tags API
+# for aws/aws-cli, which doesn't publish GitHub Releases at all (confirmed:
+# releases/latest 404s for that repo every time - see
+# omawsl_orphan_latest_from_github_tags); npm registry for the 2 tools
+# installed via a private mise-managed Node runtime, gh-copilot included
+# since it switched from the retired `gh extension install
 # github/gh-copilot` to the standalone `@github/copilot` npm package.
 # Antigravity CLI is neither - see its own case arm below.
 omawsl_orphan_tool_version_latest() {
@@ -151,7 +207,7 @@ omawsl_orphan_tool_version_latest() {
     # regardless (confirmed via antigravity.google/docs/cli/troubleshooting).
     antigravity) echo "" ;;
     gh-copilot) omawsl_orphan_latest_from_npm "@github/copilot" ;;
-    aws) omawsl_orphan_latest_from_github aws/aws-cli ;;
+    aws) omawsl_orphan_latest_from_github_tags aws/aws-cli ;;
     *) return 1 ;;
   esac
 }
