@@ -57,6 +57,31 @@ setup() {
   [ ! -f "$sources" ]
 }
 
+@test "omawsl_uninstall_docker removes the proxy drop-in it created, in Engine mode" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  stub_command docker
+  local sources="$BATS_TEST_TMPDIR/docker.list"
+  local keyrings="$BATS_TEST_TMPDIR/keyrings"
+  local service_d="$BATS_TEST_TMPDIR/docker.service.d"
+  touch "$sources"
+  mkdir -p "$service_d"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://x:8080"\n' > "$service_d/omawsl-proxy.conf"
+  run omawsl_uninstall_docker "$sources" "$keyrings" "$service_d"
+  [ "$status" -eq 0 ]
+  [ ! -f "$service_d/omawsl-proxy.conf" ]
+}
+
+@test "omawsl_uninstall_docker no-ops cleanly when no proxy drop-in was ever created" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  stub_command docker
+  local sources="$BATS_TEST_TMPDIR/docker.list"
+  local keyrings="$BATS_TEST_TMPDIR/keyrings"
+  local service_d="$BATS_TEST_TMPDIR/docker.service.d-missing"
+  touch "$sources"
+  run omawsl_uninstall_docker "$sources" "$keyrings" "$service_d"
+  [ "$status" -eq 0 ]
+}
+
 @test "omawsl_uninstall_docker no-ops on the apt purge when docker-ce isn't actually installed" {
   omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
   unset -f docker

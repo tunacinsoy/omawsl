@@ -26,18 +26,22 @@ omawsl_uninstall_omawsl_containers() {
   done
 }
 
-# omawsl_uninstall_docker [apt_sources_file] [keyrings_dir]
+# omawsl_uninstall_docker [apt_sources_file] [keyrings_dir] [docker_service_d_dir]
 # Detect-and-defer's inverse: if OMAWSL_DOCKER_MODE (persisted in
 # choices.env, design spec §6) was Docker Desktop, omawsl's docker.sh
 # never installed docker-ce (design spec §9) - so there's genuinely
 # nothing here for THIS repo to uninstall. Otherwise purges docker-ce and
 # its apt source/keyring, same paths omawsl_install_docker_ce writes
-# (install/terminal/docker.sh). Deliberately leaves the user's docker
-# group membership in place rather than auto-revoking it - that's a
-# broader system change than "undo what omawsl installed."
+# (install/terminal/docker.sh), and removes omawsl-proxy.conf - the one
+# file omawsl_configure_docker_proxy might have created (design spec
+# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md) -
+# never anything else under docker_service_d_dir. Deliberately leaves the
+# user's docker group membership in place rather than auto-revoking it -
+# that's a broader system change than "undo what omawsl installed."
 omawsl_uninstall_docker() {
   local apt_sources_file="${1:-/etc/apt/sources.list.d/docker.list}"
   local keyrings_dir="${2:-/etc/apt/keyrings}"
+  local docker_service_d_dir="${3:-/etc/systemd/system/docker.service.d}"
 
   if [[ "$(omawsl_load_choice OMAWSL_DOCKER_MODE)" == "Docker Desktop for Windows" ]]; then
     echo "omawsl: Docker was set up via Docker Desktop for Windows - omawsl never installed it, so there's nothing to uninstall here."
@@ -53,7 +57,7 @@ omawsl_uninstall_docker() {
   fi
 
   sudo apt-get purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  sudo rm -f "$apt_sources_file" "$keyrings_dir/docker.gpg"
+  sudo rm -f "$apt_sources_file" "$keyrings_dir/docker.gpg" "$docker_service_d_dir/omawsl-proxy.conf"
   echo "omawsl: docker-ce removed. Your user's docker group membership was left in place - run 'sudo gpasswd -d \"\$USER\" docker' yourself if you want that removed too."
 }
 
