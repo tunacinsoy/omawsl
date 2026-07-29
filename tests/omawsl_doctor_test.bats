@@ -93,3 +93,15 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"Docker daemon proxy config"* ]]
 }
+
+@test "omawsl_doctor stays silent on docker proxy when another file already configures it" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  export HTTP_PROXY="http://webproxy.example:8080"
+  local dir="$BATS_TEST_TMPDIR/docker.service.d-other-proxy"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://webproxy.example:8080"\n' > "$dir/99-other-proxy.conf"
+  export OMAWSL_DOCKER_SERVICE_D_DIR="$dir"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Docker daemon proxy config"* ]]
+}
