@@ -156,6 +156,90 @@ setup() {
   [ "$status" -eq 1 ]
 }
 
+# --- omawsl_configure_docker_proxy -------------------------------------------
+
+_stub_sudo_forwarding() {
+  sudo() {
+    echo "sudo $*" >> "$STUB_LOG"
+    case "$1" in
+      mkdir) shift; command mkdir "$@" ;;
+      tee) shift; command tee "$@" ;;
+      rm) shift; command rm "$@" 2>/dev/null || true ;;
+      systemctl) : ;;
+      *) : ;;
+    esac
+  }
+  export -f sudo
+}
+
+@test "configure_docker_proxy: no-ops when no proxy is set" {
+  unset HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy || true
+  _stub_sudo_forwarding
+  local dir="$BATS_TEST_TMPDIR/svc-noproxy"
+  run omawsl_configure_docker_proxy "$dir"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ ! -f "$dir/omawsl-proxy.conf" ]
+  [ -z "$(stub_calls)" ]
+}
+
+@test "configure_docker_proxy: writes a fresh drop-in when a proxy is set" {
+  export HTTP_PROXY="http://webproxy.example:8080"
+  export HTTPS_PROXY="http://webproxy.example:8080"
+  export NO_PROXY="localhost,127.0.0.1"
+  _stub_sudo_forwarding
+  local dir="$BATS_TEST_TMPDIR/svc-fresh"
+  run omawsl_configure_docker_proxy "$dir"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"configured Docker daemon proxy"* ]]
+  [ -f "$dir/omawsl-proxy.conf" ]
+  [[ "$(cat "$dir/omawsl-proxy.conf")" == *'Environment="HTTP_PROXY=http://webproxy.example:8080"'* ]]
+  [[ "$(cat "$dir/omawsl-proxy.conf")" == *'Environment="HTTPS_PROXY=http://webproxy.example:8080"'* ]]
+  [[ "$(cat "$dir/omawsl-proxy.conf")" == *'Environment="NO_PROXY=localhost,127.0.0.1"'* ]]
+  [[ "$(stub_calls)" == *"sudo mkdir -p $dir"* ]]
+  [[ "$(stub_calls)" == *"sudo systemctl daemon-reload"* ]]
+  [[ "$(stub_calls)" == *"sudo systemctl restart docker"* ]]
+}
+
+@test "configure_docker_proxy: idempotent - unchanged content skips write and restart" {
+  export HTTP_PROXY="http://webproxy.example:8080"
+  export HTTPS_PROXY="http://webproxy.example:8080"
+  unset NO_PROXY no_proxy || true
+  _stub_sudo_forwarding
+  local dir="$BATS_TEST_TMPDIR/svc-idempotent"
+  omawsl_configure_docker_proxy "$dir"
+  : > "$STUB_LOG"
+  run omawsl_configure_docker_proxy "$dir"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+  [ -z "$(stub_calls)" ]
+}
+
+@test "configure_docker_proxy: backs off when another file already configures a proxy" {
+  export HTTP_PROXY="http://webproxy.example:8080"
+  _stub_sudo_forwarding
+  local dir="$BATS_TEST_TMPDIR/svc-conflict"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://corp-own:8080"\n' > "$dir/corp-managed.conf"
+  run omawsl_configure_docker_proxy "$dir"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"leaving it as-is"* ]]
+  [ ! -f "$dir/omawsl-proxy.conf" ]
+  [[ "$(stub_calls)" != *"systemctl restart docker"* ]]
+}
+
+@test "configure_docker_proxy: removes its own stale file once a conflict appears" {
+  export HTTP_PROXY="http://webproxy.example:8080"
+  _stub_sudo_forwarding
+  local dir="$BATS_TEST_TMPDIR/svc-stale"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://webproxy.example:8080"\n' > "$dir/omawsl-proxy.conf"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://corp-own:8080"\n' > "$dir/corp-managed.conf"
+  run omawsl_configure_docker_proxy "$dir"
+  [ "$status" -eq 0 ]
+  [ ! -f "$dir/omawsl-proxy.conf" ]
+}
+
 # --- omawsl_install_docker_ce ------------------------------------------------
 
 @test "install_docker_ce: adds the apt repo and key when the sources file doesn't exist yet" {

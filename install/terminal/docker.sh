@@ -92,6 +92,59 @@ omawsl_docker_proxy_conflict() {
   return 1
 }
 
+# omawsl_configure_docker_proxy [dir]
+# Detects a corp proxy from the environment and configures dockerd to use
+# it via its own exclusively-owned drop-in - never the conventional
+# http-proxy.conf name a corp manual would use (design spec
+# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md).
+# dockerd runs as a systemd service and never inherits the interactive
+# shell's HTTP_PROXY/HTTPS_PROXY - confirmed on a real corp machine, where
+# curl (proxy-aware) reached registry-1.docker.io fine while `docker pull`
+# (proxy-blind) died with `dial tcp ...:443 i/o timeout`. No-ops silently
+# if no proxy is set (the common case). Backs off entirely - removing any
+# stale file of its own - if another file in `dir` already configures a
+# proxy, rather than risk two drop-ins overriding each other for the same
+# key. Idempotent: skips the write and the daemon restart if the content
+# is already correct, so re-running install.sh never bounces a working
+# daemon.
+omawsl_configure_docker_proxy() {
+  local dir="${1:-${OMAWSL_DOCKER_SERVICE_D_DIR:-/etc/systemd/system/docker.service.d}}"
+  local own_file="$dir/omawsl-proxy.conf"
+
+  local http_proxy_val https_proxy_val no_proxy_val
+  http_proxy_val="$(omawsl_detect_proxy_env HTTP_PROXY)"
+  https_proxy_val="$(omawsl_detect_proxy_env HTTPS_PROXY)"
+  no_proxy_val="$(omawsl_detect_proxy_env NO_PROXY)"
+
+  if [[ -z "$http_proxy_val" && -z "$https_proxy_val" ]]; then
+    return 0
+  fi
+
+  if omawsl_docker_proxy_conflict "$dir" "$own_file"; then
+    echo "omawsl: found an existing proxy config elsewhere in $dir - leaving it as-is, not adding omawsl's own."
+    sudo rm -f "$own_file"
+    return 0
+  fi
+
+  local lines=("[Service]")
+  [[ -n "$http_proxy_val" ]] && lines+=("Environment=\"HTTP_PROXY=$http_proxy_val\"")
+  [[ -n "$https_proxy_val" ]] && lines+=("Environment=\"HTTPS_PROXY=$https_proxy_val\"")
+  [[ -n "$no_proxy_val" ]] && lines+=("Environment=\"NO_PROXY=$no_proxy_val\"")
+  local content; content="$(printf '%s\n' "${lines[@]}")"
+
+  local existing=""
+  [[ -f "$own_file" ]] && existing="$(cat "$own_file")"
+  if [[ "$existing" == "$content" ]]; then
+    return 0
+  fi
+
+  sudo mkdir -p "$dir"
+  printf '%s\n' "$content" | sudo tee "$own_file" >/dev/null
+  sudo systemctl daemon-reload
+  sudo systemctl restart docker
+  echo "omawsl: configured Docker daemon proxy from HTTP_PROXY/HTTPS_PROXY."
+}
+
 # omawsl_install_docker_ce [apt_sources_file] [keyrings_dir]
 # Idempotent: the repo-add + GPG-key steps only run once (guarded by the
 # sources file not existing yet); `apt-get install` itself no-ops on
