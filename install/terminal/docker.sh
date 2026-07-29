@@ -73,6 +73,25 @@ omawsl_detect_proxy_env() {
   echo "${!lower_var:-}"
 }
 
+# omawsl_docker_proxy_conflict <dir> <own_file>
+# True if some *other* .conf file already in <dir> sets a proxy - e.g. a
+# corp IT manual's own drop-in. omawsl backs off entirely in this case
+# rather than risk two drop-ins silently overriding each other for the
+# same key (design spec
+# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md:
+# omawsl never edits or competes with a file it doesn't exclusively own).
+omawsl_docker_proxy_conflict() {
+  local dir="$1" own_file="$2"
+  [[ -d "$dir" ]] || return 1
+  local f
+  for f in "$dir"/*.conf; do
+    [[ -f "$f" ]] || continue
+    [[ "$f" == "$own_file" ]] && continue
+    grep -qE 'Environment=.*PROXY' "$f" 2>/dev/null && return 0
+  done
+  return 1
+}
+
 # omawsl_install_docker_ce [apt_sources_file] [keyrings_dir]
 # Idempotent: the repo-add + GPG-key steps only run once (guarded by the
 # sources file not existing yet); `apt-get install` itself no-ops on

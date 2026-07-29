@@ -119,6 +119,43 @@ setup() {
   [ -z "$output" ]
 }
 
+# --- omawsl_docker_proxy_conflict --------------------------------------------
+
+@test "proxy_conflict: false when the directory doesn't exist yet" {
+  run omawsl_docker_proxy_conflict "$BATS_TEST_TMPDIR/nope" "$BATS_TEST_TMPDIR/nope/omawsl-proxy.conf"
+  [ "$status" -eq 1 ]
+}
+
+@test "proxy_conflict: false when the directory is empty" {
+  mkdir -p "$BATS_TEST_TMPDIR/svc-empty"
+  run omawsl_docker_proxy_conflict "$BATS_TEST_TMPDIR/svc-empty" "$BATS_TEST_TMPDIR/svc-empty/omawsl-proxy.conf"
+  [ "$status" -eq 1 ]
+}
+
+@test "proxy_conflict: false when only omawsl's own file sets a proxy" {
+  local dir="$BATS_TEST_TMPDIR/svc-own"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://x:8080"\n' > "$dir/omawsl-proxy.conf"
+  run omawsl_docker_proxy_conflict "$dir" "$dir/omawsl-proxy.conf"
+  [ "$status" -eq 1 ]
+}
+
+@test "proxy_conflict: true when another .conf file already sets a proxy" {
+  local dir="$BATS_TEST_TMPDIR/svc-corp"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://corp:8080"\n' > "$dir/corp-managed.conf"
+  run omawsl_docker_proxy_conflict "$dir" "$dir/omawsl-proxy.conf"
+  [ "$status" -eq 0 ]
+}
+
+@test "proxy_conflict: false when another .conf file exists but doesn't mention a proxy" {
+  local dir="$BATS_TEST_TMPDIR/svc-unrelated"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="SOMETHING_ELSE=1"\n' > "$dir/unrelated.conf"
+  run omawsl_docker_proxy_conflict "$dir" "$dir/omawsl-proxy.conf"
+  [ "$status" -eq 1 ]
+}
+
 # --- omawsl_install_docker_ce ------------------------------------------------
 
 @test "install_docker_ce: adds the apt repo and key when the sources file doesn't exist yet" {
