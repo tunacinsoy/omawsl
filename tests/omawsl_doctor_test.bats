@@ -62,3 +62,34 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"Docker Desktop for Windows"* ]]
 }
+
+@test "omawsl_doctor flags a pending docker daemon proxy config in Engine mode" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  export HTTP_PROXY="http://webproxy.example:8080"
+  export OMAWSL_DOCKER_SERVICE_D_DIR="$BATS_TEST_TMPDIR/docker.service.d-missing"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] Docker daemon proxy config"* ]]
+  [[ "$output" == *"re-run install.sh"* ]]
+}
+
+@test "omawsl_doctor stays silent on docker proxy when already configured" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  export HTTP_PROXY="http://webproxy.example:8080"
+  local dir="$BATS_TEST_TMPDIR/docker.service.d-configured"
+  mkdir -p "$dir"
+  printf '[Service]\nEnvironment="HTTP_PROXY=http://webproxy.example:8080"\n' > "$dir/omawsl-proxy.conf"
+  export OMAWSL_DOCKER_SERVICE_D_DIR="$dir"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Docker daemon proxy config"* ]]
+}
+
+@test "omawsl_doctor stays silent on docker proxy when no proxy is set" {
+  omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Engine only, inside WSL (recommended)"
+  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy || true
+  export OMAWSL_DOCKER_SERVICE_D_DIR="$BATS_TEST_TMPDIR/docker.service.d-noproxy"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Docker daemon proxy config"* ]]
+}
