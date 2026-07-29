@@ -9,15 +9,25 @@ setup() {
   mkdir -p "$HOME"
   source "$REPO_ROOT/install/terminal/apps-terminal.sh"
   stub_command sudo
-  stub_command curl
+  # lazygit's install steps parse a GitHub API JSON response to resolve
+  # the latest version (its release asset filenames embed the version
+  # number, unlike zellij's) - a plain dumb stub_command curl (no stdout)
+  # would make that `grep -Po` come up empty, and under this sourced
+  # script's `set -e` an empty-match grep in a bare assignment aborts the
+  # whole function. Scoped to just that one URL (rather than a blanket
+  # stub_command_output on every curl call) - lazydocker's install step
+  # is `curl ... | bash`, which would try to execute unrelated canned
+  # output as a real script.
+  stub_command_output_for curl "api.github.com/repos/jesseduffield/lazygit" '{"tag_name": "v9.9.9"}'
   stub_command tar
-  stub_hide_command lazydocker zellij
+  stub_hide_command lazydocker zellij lazygit fastfetch
 }
 
 @test "installs the full Omakub-parity terminal tool set via apt, including the newly-folded-in always-on tools" {
   run omawsl_install_terminal_apps
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit"* ]]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop"* ]]
+  [[ "$(stub_calls)" != *"apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch"* ]]
 }
 
 @test "installs lazydocker via its official script when not already present" {
@@ -78,7 +88,7 @@ setup() {
 @test "installs jq alongside the rest of the always-on apt tool set" {
   run omawsl_install_terminal_apps
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq"* ]]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop jq"* ]]
 }
 
 @test "installs bash-completion alongside the rest of the always-on apt tool set" {
@@ -89,7 +99,50 @@ setup() {
   # fragile.
   run omawsl_install_terminal_apps
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq bash-completion"* ]]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop jq bash-completion"* ]]
+}
+
+@test "installs lazygit via its official GitHub release when not already present" {
+  run omawsl_install_lazygit
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest"* ]]
+  [[ "$(stub_calls)" == *"curl -fsSL https://github.com/jesseduffield/lazygit/releases/download/v9.9.9/lazygit_9.9.9_linux_x86_64.tar.gz"* ]]
+  [[ "$(stub_calls)" == *"sudo install -m 0755 /tmp/lazygit /usr/local/bin/lazygit"* ]]
+}
+
+@test "skips lazygit when already installed" {
+  stub_command lazygit
+  run omawsl_install_lazygit
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"jesseduffield/lazygit"* ]]
+}
+
+@test "omawsl_lazygit_install_steps runs unconditionally, even if lazygit is already installed" {
+  stub_command lazygit
+  run omawsl_lazygit_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"jesseduffield/lazygit"* ]]
+}
+
+@test "installs fastfetch via its official .deb release when not already present" {
+  run omawsl_install_fastfetch
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"curl -fsSL -o "*"https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-amd64.deb"* ]]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y "*.deb* ]]
+}
+
+@test "skips fastfetch when already installed" {
+  stub_command fastfetch
+  run omawsl_install_fastfetch
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"fastfetch-cli/fastfetch"* ]]
+}
+
+@test "omawsl_fastfetch_install_steps runs unconditionally, even if fastfetch is already installed" {
+  stub_command fastfetch
+  run omawsl_fastfetch_install_steps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"fastfetch-cli/fastfetch"* ]]
 }
 
 @test "installs a bin/omawsl wrapper into ~/.local/bin that execs the real script" {

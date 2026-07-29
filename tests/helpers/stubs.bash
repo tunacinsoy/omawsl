@@ -29,6 +29,35 @@ export -f ${name}
 "
 }
 
+# stub_command_output_for <name> <arg_substring> <output>
+# Like stub_command, but when an invocation's arguments contain
+# <arg_substring>, the stub also prints <output> to its own stdout (any
+# other invocation stays a plain dumb stub - just the logged line, no
+# stdout) - for commands whose callers parse their output conditionally,
+# e.g. a GitHub API JSON response piped to grep to resolve a release
+# version. Matching only a specific substring (rather than printing
+# <output> unconditionally on every call) matters here: some commands
+# pipe this stub's stdout straight into a real interpreter (lazydocker's
+# install step is `curl ... | bash`) - printing unrelated canned output
+# on every call would feed that real `bash` a bogus script. <output> is
+# captured into a temp file at stub-setup time so it survives eval's
+# quoting without any variable-indirection tricks.
+stub_command_output_for() {
+  local name="$1" arg_substring="$2" output="$3"
+  local output_file; output_file="$(mktemp)"
+  printf '%s' "$output" > "$output_file"
+  eval "
+${name}() {
+  echo \"${name} \$*\" >> \"\$STUB_LOG\"
+  case \"\$*\" in
+    *'${arg_substring}'*) cat \"${output_file}\" ;;
+  esac
+  return 0
+}
+export -f ${name}
+"
+}
+
 # --- gum response queue -----------------------------------------------
 # gum_stub_init must run before gum_stub_respond / using the gum stub.
 # gum_stub_respond "line1

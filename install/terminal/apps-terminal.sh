@@ -5,22 +5,37 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # omawsl_install_terminal_apps
 # Always-on terminal tooling, no picker gate. Installs via apt where a
-# stable Ubuntu package exists (verified against Ubuntu 26.04's own
-# universe repo: fzf, ripgrep, bat, eza, zoxide, plocate, apache2-utils,
-# fd-find, gh, btop, fastfetch, lazygit, jq, bash-completion all have
-# candidates there), plus two tools with no Ubuntu package at all
-# (lazydocker, zellij), each installed via its own official method
-# below. `jq` is new in Phase 5 - `bin/omawsl theme` (design spec §11)
-# needs it for the Windows Terminal settings.json edit. `bash-completion`
-# is explicit rather than relying on it arriving as a transitive
-# dependency of something else (confirmed present-but-unsourced on a real
-# WSL2 instance before this was added) - configs/bashrc sources it.
+# stable Ubuntu package exists across the whole supported floor (Ubuntu
+# 24.04+, no ceiling - install/check-version.sh): fzf, ripgrep, bat, eza,
+# zoxide, plocate, apache2-utils, fd-find, gh, btop, jq, bash-completion.
+# `jq` is new in Phase 5 - `bin/omawsl theme` (design spec §11) needs it
+# for the Windows Terminal settings.json edit. `bash-completion` is
+# explicit rather than relying on it arriving as a transitive dependency
+# of something else (confirmed present-but-unsourced on a real WSL2
+# instance before this was added) - configs/bashrc sources it.
+#
+# fastfetch and lazygit used to be in this same apt list, "verified"
+# against a real instance - but that instance was running Ubuntu 26.04
+# (a dev/interim release used for testing), not the 24.04 floor this repo
+# actually promises. Checked against Launchpad's published-sources
+# history: fastfetch's Ubuntu universe package doesn't exist before 25.04,
+# lazygit's doesn't exist before 25.10. On any floor-supported release
+# older than that (24.04 LTS included - almost certainly the most common
+# real one), `apt-get install` doesn't fail on just those two names: apt
+# resolves the whole install line atomically, so an unresolvable package
+# anywhere in the list aborts the entire command and silently takes fzf,
+# ripgrep, bat, eza, zoxide, plocate, apache2-utils, fd-find, gh, btop,
+# jq, and bash-completion down with it too. Both now install the same way
+# as lazydocker/zellij below: straight from the upstream project's own
+# GitHub release, independent of which Ubuntu release is running.
 omawsl_install_terminal_apps() {
   sudo apt-get update -qq
-  sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop fastfetch lazygit jq bash-completion
+  sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop jq bash-completion
 
   omawsl_install_lazydocker
   omawsl_install_zellij
+  omawsl_install_lazygit
+  omawsl_install_fastfetch
   omawsl_install_zellij_config
   omawsl_install_btop_config
   omawsl_install_cli
@@ -72,6 +87,88 @@ omawsl_install_zellij() {
     return 0
   fi
   omawsl_zellij_install_steps
+}
+
+# omawsl_lazygit_arch
+# Maps dpkg's architecture name to the naming lazygit's own release assets
+# use - same idea as cloud-clis.sh's omawsl_aws_cli_arch.
+omawsl_lazygit_arch() {
+  case "$(dpkg --print-architecture)" in
+    arm64) echo "arm64" ;;
+    *) echo "x86_64" ;;
+  esac
+}
+
+# omawsl_lazygit_install_steps
+# lazygit's release asset filenames embed the version number (e.g.
+# lazygit_0.63.1_linux_x86_64.tar.gz), unlike zellij's, so there's no
+# fixed /releases/latest/download/<name> URL to hit directly - the
+# version has to be resolved first, exactly like the two-step curl calls
+# in lazygit's own README install instructions. No guard - same split
+# rationale as omawsl_zellij_install_steps above.
+omawsl_lazygit_install_steps() {
+  local version
+  version="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]+')"
+  local arch
+  arch="$(omawsl_lazygit_arch)"
+  curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_linux_${arch}.tar.gz" | tar -xz -C /tmp lazygit
+  sudo install -m 0755 /tmp/lazygit /usr/local/bin/lazygit
+  rm -f /tmp/lazygit
+}
+
+# omawsl_install_lazygit
+# lazygit has no Ubuntu package on the 24.04-25.04 floor range (see the
+# comment on omawsl_install_terminal_apps above) - installs the official
+# prebuilt Linux binary release directly from GitHub instead, guarded the
+# same way as omawsl_install_lazydocker/omawsl_install_zellij above.
+omawsl_install_lazygit() {
+  if command -v lazygit &>/dev/null; then
+    return 0
+  fi
+  omawsl_lazygit_install_steps
+}
+
+# omawsl_fastfetch_arch
+# Maps dpkg's architecture name to the naming fastfetch's own release
+# assets use - same idea as omawsl_lazygit_arch above.
+omawsl_fastfetch_arch() {
+  case "$(dpkg --print-architecture)" in
+    arm64) echo "aarch64" ;;
+    *) echo "amd64" ;;
+  esac
+}
+
+# omawsl_fastfetch_install_steps
+# Unlike lazygit, fastfetch's own release asset filenames don't embed a
+# version (fastfetch-linux-amd64.deb), so the fixed
+# /releases/latest/download/<name> URL works directly, same as zellij's.
+# Installed via the project's own .deb rather than a bare tar.gz binary:
+# fastfetch links against system libraries (Wayland/X11/dbus/etc.) that a
+# raw binary copy wouldn't pull in, whereas `apt install ./*.deb` resolves
+# those Depends: from the regular Ubuntu archive same as any other
+# package - preserving the dependency handling the old (broken) plain
+# `apt-get install fastfetch` line relied on. No guard - same split
+# rationale as omawsl_zellij_install_steps above.
+omawsl_fastfetch_install_steps() {
+  local arch
+  arch="$(omawsl_fastfetch_arch)"
+  local tmp_deb
+  tmp_deb="$(mktemp --suffix=.deb)"
+  curl -fsSL -o "$tmp_deb" "https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-${arch}.deb"
+  sudo apt-get install -y "$tmp_deb"
+  rm -f "$tmp_deb"
+}
+
+# omawsl_install_fastfetch
+# fastfetch has no Ubuntu package on the 24.04-24.10 floor range (see the
+# comment on omawsl_install_terminal_apps above) - installs the official
+# .deb release directly from GitHub instead, guarded the same way as
+# omawsl_install_lazydocker/omawsl_install_zellij above.
+omawsl_install_fastfetch() {
+  if command -v fastfetch &>/dev/null; then
+    return 0
+  fi
+  omawsl_fastfetch_install_steps
 }
 
 # omawsl_install_zellij_config
