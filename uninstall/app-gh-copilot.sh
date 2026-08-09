@@ -16,7 +16,9 @@ source "$SCRIPT_DIR/../install/lib.sh"
 # space-separated invocation name ("gh copilot"), not the hyphenated
 # "gh-copilot". No-ops the npm step (but still removes the wrapper) if
 # mise isn't reachable, since a leftover wrapper pointing at a now-broken
-# `mise exec` call is worse than nothing.
+# `mise exec` call is worse than nothing. Also clears the persisted
+# OMAWSL_COPILOT_AUTOPILOT choice, so a later reinstall re-prompts instead
+# of silently inheriting a stale answer.
 omawsl_uninstall_gh_copilot() {
   if command -v mise &>/dev/null; then
     mise exec node@lts -- npm uninstall -g @github/copilot || true
@@ -26,6 +28,8 @@ omawsl_uninstall_gh_copilot() {
   if gh extension list 2>/dev/null | grep -q '^gh-copilot\|^gh copilot'; then
     gh extension remove gh-copilot
   fi
+
+  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT ""
 
   echo "omawsl: GitHub Copilot CLI removed."
 }
