@@ -38,6 +38,7 @@ omawsl_install_apply_editor() {
   local merged; merged="$(omawsl_merge_csv "$existing" "$picked")"
   export OMAWSL_EDITORS="$merged"
   omawsl_save_choice OMAWSL_EDITORS "$merged"
+  omawsl_prompt_copilot_autopilot_if_needed "$picked" "$existing"
   local f
   for f in app-vscode app-neovim app-opencode app-cursor app-claude-cli app-codex-cli app-gh-copilot app-antigravity-cli; do
     # shellcheck source=/dev/null
