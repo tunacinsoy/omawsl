@@ -122,6 +122,16 @@ if command -v lazygit &>/dev/null; then
   alias lzg='lazygit'
 fi
 
+# Opt-in only (docs/superpowers/specs/2026-08-09-copilot-autopilot-mode-design.md)
+# - auto-approving every tool/path/URL Copilot CLI touches is a
+# safety-relevant default, not a convenience one, so this alias only exists
+# when the user explicitly chose it during install or `omawsl install`.
+OMAWSL_COPILOT_AUTOPILOT="$(grep -m1 '^OMAWSL_COPILOT_AUTOPILOT=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
+if command -v copilot &>/dev/null && [[ "$OMAWSL_COPILOT_AUTOPILOT" == "Yes"* ]]; then
+  alias copilot="copilot --autopilot --allow-all"
+fi
+unset OMAWSL_COPILOT_AUTOPILOT
+
 if command -v nvim &>/dev/null; then
   n() { if [ "$#" -eq 0 ]; then nvim .; else nvim "$@"; fi; }
 fi

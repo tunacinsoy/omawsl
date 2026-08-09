@@ -278,6 +278,52 @@ EOF
   [[ "$output" != *"alias lzd="* ]]
 }
 
+@test "copilot is aliased to autopilot+allow-all mode when copilot is on PATH and the autopilot choice is Yes" {
+  export HOME="$BATS_TEST_TMPDIR/home_copilot_autopilot_yes"
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/state/omawsl"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
+  chmod +x "$HOME/.local/bin/copilot"
+  printf 'OMAWSL_COPILOT_AUTOPILOT="Yes - autopilot + allow-all"\n' > "$HOME/.local/state/omawsl/choices.env"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias copilot'
+  [ "$status" -eq 0 ]
+  [[ "$output" == "alias copilot='copilot --autopilot --allow-all'" ]]
+}
+
+@test "copilot is not aliased when the autopilot choice is No" {
+  export HOME="$BATS_TEST_TMPDIR/home_copilot_autopilot_no"
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/state/omawsl"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
+  chmod +x "$HOME/.local/bin/copilot"
+  printf 'OMAWSL_COPILOT_AUTOPILOT="No - interactive by default (recommended)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias copilot'
+  [ "$status" -ne 0 ]
+}
+
+@test "copilot is not aliased when no autopilot choice was ever persisted, even though copilot is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_copilot_no_choice"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
+  chmod +x "$HOME/.local/bin/copilot"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias copilot'
+  [ "$status" -ne 0 ]
+}
+
+@test "copilot alias is not defined when copilot is not on PATH, even if the autopilot choice is Yes" {
+  export HOME="$BATS_TEST_TMPDIR/home_copilot_missing"
+  mkdir -p "$HOME/.local/state/omawsl"
+  printf 'OMAWSL_COPILOT_AUTOPILOT="Yes - autopilot + allow-all"\n' > "$HOME/.local/state/omawsl/choices.env"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command copilot
+  run bash -i -c 'alias copilot'
+  [ "$status" -ne 0 ]
+}
+
 @test "n opens nvim on the current directory when called with no arguments" {
   export HOME="$BATS_TEST_TMPDIR/home_n_no_args"
   mkdir -p "$HOME/.local/bin"
