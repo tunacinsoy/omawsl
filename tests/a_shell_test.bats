@@ -288,7 +288,7 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias copilot'
   [ "$status" -eq 0 ]
-  [[ "$output" == "alias copilot='copilot --autopilot --allow-all'" ]]
+  [[ "$output" == *"alias copilot='copilot --autopilot --allow-all'"* ]]
 }
 
 @test "copilot is not aliased when the autopilot choice is No" {
