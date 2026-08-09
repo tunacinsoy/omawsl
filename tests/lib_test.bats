@@ -274,3 +274,13 @@ setup() {
   [ "$output" = "No - interactive by default (recommended)" ]
   [ -z "$(stub_calls)" ]
 }
+
+@test "omawsl_prompt_copilot_autopilot_if_needed returns cleanly without persisting anything when the prompt is cancelled" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  gum() { echo "gum $*" >> "$STUB_LOG"; return 1; }
+  export -f gum
+  run omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" ""
+  [ "$status" -eq 0 ]
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "" ]
+}

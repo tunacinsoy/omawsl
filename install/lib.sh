@@ -224,7 +224,10 @@ omawsl_remove_from_csv() {
 # already answered. Auto-approving all of an AI agent's tool use is a
 # safety-relevant default, not a convenience one, so - unlike every other
 # choice in first-run-choices.sh - this one is opt-in rather than always
-# asked.
+# asked. A cancelled or failed prompt (Esc, Ctrl-C, or `gum` missing) is
+# treated as not-yet-answered - nothing is persisted, and the prompt fires
+# again next time, instead of aborting the caller under `set -e` or locking
+# in a stale empty answer.
 omawsl_prompt_copilot_autopilot_if_needed() {
   local picked="$1" existing="$2"
   omawsl_list_has "$picked" "GitHub Copilot CLI" || return 0
@@ -233,7 +236,7 @@ omawsl_prompt_copilot_autopilot_if_needed() {
 
   local answer
   answer="$(gum choose --header "GitHub Copilot CLI: always start in autopilot mode (auto-approves all tool use, no confirmation)?" \
-    "No - interactive by default (recommended)" "Yes - autopilot + allow-all")"
+    "No - interactive by default (recommended)" "Yes - autopilot + allow-all")" || return 0
   omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "$answer"
 }
 

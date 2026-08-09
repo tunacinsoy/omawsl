@@ -324,6 +324,18 @@ EOF
   [ "$status" -ne 0 ]
 }
 
+@test "copilot alias is defined even though copilot is only reachable via \$HOME/.local/bin, added later in the same file (PATH-ordering regression guard)" {
+  export HOME="$BATS_TEST_TMPDIR/home_copilot_path_order"
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/state/omawsl"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
+  chmod +x "$HOME/.local/bin/copilot"
+  printf 'OMAWSL_COPILOT_AUTOPILOT="Yes - autopilot + allow-all"\n' > "$HOME/.local/state/omawsl/choices.env"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias copilot'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias copilot='copilot --autopilot --allow-all'"* ]]
+}
+
 @test "n opens nvim on the current directory when called with no arguments" {
   export HOME="$BATS_TEST_TMPDIR/home_n_no_args"
   mkdir -p "$HOME/.local/bin"
