@@ -12,6 +12,14 @@ setup() {
   stub_command sudo
   stub_command git
   stub_command curl
+  # lazydocker's install steps (install/terminal/apps-terminal.sh) parse a
+  # GitHub API JSON response to resolve the latest version - the blanket
+  # dumb stub_command curl above (no stdout for anything) makes that
+  # lookup come up empty and abort the whole run under set -e. Scoped to
+  # just this one URL (see apps_terminal_test.bats for the full
+  # rationale) so it doesn't disturb the other curl|bash / curl|tar pipes
+  # this full-pipeline test also exercises.
+  stub_command_output_for curl "api.github.com/repos/jesseduffield/lazydocker" '{"tag_name": "v8.8.8"}'
   stub_command gpg
   # apps-terminal.sh (Task 1, Phase 4) installs lazydocker/zellij via a
   # real `curl | tar` when they aren't already present. Neither is

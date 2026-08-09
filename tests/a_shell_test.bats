@@ -53,7 +53,12 @@ setup() {
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'echo "$INPUTRC"'
   [ "$status" -eq 0 ]
-  [[ "$output" == "$REPO_ROOT/configs/inputrc" ]]
+  # Wildcard, not exact equality: a sandbox with no controlling TTY makes
+  # `bash -i` print "cannot set terminal process group"/"no job control"
+  # warnings to stderr, which bats' `run` merges into $output alongside
+  # the real one-line answer - same tolerant-of-noise style every other
+  # assertion in this file already uses.
+  [[ "$output" == *"$REPO_ROOT/configs/inputrc"* ]]
 }
 
 @test "a pre-existing ~/.inputrc is left untouched and INPUTRC is not overridden" {
@@ -131,7 +136,9 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias cat'
   [ "$status" -eq 0 ]
-  [[ "$output" == "alias cat='batcat --paging=never'" ]]
+  # Wildcard - see the INPUTRC test above for why exact equality is
+  # unsafe against $output here.
+  [[ "$output" == *"alias cat='batcat --paging=never'"* ]]
 }
 
 @test "cat is not aliased when batcat is not on PATH" {
@@ -152,7 +159,9 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias fd'
   [ "$status" -eq 0 ]
-  [[ "$output" == "alias fd='fdfind'" ]]
+  # Wildcard - see the INPUTRC test above for why exact equality is
+  # unsafe against $output here.
+  [[ "$output" == *"alias fd='fdfind'"* ]]
 }
 
 @test "ff previews with batcat when both fzf and batcat are on PATH" {
@@ -213,7 +222,9 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias cd'
   [ "$status" -eq 0 ]
-  [[ "$output" == "alias cd='z'" ]]
+  # Wildcard - see the INPUTRC test above for why exact equality is
+  # unsafe against $output here.
+  [[ "$output" == *"alias cd='z'"* ]]
 }
 
 @test "cd is not aliased when zoxide is not on PATH" {
