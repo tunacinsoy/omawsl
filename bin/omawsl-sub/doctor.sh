@@ -110,9 +110,19 @@ omawsl_doctor_docker_proxy_stale() {
 }
 
 # omawsl_doctor_report_category <category> <check_fn> <choices_key>
-# Cross-checks every selected item in one category against its check
-# function, printing [OK]/[PENDING] with the exact `omawsl install`
-# command to resolve a gap (design spec §14).
+# Reports every item in the category's registry that's either actually
+# installed (regardless of whether it was ever selected through omawsl's
+# own picker - e.g. pre-existing on the machine, or installed via
+# `omawsl update`'s orphan-tool apply path, which bypasses the selection
+# guard entirely, see install/terminal/app-opencode.sh) or selected but
+# still missing. Items that are neither installed nor selected stay
+# silent - matches the "additive only, nothing surprise-installs" design
+# principle (design spec §14) by not nagging about tools nobody asked
+# for. Originally this only cross-checked selected items and silently
+# skipped anything else, which meant an already-installed-but-unselected
+# tool (aws/opencode/node/gcloud in the field) never appeared at all,
+# contradicting doctor's own "checking what's installed/configured"
+# banner - see issue #4.
 omawsl_doctor_report_category() {
   local category="$1" check_fn="$2" choices_key="$3"
   local selected; selected="$(omawsl_load_choice "$choices_key")"
@@ -125,10 +135,9 @@ omawsl_doctor_report_category() {
   local slug label
   while IFS= read -r slug; do
     label="$(omawsl_item_label "$slug")"
-    omawsl_list_has "$selected" "$label" || continue
     if "$check_fn" "$slug"; then
       echo "  [OK]      $label"
-    else
+    elif omawsl_list_has "$selected" "$label"; then
       echo "  [PENDING] $label - run: omawsl install $category $slug"
     fi
   done < <(omawsl_item_slugs "$category")

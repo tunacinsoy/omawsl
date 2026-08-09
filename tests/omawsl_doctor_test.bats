@@ -50,6 +50,25 @@ setup() {
   [[ "$output" == *"[OK]      GCP CLI"* ]]
 }
 
+@test "omawsl_doctor reports OK for an installed-but-unselected item alongside a selected one" {
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "Azure CLI"
+  stub_command az
+  stub_command aws
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]      Azure CLI"* ]]
+  [[ "$output" == *"[OK]      AWS CLI"* ]]
+}
+
+@test "omawsl_doctor stays silent for an item that is neither selected nor installed" {
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "Azure CLI"
+  stub_command az
+  stub_hide_command gcloud
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"GCP CLI"* ]]
+}
+
 @test "omawsl_doctor skips categories where nothing was selected" {
   run omawsl_doctor
   [ "$status" -eq 0 ]
