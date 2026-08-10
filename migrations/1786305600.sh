@@ -33,7 +33,7 @@ omawsl_starship_migrate_active_theme() {
   local zellij_config="$HOME/.config/zellij/config.kdl"
   [[ -f "$zellij_config" ]] || return 0
   local active_theme
-  active_theme="$(grep -oP '(?<=theme ")[^"]+' "$zellij_config" | head -n1)"
+  active_theme="$(grep -oP '(?<=theme ")[^"]+' "$zellij_config" | head -n1 || true)"
   [[ -n "$active_theme" ]] || return 0
   omawsl_theme_is_valid "$active_theme" || return 0
   [[ -f "$HOME/.config/zellij/themes/$active_theme.kdl" ]] || return 0

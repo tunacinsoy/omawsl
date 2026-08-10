@@ -51,3 +51,11 @@ setup() {
   diff "$HOME/.config/starship.toml" "$REPO_ROOT/themes/rose-pine/starship.toml"
   diff "$HOME/.config/starship-plain.toml" "$REPO_ROOT/themes/rose-pine/starship-plain.toml"
 }
+
+@test "exits 0 (not 1) and no-ops the theme re-apply step when config.kdl exists but has no theme line at all" {
+  mkdir -p "$HOME/.config/zellij"
+  grep -v '^theme "' "$REPO_ROOT/configs/zellij.kdl" > "$HOME/.config/zellij/config.kdl"
+  run bash "$REPO_ROOT/migrations/1786305600.sh"
+  [ "$status" -eq 0 ]
+  [ ! -f "$HOME/.config/starship.toml" ]
+}
