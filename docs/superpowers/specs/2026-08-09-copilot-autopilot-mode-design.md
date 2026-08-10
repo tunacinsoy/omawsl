@@ -31,8 +31,10 @@ and choice key live in exactly one place.
   persisted value yet (`omawsl_load_choice` returns empty). This makes it fire exactly once per
   machine: not on unrelated `omawsl install` runs, and not a second time if the user already
   answered.
-- Otherwise prompts via `omawsl_prompt_single` (same primitive `OMAWSL_FONT_MODE` uses - no new
-  UI primitive introduced):
+- Otherwise prompts via a direct `gum choose` call (same underlying primitive `omawsl_prompt_single`/
+  `OMAWSL_FONT_MODE` uses - no new UI primitive introduced; called directly rather than through
+  `omawsl_prompt_single` itself, since that helper is defined in `install/first-run-choices.sh`,
+  which `install/lib.sh` cannot depend on without a circular source):
   > "GitHub Copilot CLI: always start in autopilot mode (auto-approves all tool use, no
   > confirmation)?"
   > - "No - interactive by default (recommended)"
@@ -41,7 +43,7 @@ and choice key live in exactly one place.
 
 ### 2. `install/first-run-choices.sh` — fresh-install call site
 
-Immediately after `OMAWSL_EDITORS` is picked and saved, calls
+Immediately after `OMAWSL_EDITORS` is picked, calls
 `omawsl_prompt_copilot_autopilot_if_needed "$OMAWSL_EDITORS" ""` (empty existing-list, since this
 is a first run). Mirrors where `OMAWSL_FONT_MODE` is asked in the same file.
 

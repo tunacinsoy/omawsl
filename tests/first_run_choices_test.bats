@@ -58,3 +58,36 @@ setup() {
   [ "$OMAWSL_CLOUD_CLIS" = "" ]
   [ "$OMAWSL_STORAGE" = "" ]
 }
+
+@test "prompts for copilot autopilot mode when GitHub Copilot CLI is selected, and persists the answer" {
+  gum_stub_respond "Personal / unrestricted"
+  gum_stub_respond "Docker Engine only, inside WSL (recommended)"
+  gum_stub_respond "GitHub Copilot CLI"
+  gum_stub_respond "Yes - autopilot + allow-all"
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond "Nerd Font (enhanced)"
+
+  omawsl_first_run_choices
+
+  [ "$OMAWSL_EDITORS" = "GitHub Copilot CLI" ]
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "Yes - autopilot + allow-all" ]
+}
+
+@test "does not prompt for copilot autopilot mode when GitHub Copilot CLI is not selected" {
+  gum_stub_respond "Personal / unrestricted"
+  gum_stub_respond "Docker Engine only, inside WSL (recommended)"
+  gum_stub_respond "VS Code"
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond "Nerd Font (enhanced)"
+
+  omawsl_first_run_choices
+
+  [ "$OMAWSL_EDITORS" = "VS Code" ]
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "" ]
+}

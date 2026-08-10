@@ -4,6 +4,7 @@ load 'helpers/stubs'
 
 setup() {
   stub_init
+  gum_stub_init
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   source "$REPO_ROOT/install/lib.sh"
 }
@@ -238,4 +239,48 @@ setup() {
   omawsl_ensure_bashrc_source_line "$bashrc" "$BATS_TEST_TMPDIR/configs/bashrc"
   [ "$(grep -c '# >>> omawsl >>>' "$bashrc")" -eq 1 ]
   grep -qF 'some line the user added by hand' "$bashrc"
+}
+
+@test "omawsl_prompt_copilot_autopilot_if_needed prompts and persists when Copilot CLI is newly picked" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  gum_stub_respond "Yes - autopilot + allow-all"
+  omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" ""
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "Yes - autopilot + allow-all" ]
+  [[ "$(stub_calls)" == *"autopilot mode"* ]]
+}
+
+@test "omawsl_prompt_copilot_autopilot_if_needed does not prompt when Copilot CLI is not in the picked list" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_prompt_copilot_autopilot_if_needed "VS Code" ""
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "" ]
+  [ -z "$(stub_calls)" ]
+}
+
+@test "omawsl_prompt_copilot_autopilot_if_needed does not re-prompt when Copilot CLI was already selected before" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" "GitHub Copilot CLI"
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "" ]
+  [ -z "$(stub_calls)" ]
+}
+
+@test "omawsl_prompt_copilot_autopilot_if_needed does not re-prompt once an answer is already persisted" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "No - interactive by default (recommended)"
+  omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" ""
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "No - interactive by default (recommended)" ]
+  [ -z "$(stub_calls)" ]
+}
+
+@test "omawsl_prompt_copilot_autopilot_if_needed returns cleanly without persisting anything when the prompt is cancelled" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  gum() { echo "gum $*" >> "$STUB_LOG"; return 1; }
+  export -f gum
+  run omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" ""
+  [ "$status" -eq 0 ]
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "" ]
 }

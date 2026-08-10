@@ -99,3 +99,22 @@ Python"
   BATS_RUN_ERREXIT=1 run omawsl_install_command
   [ "$status" -eq 0 ]
 }
+
+@test "omawsl install editor gh-copilot - prompts for autopilot mode since newly added and persists the answer" {
+  stub_command gh
+  stub_hide_command copilot
+  gum_stub_respond "Yes - autopilot + allow-all"
+  run omawsl_install_command editor gh-copilot
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "GitHub Copilot CLI" ]]
+  [[ "$(omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT)" == "Yes - autopilot + allow-all" ]]
+}
+
+@test "omawsl install editor gh-copilot - does not re-prompt when GitHub Copilot CLI is already installed" {
+  stub_command gh
+  stub_command copilot
+  omawsl_save_choice OMAWSL_EDITORS "GitHub Copilot CLI"
+  run omawsl_install_command editor gh-copilot
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"autopilot mode"* ]]
+}

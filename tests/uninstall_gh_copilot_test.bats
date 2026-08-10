@@ -55,3 +55,69 @@ setup() {
   [[ "$(stub_calls)" != *"remove"* ]]
   [[ "$output" == *"GitHub Copilot CLI"* ]]
 }
+
+@test "omawsl_uninstall_gh_copilot clears the persisted autopilot choice" {
+  stub_command mise
+  stub_command gh
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "Yes - autopilot + allow-all"
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "" ]
+}
+
+@test "omawsl_uninstall_gh_copilot removes GitHub Copilot CLI from the persisted OMAWSL_EDITORS list" {
+  stub_command mise
+  stub_command gh
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,GitHub Copilot CLI,Neovim"
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "VS Code,Neovim" ]]
+}
+
+@test "omawsl_uninstall_gh_copilot leaves OMAWSL_EDITORS alone when Copilot was never in it" {
+  stub_command mise
+  stub_command gh
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,Neovim"
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "VS Code,Neovim" ]]
+}
+
+@test "omawsl_uninstall_gh_copilot still clears persisted state when gh extension remove fails" {
+  # Invoked via a fresh `bash -c` (not a sourced function call captured by
+  # bats' `run`, which runs inside a $(...) command substitution and so
+  # does not inherit errexit by default) to match how
+  # bin/omawsl-sub/uninstall.sh really calls this: source the script, then
+  # call the function directly under `set -euo pipefail` in the same
+  # process, where an unguarded failing command genuinely aborts the
+  # function.
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "Yes - autopilot + allow-all"
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,GitHub Copilot CLI,Neovim"
+
+  run bash -c '
+    set -euo pipefail
+    mise() { return 0; }
+    export -f mise
+    gh() {
+      case "$1 $2" in
+        "extension list") echo "gh copilot	github/gh-copilot	v1.2.0" ;;
+        "extension remove") return 1 ;;
+      esac
+      return 0
+    }
+    export -f gh
+    source "'"$REPO_ROOT"'/install/lib.sh"
+    source "'"$REPO_ROOT"'/uninstall/app-gh-copilot.sh"
+    omawsl_uninstall_gh_copilot
+  '
+  [ "$status" -eq 0 ]
+
+  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
+  [ "$output" = "" ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "VS Code,Neovim" ]]
+}
