@@ -25,7 +25,11 @@ source "$SCRIPT_DIR/../install/lib.sh"
 # omawsl_uninstall_deselect step - without this, a direct-invoked uninstall
 # would clear the autopilot choice but leave Copilot listed as still
 # selected, so a later reinstall would see it as "already existing" and
-# skip the re-prompt entirely.
+# skip the re-prompt entirely. `gh extension remove` is best-effort
+# (`|| true`) for the same reason the npm uninstall above is: under
+# `set -euo pipefail`, an unguarded failure there (auth/network/broken
+# extension state) would abort the function before the state cleanup below
+# ever runs, leaving choices.env stale.
 omawsl_uninstall_gh_copilot() {
   if command -v mise &>/dev/null; then
     mise exec node@lts -- npm uninstall -g @github/copilot || true
@@ -33,7 +37,7 @@ omawsl_uninstall_gh_copilot() {
   rm -f "$HOME/.local/bin/copilot"
 
   if gh extension list 2>/dev/null | grep -q '^gh-copilot\|^gh copilot'; then
-    gh extension remove gh-copilot
+    gh extension remove gh-copilot || true
   fi
 
   omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT ""
