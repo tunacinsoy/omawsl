@@ -18,7 +18,7 @@ setup() {
   stub_command_output_for curl "api.github.com/repos/jesseduffield/lazygit" '{"tag_name": "v9.9.9"}'
   stub_command_output_for curl "api.github.com/repos/jesseduffield/lazydocker" '{"tag_name": "v8.8.8"}'
   stub_command tar
-  stub_hide_command lazydocker zellij lazygit fastfetch
+  stub_hide_command lazydocker zellij lazygit fastfetch starship
 }
 
 @test "installs the full Omakub-parity terminal tool set via apt, including the newly-folded-in always-on tools" {
@@ -164,4 +164,51 @@ setup() {
   run omawsl_lazydocker_install_steps
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"jesseduffield/lazydocker"* ]]
+}
+
+@test "omawsl_starship_asset picks the gnu build for x86_64" {
+  uname() { echo "x86_64"; }
+  export -f uname
+  [ "$(omawsl_starship_asset)" = "starship-x86_64-unknown-linux-gnu.tar.gz" ]
+}
+
+@test "omawsl_starship_asset picks the musl build for aarch64 (starship publishes no aarch64-gnu build)" {
+  uname() { echo "aarch64"; }
+  export -f uname
+  [ "$(omawsl_starship_asset)" = "starship-aarch64-unknown-linux-musl.tar.gz" ]
+}
+
+@test "installs starship via its official GitHub release when not already present" {
+  run omawsl_install_starship
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"curl -fsSL https://github.com/starship/starship/releases/latest/download/starship-"*"-unknown-linux-"*".tar.gz"* ]]
+  [[ "$(stub_calls)" == *"sudo install -m 0755 /tmp/starship /usr/local/bin/starship"* ]]
+}
+
+@test "skips starship when already installed" {
+  stub_command starship
+  run omawsl_install_starship
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"starship-"*"-unknown-linux-"* ]]
+}
+
+@test "deploys configs/starship-plain.toml to ~/.config/starship-plain.toml" {
+  run omawsl_install_starship_config
+  [ "$status" -eq 0 ]
+  diff "$HOME/.config/starship-plain.toml" "$REPO_ROOT/configs/starship-plain.toml"
+}
+
+@test "does not overwrite an existing starship-plain.toml" {
+  mkdir -p "$HOME/.config"
+  echo 'palette = "my-custom-theme"' > "$HOME/.config/starship-plain.toml"
+  run omawsl_install_starship_config
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/.config/starship-plain.toml")" == 'palette = "my-custom-theme"' ]]
+}
+
+@test "omawsl_install_terminal_apps installs starship and deploys its default plain config" {
+  run omawsl_install_terminal_apps
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo install -m 0755 /tmp/starship /usr/local/bin/starship"* ]]
+  diff "$HOME/.config/starship-plain.toml" "$REPO_ROOT/configs/starship-plain.toml"
 }

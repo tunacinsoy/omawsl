@@ -36,8 +36,10 @@ omawsl_install_terminal_apps() {
   omawsl_install_zellij
   omawsl_install_lazygit
   omawsl_install_fastfetch
+  omawsl_install_starship
   omawsl_install_zellij_config
   omawsl_install_btop_config
+  omawsl_install_starship_config
   omawsl_install_cli
 }
 
@@ -194,6 +196,63 @@ omawsl_install_fastfetch() {
     return 0
   fi
   omawsl_fastfetch_install_steps
+}
+
+# omawsl_starship_asset
+# starship's GitHub releases publish a glibc ("gnu") build for x86_64 but
+# only a musl build for aarch64 (confirmed against the current release's
+# asset list - no aarch64-unknown-linux-gnu asset exists). musl binaries
+# are statically linked, so the aarch64 musl build runs fine on Ubuntu's
+# glibc userspace regardless - this is exactly why upstream only ships
+# musl for non-x86_64 Linux targets.
+omawsl_starship_asset() {
+  case "$(uname -m)" in
+    aarch64) echo "starship-aarch64-unknown-linux-musl.tar.gz" ;;
+    *) echo "starship-x86_64-unknown-linux-gnu.tar.gz" ;;
+  esac
+}
+
+# omawsl_starship_install_steps
+# The actual install command, no guard - same split rationale as
+# omawsl_zellij_install_steps above. Reused unguarded by
+# bin/omawsl-sub/orphan-tools.sh's forced-update path and by the
+# starship migration.
+omawsl_starship_install_steps() {
+  local asset
+  asset="$(omawsl_starship_asset)"
+  curl -fsSL "https://github.com/starship/starship/releases/latest/download/${asset}" | tar -xz -C /tmp starship
+  sudo install -m 0755 /tmp/starship /usr/local/bin/starship
+  rm -f /tmp/starship
+}
+
+# omawsl_install_starship
+# No Ubuntu package exists for starship - installs the official prebuilt
+# binary release directly from GitHub rather than starship's own
+# `curl -sS https://starship.rs/install.sh | sh`, so the exact steps stay
+# auditable here instead of delegating to an unseen remote script.
+omawsl_install_starship() {
+  if command -v starship &>/dev/null; then
+    return 0
+  fi
+  omawsl_starship_install_steps
+}
+
+# omawsl_install_starship_config
+# Deploys omawsl's own configs/starship-plain.toml (starship's own
+# official no-nerd-font preset - Cascadia Mono users' plain-mode config)
+# to starship's real config location, copy-if-absent like
+# omawsl_install_zellij_config above. No equivalent deploy for the
+# Nerd Font/icon case: absence of ~/.config/starship.toml is itself the
+# correct un-themed default (starship's real, literal zero-config
+# built-in look) until `omawsl theme <name>` writes a themed one
+# (Task 3).
+omawsl_install_starship_config() {
+  local config_file="$HOME/.config/starship-plain.toml"
+  if [[ -f "$config_file" ]]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$config_file")"
+  cp "$SCRIPT_DIR/../../configs/starship-plain.toml" "$config_file"
 }
 
 # omawsl_install_zellij_config
