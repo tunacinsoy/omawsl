@@ -66,3 +66,23 @@ setup() {
   run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
   [ "$output" = "" ]
 }
+
+@test "omawsl_uninstall_gh_copilot removes GitHub Copilot CLI from the persisted OMAWSL_EDITORS list" {
+  stub_command mise
+  stub_command gh
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,GitHub Copilot CLI,Neovim"
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "VS Code,Neovim" ]]
+}
+
+@test "omawsl_uninstall_gh_copilot leaves OMAWSL_EDITORS alone when Copilot was never in it" {
+  stub_command mise
+  stub_command gh
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,Neovim"
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "VS Code,Neovim" ]]
+}

@@ -149,12 +149,17 @@ fi
 # Like lazydocker above, `copilot` has no apt package - it installs to
 # $HOME/.local/bin, only reachable after the PATH export above. Must not
 # move back above that export - confirmed as a real bug, same class as the
-# mise ordering issue documented above.
-OMAWSL_COPILOT_AUTOPILOT="$(grep -m1 '^OMAWSL_COPILOT_AUTOPILOT=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
-if command -v copilot &>/dev/null && [[ "$OMAWSL_COPILOT_AUTOPILOT" == "Yes"* ]]; then
-  alias copilot="copilot --autopilot --allow-all"
+# mise ordering issue documented above. `command -v copilot` gates the
+# choices.env read (same order every other tool-conditional block in this
+# file uses), so the common case - copilot not installed - skips the
+# subshell fork + file read entirely instead of paying for it every shell.
+if command -v copilot &>/dev/null; then
+  OMAWSL_COPILOT_AUTOPILOT="$(grep -m1 '^OMAWSL_COPILOT_AUTOPILOT=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
+  if [[ "$OMAWSL_COPILOT_AUTOPILOT" == "Yes"* ]]; then
+    alias copilot="copilot --autopilot --allow-all"
+  fi
+  unset OMAWSL_COPILOT_AUTOPILOT
 fi
-unset OMAWSL_COPILOT_AUTOPILOT
 
 if command -v mise &>/dev/null; then
   eval "$(mise activate bash)"
