@@ -57,6 +57,21 @@ setup() {
   grep -q 'color_theme = "tokyo-night"' "$HOME/.config/btop/btop.conf"
 }
 
+@test "omawsl_theme_apply copies the theme's starship configs into ~/.config" {
+  run omawsl_theme_apply "tokyo-night"
+  [ "$status" -eq 0 ]
+  diff "$HOME/.config/starship.toml" "$REPO_ROOT/themes/tokyo-night/starship.toml"
+  diff "$HOME/.config/starship-plain.toml" "$REPO_ROOT/themes/tokyo-night/starship-plain.toml"
+}
+
+@test "omawsl_theme_apply overwrites an existing ~/.config/starship.toml unconditionally" {
+  mkdir -p "$HOME/.config"
+  echo 'palette = "whatever"' > "$HOME/.config/starship.toml"
+  run omawsl_theme_apply "rose-pine"
+  [ "$status" -eq 0 ]
+  diff "$HOME/.config/starship.toml" "$REPO_ROOT/themes/rose-pine/starship.toml"
+}
+
 @test "omawsl_theme_apply only touches neovim's theme.lua when ~/.config/nvim exists" {
   run omawsl_theme_apply "tokyo-night"
   [ "$status" -eq 0 ]

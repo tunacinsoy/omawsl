@@ -1,0 +1,39 @@
+# omawsl theme integration, no-Nerd-Font variant - same palette override
+# as starship.toml, layered onto starship's own official no-nerd-font
+# preset (configs/starship-plain.toml) instead of the icon default.
+"$schema" = 'https://starship.rs/config-schema.json'
+
+palette = "osaka-jade"
+
+[palettes.osaka-jade]
+red = "#FF5345"
+green = "#549e6a"
+blue = "#509475"
+yellow = "#459451"
+magenta = "#D2689C"
+purple = "#D2689C"
+orange = "#E5C736"
+cyan = "#2DD5B7"
+black = "#23372B"
+white = "#F6F5DD"
+bg = "#111c18"
+fg = "#C1C497"
+
+[azure]
+symbol = "☁️ "
+
+[battery]
+full_symbol = "• "
+charging_symbol = "⇡ "
+discharging_symbol = "⇣ "
+unknown_symbol = "❓ "
+empty_symbol = "❗ "
+
+[erlang]
+symbol = "ⓔ "
+
+[nodejs]
+symbol = "[⬢](bold green) "
+
+[pulumi]
+symbol = "🧊 "

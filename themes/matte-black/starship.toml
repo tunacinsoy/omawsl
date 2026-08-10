@@ -1,0 +1,20 @@
+# omawsl theme integration (design spec
+# docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md) -
+# no format override, so starship's real $all default module set stays
+# intact; only the named colors its built-in module styles reference get
+# remapped to this theme's own palette.
+palette = "matte-black"
+
+[palettes.matte-black]
+red = "#D35F5F"
+green = "#FFC107"
+blue = "#e68e0d"
+yellow = "#b91c1c"
+magenta = "#D35F5F"
+purple = "#D35F5F"
+orange = "#FFA066"
+cyan = "#bebebe"
+black = "#333333"
+white = "#bebebe"
+bg = "#121212"
+fg = "#bebebe"
