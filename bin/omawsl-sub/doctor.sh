@@ -72,7 +72,13 @@ omawsl_doctor_editor_installed() {
 # `sudo docker ps -a` + `docker info` round-trip is cached across calls
 # within one doctor run instead of re-shelling out per slug - otherwise a
 # single-item selection would still probe the daemon once per *registry*
-# entry on every invocation.
+# entry on every invocation. That also means it now runs on every doctor
+# invocation whenever docker is reachable, even for users who never
+# selected any storage item - `sudo -n` (rather than plain `sudo`) keeps
+# that from turning into a surprise interactive password prompt (or an
+# indefinite wait for one) on a report-only diagnostic; no cached sudo
+# ticket just means the storage section can't confirm anything, same as
+# docker being unreachable at all.
 _omawsl_doctor_storage_containers_cache=""
 _omawsl_doctor_storage_containers_cached=0
 omawsl_doctor_storage_installed() {
@@ -81,10 +87,13 @@ omawsl_doctor_storage_installed() {
     mysql) container=omawsl-mysql ;;
     redis) container=omawsl-redis ;;
     postgresql) container=omawsl-postgresql ;;
+    *) return 1 ;;
   esac
   if [[ "$_omawsl_doctor_storage_containers_cached" -eq 0 ]]; then
     _omawsl_doctor_storage_containers_cached=1
-    omawsl_docker_reachable && _omawsl_doctor_storage_containers_cache="$(sudo docker ps -a --format '{{.Names}}' 2>/dev/null)"
+    if omawsl_docker_reachable; then
+      _omawsl_doctor_storage_containers_cache="$(sudo -n docker ps -a --format '{{.Names}}' 2>/dev/null)" || true
+    fi
   fi
   [[ -n "$_omawsl_doctor_storage_containers_cache" ]] && grep -qx "$container" <<< "$_omawsl_doctor_storage_containers_cache"
 }

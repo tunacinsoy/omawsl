@@ -91,7 +91,7 @@ setup() {
   run omawsl_doctor
   [ "$status" -eq 0 ]
   local sudo_docker_ps_calls
-  sudo_docker_ps_calls="$(stub_calls | grep -c 'sudo docker ps -a' || true)"
+  sudo_docker_ps_calls="$(stub_calls | grep -c 'sudo -n docker ps -a' || true)"
   [ "$sudo_docker_ps_calls" -eq 1 ]
 }
 
@@ -113,6 +113,31 @@ setup() {
 @test "omawsl_doctor_cloud_installed returns false for an unregistered slug instead of a stray-success default" {
   run omawsl_doctor_cloud_installed nonexistent-slug
   [ "$status" -ne 0 ]
+}
+
+@test "omawsl_doctor_storage_installed returns false for an unregistered slug instead of an unbound-variable crash" {
+  stub_command docker
+  stub_command_output_for sudo "docker ps -a" "omawsl-mysql"
+  run omawsl_doctor_storage_installed nonexistent-slug
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
+@test "omawsl_doctor_storage_installed checks docker with non-interactive sudo to avoid a surprise password prompt" {
+  omawsl_save_choice OMAWSL_STORAGE "MySQL"
+  stub_command docker
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo -n docker ps -a"* ]]
+}
+
+@test "omawsl_doctor survives sudo failing to list containers instead of aborting the whole run" {
+  omawsl_save_choice OMAWSL_STORAGE "MySQL"
+  stub_command docker
+  stub_command sudo 1
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] MySQL"* ]]
 }
 
 @test "omawsl_doctor_editor_installed returns false for an unregistered slug instead of a stray-success default" {
