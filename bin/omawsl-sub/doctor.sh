@@ -29,6 +29,7 @@ omawsl_doctor_language_installed() {
         ruby) mise_tool=ruby ;; node) mise_tool=node ;; go) mise_tool=go ;;
         php) mise_tool=php ;; python) mise_tool=python ;; elixir) mise_tool=elixir ;;
         rust) mise_tool=rust ;; java) mise_tool=java ;;
+        *) return 1 ;;
       esac
       if [[ "$_omawsl_doctor_mise_current_cached" -eq 0 ]]; then
         _omawsl_doctor_mise_current_cached=1

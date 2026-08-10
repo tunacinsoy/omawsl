@@ -110,6 +110,20 @@ setup() {
   [ "$(wc -l < "$MISE_CALL_LOG")" -eq 1 ]
 }
 
+@test "omawsl_doctor survives mise ls --current failing instead of aborting the whole run" {
+  omawsl_save_choice OMAWSL_LANGUAGES "Go"
+  stub_command mise 1
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] Go"* ]]
+}
+
+@test "omawsl_doctor_language_installed returns false for an unregistered slug instead of an unbound-variable crash" {
+  run omawsl_doctor_language_installed nonexistent-slug
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
 @test "omawsl_doctor_cloud_installed returns false for an unregistered slug instead of a stray-success default" {
   run omawsl_doctor_cloud_installed nonexistent-slug
   [ "$status" -ne 0 ]
