@@ -1,3 +1,5 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
 # omawsl theme integration (design spec
 # docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md) -
 # no format override, so starship's real $all default module set stays

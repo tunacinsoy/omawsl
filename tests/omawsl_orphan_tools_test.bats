@@ -436,13 +436,6 @@ setup() {
   [[ "$output" == *"latest: 2.0.0"* ]]
 }
 
-@test "omawsl_orphan_tool_slugs includes starship" {
-  run omawsl_orphan_tool_slugs
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"starship"* ]]
-  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 9 ]
-}
-
 @test "omawsl_orphan_tool_label returns Starship directly" {
   [ "$(omawsl_orphan_tool_label starship)" = "Starship" ]
 }

@@ -14,7 +14,7 @@ source "$SCRIPT_DIR/orphan-tools.sh"
 # Entry point for `bin/omawsl update` (design spec §14, extended by
 # docs/superpowers/specs/2026-07-13-omawsl-update-mechanism-design.md
 # §4): git pull inside $OMAWSL_HOME, runs pending migrations, then offers
-# to update the 7 "orphan" tools that have no native updater of their
+# to update the 9 "orphan" tools that have no native updater of their
 # own (§3 of that spec) - never wraps `apt upgrade`/`mise upgrade`
 # themselves. Detects a dirty working tree first (someone hand-edited a
 # file directly inside the checkout) and refuses to pull over it rather

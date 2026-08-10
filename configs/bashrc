@@ -37,7 +37,6 @@ if [ -z "${INPUTRC:-}" ] && [ ! -f "$HOME/.inputrc" ]; then
   export INPUTRC="$(dirname "${BASH_SOURCE[0]}")/inputrc"
 fi
 
-
 if command -v eza &>/dev/null; then
   alias ls='eza -lh --group-directories-first --icons=auto'
   alias lsa='ls -a'
@@ -188,7 +187,6 @@ else
   PS1="\[\e]0;\w\a\]$PS1"
 fi
 unset OMAWSL_FONT_MODE
-
 
 # Omakub parity: every new interactive shell drops straight into zellij -
 # upstream does this via Alacritty's own `[shell] program = "zellij"`
