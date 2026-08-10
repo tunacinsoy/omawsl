@@ -34,13 +34,14 @@ the same way omawsl never auto-installs them in the first place.
 
 ## The rest: `omawsl update`
 
-Eight tools have no update command of their own - no apt package, no mise tool, nothing to
+Nine tools have no update command of their own - no apt package, no mise tool, nothing to
 run yourself. `omawsl update` checks each one that's currently installed against its real
 latest release, then offers a picker (pre-checked for anything outdated) to bring them
 current:
 
 - Zellij
 - LazyDocker
+- Starship
 - opencode
 - Claude Code CLI
 - Codex CLI

@@ -81,8 +81,8 @@
       At the font picker, choose "Cascadia Mono (zero install)" — matching the Prep step above.
       Say: "This is what tells the prompt itself, not just eza, to skip the icon glyph — pick
       the option that doesn't match what you actually merged into Windows Terminal and the
-      prompt below breaks the same way a missing font always does." Point out the plain
-      `user@host:path` prompt on the next line as proof it took effect immediately.
+      prompt below breaks the same way a missing font always does." Point out starship's plain,
+      no-Nerd-Font prompt on the next line as proof it took effect immediately.
 
 - [ ] **10. `gh auth login` reminder lands (if not already run).**
       Say: "GitHub Copilot CLI needs an authenticated `gh` session before its own install step
