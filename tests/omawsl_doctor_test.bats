@@ -247,3 +247,18 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"Docker daemon proxy config"* ]]
 }
+
+@test "omawsl_doctor reports starship missing and how to fix it" {
+  stub_hide_command starship
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] Starship not installed"* ]]
+  [[ "$output" == *"omawsl migrate"* ]]
+}
+
+@test "omawsl_doctor stays silent about starship when it is installed" {
+  stub_command starship
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Starship"* ]]
+}
