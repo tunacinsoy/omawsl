@@ -75,6 +75,51 @@ setup() {
   [[ "$output" == *"none selected"* ]]
 }
 
+@test "omawsl_doctor reports an installed-but-unselected item even when nothing was ever selected in that category" {
+  stub_hide_command az
+  stub_command aws
+  stub_hide_command gcloud
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]      AWS CLI"* ]]
+  [[ "$output" != *"Cloud CLIs:"$'\n'"  (none selected)"* ]]
+}
+
+@test "omawsl_doctor_storage_installed only shells out to docker once per doctor run regardless of registry size" {
+  omawsl_save_choice OMAWSL_STORAGE "MySQL"
+  stub_command docker
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  local sudo_docker_ps_calls
+  sudo_docker_ps_calls="$(stub_calls | grep -c 'sudo docker ps -a' || true)"
+  [ "$sudo_docker_ps_calls" -eq 1 ]
+}
+
+@test "omawsl_doctor_language_installed only runs the mise pipeline once per doctor run regardless of registry size" {
+  omawsl_save_choice OMAWSL_LANGUAGES "Go"
+  MISE_CALL_LOG="$BATS_TEST_TMPDIR/mise-calls"
+  : > "$MISE_CALL_LOG"
+  export MISE_CALL_LOG
+  mise() {
+    echo "$*" >> "$MISE_CALL_LOG"
+    [[ "$1 $2" == "ls --current" ]] && echo "go      1.26.4  ~/.config/mise/config.toml  latest"
+  }
+  export -f mise
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [ "$(wc -l < "$MISE_CALL_LOG")" -eq 1 ]
+}
+
+@test "omawsl_doctor_cloud_installed returns false for an unregistered slug instead of a stray-success default" {
+  run omawsl_doctor_cloud_installed nonexistent-slug
+  [ "$status" -ne 0 ]
+}
+
+@test "omawsl_doctor_editor_installed returns false for an unregistered slug instead of a stray-success default" {
+  run omawsl_doctor_editor_installed nonexistent-slug
+  [ "$status" -ne 0 ]
+}
+
 @test "omawsl_doctor flags a still-unreachable Docker Desktop selection" {
   omawsl_save_choice OMAWSL_DOCKER_MODE "Docker Desktop for Windows"
   stub_hide_command docker

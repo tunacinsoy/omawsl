@@ -17,6 +17,8 @@ source "$OMAWSL_ROOT_DIR/install/terminal/docker.sh"
 # --global actually configures (verified live: `mise ls --current` lists
 # exactly go/python/ruby on the real test WSL2 instance after those three
 # were selected).
+_omawsl_doctor_mise_current_cache=""
+_omawsl_doctor_mise_current_cached=0
 omawsl_doctor_language_installed() {
   local slug="$1"
   case "$slug" in
@@ -28,7 +30,11 @@ omawsl_doctor_language_installed() {
         php) mise_tool=php ;; python) mise_tool=python ;; elixir) mise_tool=elixir ;;
         rust) mise_tool=rust ;; java) mise_tool=java ;;
       esac
-      command -v mise &>/dev/null && mise ls --current 2>/dev/null | awk '{print $1}' | grep -qx "$mise_tool"
+      if [[ "$_omawsl_doctor_mise_current_cached" -eq 0 ]]; then
+        _omawsl_doctor_mise_current_cached=1
+        command -v mise &>/dev/null && _omawsl_doctor_mise_current_cache="$(mise ls --current 2>/dev/null | awk '{print $1}')"
+      fi
+      [[ -n "$_omawsl_doctor_mise_current_cache" ]] && grep -qx "$mise_tool" <<< "$_omawsl_doctor_mise_current_cache"
       ;;
   esac
 }
@@ -40,6 +46,7 @@ omawsl_doctor_cloud_installed() {
     azure) command -v az &>/dev/null ;;
     aws) command -v aws &>/dev/null ;;
     gcp) command -v gcloud &>/dev/null ;;
+    *) return 1 ;;
   esac
 }
 
@@ -55,10 +62,19 @@ omawsl_doctor_editor_installed() {
     codex) command -v codex &>/dev/null ;;
     antigravity) command -v agy &>/dev/null ;;
     gh-copilot) command -v copilot &>/dev/null ;;
+    *) return 1 ;;
   esac
 }
 
 # omawsl_doctor_storage_installed <slug>
+# The report loop now calls this once per registered slug rather than
+# once per selected one (see omawsl_doctor_report_category below), so the
+# `sudo docker ps -a` + `docker info` round-trip is cached across calls
+# within one doctor run instead of re-shelling out per slug - otherwise a
+# single-item selection would still probe the daemon once per *registry*
+# entry on every invocation.
+_omawsl_doctor_storage_containers_cache=""
+_omawsl_doctor_storage_containers_cached=0
 omawsl_doctor_storage_installed() {
   local slug="$1" container
   case "$slug" in
@@ -66,7 +82,11 @@ omawsl_doctor_storage_installed() {
     redis) container=omawsl-redis ;;
     postgresql) container=omawsl-postgresql ;;
   esac
-  omawsl_docker_reachable && sudo docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$container"
+  if [[ "$_omawsl_doctor_storage_containers_cached" -eq 0 ]]; then
+    _omawsl_doctor_storage_containers_cached=1
+    omawsl_docker_reachable && _omawsl_doctor_storage_containers_cache="$(sudo docker ps -a --format '{{.Names}}' 2>/dev/null)"
+  fi
+  [[ -n "$_omawsl_doctor_storage_containers_cache" ]] && grep -qx "$container" <<< "$_omawsl_doctor_storage_containers_cache"
 }
 
 # omawsl_doctor_docker_proxy_pending [dir]
@@ -127,20 +147,21 @@ omawsl_doctor_report_category() {
   local category="$1" check_fn="$2" choices_key="$3"
   local selected; selected="$(omawsl_load_choice "$choices_key")"
 
-  if [[ -z "$selected" ]]; then
-    echo "  (none selected)"
-    return 0
-  fi
-
-  local slug label
+  local slug label printed=0
   while IFS= read -r slug; do
     label="$(omawsl_item_label "$slug")"
     if "$check_fn" "$slug"; then
       echo "  [OK]      $label"
+      printed=1
     elif omawsl_list_has "$selected" "$label"; then
       echo "  [PENDING] $label - run: omawsl install $category $slug"
+      printed=1
     fi
   done < <(omawsl_item_slugs "$category")
+
+  if [[ "$printed" -eq 0 ]]; then
+    echo "  (none selected)"
+  fi
 }
 
 # omawsl_doctor
