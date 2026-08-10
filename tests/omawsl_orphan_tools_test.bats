@@ -12,18 +12,19 @@ setup() {
   source "$REPO_ROOT/bin/omawsl-sub/orphan-tools.sh"
 }
 
-@test "omawsl_orphan_tool_slugs lists all 8 orphan tools" {
+@test "omawsl_orphan_tool_slugs lists all 9 orphan tools" {
   run omawsl_orphan_tool_slugs
   [ "$status" -eq 0 ]
   [[ "$output" == *"zellij"* ]]
   [[ "$output" == *"lazydocker"* ]]
+  [[ "$output" == *"starship"* ]]
   [[ "$output" == *"opencode"* ]]
   [[ "$output" == *"claude"* ]]
   [[ "$output" == *"codex"* ]]
   [[ "$output" == *"antigravity"* ]]
   [[ "$output" == *"gh-copilot"* ]]
   [[ "$output" == *"aws"* ]]
-  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 8 ]
+  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 9 ]
 }
 
 @test "omawsl_orphan_tool_label returns Zellij/LazyDocker directly and reuses items.sh for the rest" {
@@ -148,9 +149,10 @@ setup() {
 
 @test "every function omawsl_orphan_tool_apply_update dispatches to actually exists" {
   for fn in omawsl_zellij_install_steps omawsl_lazydocker_install_steps \
-            omawsl_opencode_install_steps omawsl_claude_cli_install_steps \
-            omawsl_codex_cli_install_steps omawsl_antigravity_cli_install_steps \
-            omawsl_gh_copilot_install_steps omawsl_aws_cli_install_steps; do
+            omawsl_starship_install_steps omawsl_opencode_install_steps \
+            omawsl_claude_cli_install_steps omawsl_codex_cli_install_steps \
+            omawsl_antigravity_cli_install_steps omawsl_gh_copilot_install_steps \
+            omawsl_aws_cli_install_steps; do
     declare -F "$fn" >/dev/null || { echo "missing function: $fn"; return 1; }
   done
 }
@@ -432,4 +434,43 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"current: 1.0.0"* ]]
   [[ "$output" == *"latest: 2.0.0"* ]]
+}
+
+@test "omawsl_orphan_tool_slugs includes starship" {
+  run omawsl_orphan_tool_slugs
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"starship"* ]]
+  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 9 ]
+}
+
+@test "omawsl_orphan_tool_label returns Starship directly" {
+  [ "$(omawsl_orphan_tool_label starship)" = "Starship" ]
+}
+
+@test "omawsl_orphan_tool_installed checks starship via command -v" {
+  stub_hide_command starship
+  run omawsl_orphan_tool_installed starship
+  [ "$status" -ne 0 ]
+  stub_command starship
+  run omawsl_orphan_tool_installed starship
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl_orphan_tool_version_installed extracts starship's version" {
+  starship() { echo "starship 1.26.0"; }
+  export -f starship
+  [ "$(omawsl_orphan_tool_version_installed starship)" = "1.26.0" ]
+}
+
+@test "omawsl_orphan_tool_version_latest resolves starship via the GitHub releases API" {
+  stub_command_output_for curl "api.github.com/repos/starship/starship" '{"tag_name": "v1.99.0"}'
+  [ "$(omawsl_orphan_tool_version_latest starship)" = "1.99.0" ]
+}
+
+@test "omawsl_orphan_tool_apply_update reinstalls starship via its install steps" {
+  omawsl_starship_install_steps() { echo "starship-reinstalled" >> "$STUB_LOG"; }
+  export -f omawsl_starship_install_steps
+  run omawsl_orphan_tool_apply_update starship
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"starship-reinstalled"* ]]
 }
