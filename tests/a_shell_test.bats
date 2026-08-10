@@ -387,39 +387,78 @@ EOF
   [ "$status" -ne 0 ]
 }
 
-@test "PS1 uses Omakub's icon-only prompt with the path in the window title, not user@host:path, when no font choice was ever persisted" {
-  export HOME="$BATS_TEST_TMPDIR/home_no_font_choice"
+@test "STARSHIP_CONFIG is unset (starship's real built-in default) when OMAWSL_FONT_MODE is unset and starship is installed" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_font_choice_starship"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "STARSHIP_CONFIG=${STARSHIP_CONFIG:-unset}"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STARSHIP_CONFIG=unset"* ]]
+}
+
+@test "STARSHIP_CONFIG is unset when OMAWSL_FONT_MODE is Nerd Font and starship is installed" {
+  export HOME="$BATS_TEST_TMPDIR/home_nerd_font_starship"
+  mkdir -p "$HOME/.local/state/omawsl" "$HOME/.local/bin"
+  printf 'OMAWSL_FONT_MODE="Nerd Font (enhanced)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "STARSHIP_CONFIG=${STARSHIP_CONFIG:-unset}"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STARSHIP_CONFIG=unset"* ]]
+}
+
+@test "STARSHIP_CONFIG points at the plain preset when OMAWSL_FONT_MODE is Cascadia Mono and starship is installed" {
+  export HOME="$BATS_TEST_TMPDIR/home_cascadia_starship"
+  mkdir -p "$HOME/.local/state/omawsl" "$HOME/.local/bin"
+  printf 'OMAWSL_FONT_MODE="Cascadia Mono (zero install)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "$STARSHIP_CONFIG"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$HOME/.config/starship-plain.toml"* ]]
+}
+
+@test "falls back to the legacy icon-only PS1 when starship is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_starship"
   mkdir -p "$HOME"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command starship
   run bash -i -c 'echo "$PS1"'
   [ "$status" -eq 0 ]
   [[ "$output" != *'\u@\h'* ]]
   [[ "$output" == *'\[\e]0;\w\a\]'* ]]
 }
 
-@test "PS1 stays icon-only when OMAWSL_FONT_MODE is Nerd Font" {
-  export HOME="$BATS_TEST_TMPDIR/home_nerd_font"
-  mkdir -p "$HOME/.local/state/omawsl"
-  printf 'OMAWSL_FONT_MODE="Nerd Font (enhanced)"\n' > "$HOME/.local/state/omawsl/choices.env"
-  bash "$REPO_ROOT/install/terminal/a-shell.sh"
-  run bash -i -c 'echo "$PS1"'
-  [ "$status" -eq 0 ]
-  [[ "$output" != *'\u@\h'* ]]
-  [[ "$output" == *'\[\e]0;\w\a\]'* ]]
-}
-
-@test "PS1 falls back to a plain user@host:path prompt when OMAWSL_FONT_MODE is Cascadia Mono" {
-  # docs/windows-setup.md#fonts' zero-install option has no Nerd Font
-  # installed, so Omakub's icon-only PS1 glyph would render as a tofu box -
-  # confirmed on a real corporate machine without a Nerd Font.
-  export HOME="$BATS_TEST_TMPDIR/home_cascadia"
+@test "falls back to the legacy Cascadia Mono PS1 when starship is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_starship_cascadia"
   mkdir -p "$HOME/.local/state/omawsl"
   printf 'OMAWSL_FONT_MODE="Cascadia Mono (zero install)"\n' > "$HOME/.local/state/omawsl/choices.env"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command starship
   run bash -i -c 'echo "$PS1"'
   [ "$status" -eq 0 ]
   [[ "$output" == *'\u@\h:\w\$ '* ]]
   [[ "$output" == *'\[\e]0;\w\a\]'* ]]
+}
+
+@test "starship init runs after zoxide/mise activation in configs/bashrc, not before" {
+  local file="$REPO_ROOT/configs/bashrc"
+  local zoxide_line mise_line starship_line
+  zoxide_line="$(grep -n 'zoxide init bash' "$file" | cut -d: -f1)"
+  mise_line="$(grep -n 'mise activate bash' "$file" | cut -d: -f1)"
+  starship_line="$(grep -n 'starship init bash' "$file" | cut -d: -f1)"
+  [ -n "$zoxide_line" ]
+  [ -n "$mise_line" ]
+  [ -n "$starship_line" ]
+  [ "$starship_line" -gt "$zoxide_line" ]
+  [ "$starship_line" -gt "$mise_line" ]
 }
 
 # --- zellij auto-launch (Omakub parity: every new interactive shell drops

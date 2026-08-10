@@ -37,22 +37,6 @@ if [ -z "${INPUTRC:-}" ] && [ ! -f "$HOME/.inputrc" ]; then
   export INPUTRC="$(dirname "${BASH_SOURCE[0]}")/inputrc"
 fi
 
-# Omakub-parity icon-only prompt: a single Nerd Font glyph in the prompt
-# itself, path shown in the terminal tab/window title instead of inline.
-# Falls back to a plain user@host:path prompt when OMAWSL_FONT_MODE (set at
-# install time - docs/windows-setup.md#fonts) is the zero-install Cascadia
-# Mono option: that glyph renders as a tofu box without a matching Nerd
-# Font, confirmed on a real corporate machine without one installed.
-# Missing/unset (e.g. an install that predates this choice) keeps today's
-# icon-only default rather than silently changing existing prompts.
-OMAWSL_FONT_MODE="$(grep -m1 '^OMAWSL_FONT_MODE=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
-if [[ "$OMAWSL_FONT_MODE" == "Cascadia Mono"* ]]; then
-  PS1='\u@\h:\w\$ '
-else
-  PS1=$' '
-fi
-PS1="\[\e]0;\w\a\]$PS1"
-unset OMAWSL_FONT_MODE
 
 if command -v eza &>/dev/null; then
   alias ls='eza -lh --group-directories-first --icons=auto'
@@ -177,6 +161,34 @@ fi
 if [ -d "$HOME/.opencode/bin" ]; then
   export PATH="$HOME/.opencode/bin:$PATH"
 fi
+
+# Starship (design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md):
+# starship's own README says to add its init line at the END of .bashrc,
+# after any other tool that also hooks PROMPT_COMMAND (zoxide/mise above) -
+# starship/starship#6093 documents hooks registered after starship's own
+# breaking the chain. Placed last (but still before the zellij exec guard
+# below, which replaces this shell process outright) so starship's
+# language-version modules read the already-updated PATH/env from those
+# tools' own hooks, not a stale value from before they ran.
+OMAWSL_FONT_MODE="$(grep -m1 '^OMAWSL_FONT_MODE=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
+if command -v starship &>/dev/null; then
+  if [[ "$OMAWSL_FONT_MODE" == "Cascadia Mono"* ]]; then
+    export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+  fi
+  eval "$(starship init bash)"
+else
+  # Pre-starship fallback - offline/failed install, or a checkout that
+  # predates this feature and hasn't finished migrating yet (Task 6).
+  # Exact byte-for-byte copy of the old static PS1 logic this replaces.
+  if [[ "$OMAWSL_FONT_MODE" == "Cascadia Mono"* ]]; then
+    PS1='\u@\h:\w\$ '
+  else
+    PS1=$' '
+  fi
+  PS1="\[\e]0;\w\a\]$PS1"
+fi
+unset OMAWSL_FONT_MODE
+
 
 # Omakub parity: every new interactive shell drops straight into zellij -
 # upstream does this via Alacritty's own `[shell] program = "zellij"`
