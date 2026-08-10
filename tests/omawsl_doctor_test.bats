@@ -50,10 +50,113 @@ setup() {
   [[ "$output" == *"[OK]      GCP CLI"* ]]
 }
 
+@test "omawsl_doctor reports OK for an installed-but-unselected item alongside a selected one" {
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "Azure CLI"
+  stub_command az
+  stub_command aws
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]      Azure CLI"* ]]
+  [[ "$output" == *"[OK]      AWS CLI"* ]]
+}
+
+@test "omawsl_doctor stays silent for an item that is neither selected nor installed" {
+  omawsl_save_choice OMAWSL_CLOUD_CLIS "Azure CLI"
+  stub_command az
+  stub_hide_command gcloud
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"GCP CLI"* ]]
+}
+
 @test "omawsl_doctor skips categories where nothing was selected" {
   run omawsl_doctor
   [ "$status" -eq 0 ]
   [[ "$output" == *"none selected"* ]]
+}
+
+@test "omawsl_doctor reports an installed-but-unselected item even when nothing was ever selected in that category" {
+  stub_hide_command az
+  stub_command aws
+  stub_hide_command gcloud
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[OK]      AWS CLI"* ]]
+  [[ "$output" != *"Cloud CLIs:"$'\n'"  (none selected)"* ]]
+}
+
+@test "omawsl_doctor_storage_installed only shells out to docker once per doctor run regardless of registry size" {
+  omawsl_save_choice OMAWSL_STORAGE "MySQL"
+  stub_command docker
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  local sudo_docker_ps_calls
+  sudo_docker_ps_calls="$(stub_calls | grep -c 'sudo -n docker ps -a' || true)"
+  [ "$sudo_docker_ps_calls" -eq 1 ]
+}
+
+@test "omawsl_doctor_language_installed only runs the mise pipeline once per doctor run regardless of registry size" {
+  omawsl_save_choice OMAWSL_LANGUAGES "Go"
+  MISE_CALL_LOG="$BATS_TEST_TMPDIR/mise-calls"
+  : > "$MISE_CALL_LOG"
+  export MISE_CALL_LOG
+  mise() {
+    echo "$*" >> "$MISE_CALL_LOG"
+    [[ "$1 $2" == "ls --current" ]] && echo "go      1.26.4  ~/.config/mise/config.toml  latest"
+  }
+  export -f mise
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [ "$(wc -l < "$MISE_CALL_LOG")" -eq 1 ]
+}
+
+@test "omawsl_doctor survives mise ls --current failing instead of aborting the whole run" {
+  omawsl_save_choice OMAWSL_LANGUAGES "Go"
+  stub_command mise 1
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] Go"* ]]
+}
+
+@test "omawsl_doctor_language_installed returns false for an unregistered slug instead of an unbound-variable crash" {
+  run omawsl_doctor_language_installed nonexistent-slug
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
+@test "omawsl_doctor_cloud_installed returns false for an unregistered slug instead of a stray-success default" {
+  run omawsl_doctor_cloud_installed nonexistent-slug
+  [ "$status" -ne 0 ]
+}
+
+@test "omawsl_doctor_storage_installed returns false for an unregistered slug instead of an unbound-variable crash" {
+  stub_command docker
+  stub_command_output_for sudo "docker ps -a" "omawsl-mysql"
+  run omawsl_doctor_storage_installed nonexistent-slug
+  [ "$status" -ne 0 ]
+  [[ "$output" != *"unbound variable"* ]]
+}
+
+@test "omawsl_doctor_storage_installed checks docker with non-interactive sudo to avoid a surprise password prompt" {
+  omawsl_save_choice OMAWSL_STORAGE "MySQL"
+  stub_command docker
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo -n docker ps -a"* ]]
+}
+
+@test "omawsl_doctor survives sudo failing to list containers instead of aborting the whole run" {
+  omawsl_save_choice OMAWSL_STORAGE "MySQL"
+  stub_command docker
+  stub_command sudo 1
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[PENDING] MySQL"* ]]
+}
+
+@test "omawsl_doctor_editor_installed returns false for an unregistered slug instead of a stray-success default" {
+  run omawsl_doctor_editor_installed nonexistent-slug
+  [ "$status" -ne 0 ]
 }
 
 @test "omawsl_doctor flags a still-unreachable Docker Desktop selection" {

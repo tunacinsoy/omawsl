@@ -17,6 +17,8 @@ source "$OMAWSL_ROOT_DIR/install/terminal/docker.sh"
 # --global actually configures (verified live: `mise ls --current` lists
 # exactly go/python/ruby on the real test WSL2 instance after those three
 # were selected).
+_omawsl_doctor_mise_current_cache=""
+_omawsl_doctor_mise_current_cached=0
 omawsl_doctor_language_installed() {
   local slug="$1"
   case "$slug" in
@@ -27,8 +29,13 @@ omawsl_doctor_language_installed() {
         ruby) mise_tool=ruby ;; node) mise_tool=node ;; go) mise_tool=go ;;
         php) mise_tool=php ;; python) mise_tool=python ;; elixir) mise_tool=elixir ;;
         rust) mise_tool=rust ;; java) mise_tool=java ;;
+        *) return 1 ;;
       esac
-      command -v mise &>/dev/null && mise ls --current 2>/dev/null | awk '{print $1}' | grep -qx "$mise_tool"
+      if [[ "$_omawsl_doctor_mise_current_cached" -eq 0 ]]; then
+        _omawsl_doctor_mise_current_cached=1
+        command -v mise &>/dev/null && _omawsl_doctor_mise_current_cache="$(mise ls --current 2>/dev/null | awk '{print $1}')"
+      fi
+      [[ -n "$_omawsl_doctor_mise_current_cache" ]] && grep -qx "$mise_tool" <<< "$_omawsl_doctor_mise_current_cache"
       ;;
   esac
 }
@@ -40,6 +47,7 @@ omawsl_doctor_cloud_installed() {
     azure) command -v az &>/dev/null ;;
     aws) command -v aws &>/dev/null ;;
     gcp) command -v gcloud &>/dev/null ;;
+    *) return 1 ;;
   esac
 }
 
@@ -55,18 +63,40 @@ omawsl_doctor_editor_installed() {
     codex) command -v codex &>/dev/null ;;
     antigravity) command -v agy &>/dev/null ;;
     gh-copilot) command -v copilot &>/dev/null ;;
+    *) return 1 ;;
   esac
 }
 
 # omawsl_doctor_storage_installed <slug>
+# The report loop now calls this once per registered slug rather than
+# once per selected one (see omawsl_doctor_report_category below), so the
+# `sudo docker ps -a` + `docker info` round-trip is cached across calls
+# within one doctor run instead of re-shelling out per slug - otherwise a
+# single-item selection would still probe the daemon once per *registry*
+# entry on every invocation. That also means it now runs on every doctor
+# invocation whenever docker is reachable, even for users who never
+# selected any storage item - `sudo -n` (rather than plain `sudo`) keeps
+# that from turning into a surprise interactive password prompt (or an
+# indefinite wait for one) on a report-only diagnostic; no cached sudo
+# ticket just means the storage section can't confirm anything, same as
+# docker being unreachable at all.
+_omawsl_doctor_storage_containers_cache=""
+_omawsl_doctor_storage_containers_cached=0
 omawsl_doctor_storage_installed() {
   local slug="$1" container
   case "$slug" in
     mysql) container=omawsl-mysql ;;
     redis) container=omawsl-redis ;;
     postgresql) container=omawsl-postgresql ;;
+    *) return 1 ;;
   esac
-  omawsl_docker_reachable && sudo docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$container"
+  if [[ "$_omawsl_doctor_storage_containers_cached" -eq 0 ]]; then
+    _omawsl_doctor_storage_containers_cached=1
+    if omawsl_docker_reachable; then
+      _omawsl_doctor_storage_containers_cache="$(sudo -n docker ps -a --format '{{.Names}}' 2>/dev/null)" || true
+    fi
+  fi
+  [[ -n "$_omawsl_doctor_storage_containers_cache" ]] && grep -qx "$container" <<< "$_omawsl_doctor_storage_containers_cache"
 }
 
 # omawsl_doctor_docker_proxy_pending [dir]
@@ -110,28 +140,38 @@ omawsl_doctor_docker_proxy_stale() {
 }
 
 # omawsl_doctor_report_category <category> <check_fn> <choices_key>
-# Cross-checks every selected item in one category against its check
-# function, printing [OK]/[PENDING] with the exact `omawsl install`
-# command to resolve a gap (design spec §14).
+# Reports every item in the category's registry that's either actually
+# installed (regardless of whether it was ever selected through omawsl's
+# own picker - e.g. pre-existing on the machine, or installed via
+# `omawsl update`'s orphan-tool apply path, which bypasses the selection
+# guard entirely, see install/terminal/app-opencode.sh) or selected but
+# still missing. Items that are neither installed nor selected stay
+# silent - matches the "additive only, nothing surprise-installs" design
+# principle (design spec §14) by not nagging about tools nobody asked
+# for. Originally this only cross-checked selected items and silently
+# skipped anything else, which meant an already-installed-but-unselected
+# tool (aws/opencode/node/gcloud in the field) never appeared at all,
+# contradicting doctor's own "checking what's installed/configured"
+# banner - see issue #4.
 omawsl_doctor_report_category() {
   local category="$1" check_fn="$2" choices_key="$3"
   local selected; selected="$(omawsl_load_choice "$choices_key")"
 
-  if [[ -z "$selected" ]]; then
-    echo "  (none selected)"
-    return 0
-  fi
-
-  local slug label
+  local slug label printed=0
   while IFS= read -r slug; do
     label="$(omawsl_item_label "$slug")"
-    omawsl_list_has "$selected" "$label" || continue
     if "$check_fn" "$slug"; then
       echo "  [OK]      $label"
-    else
+      printed=1
+    elif omawsl_list_has "$selected" "$label"; then
       echo "  [PENDING] $label - run: omawsl install $category $slug"
+      printed=1
     fi
   done < <(omawsl_item_slugs "$category")
+
+  if [[ "$printed" -eq 0 ]]; then
+    echo "  (none selected)"
+  fi
 }
 
 # omawsl_doctor
