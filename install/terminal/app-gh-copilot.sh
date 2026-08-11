@@ -17,14 +17,7 @@ source "$SCRIPT_DIR/../lib.sh"
 # bin/omawsl update's orphan-tool apply phase can reuse this function
 # directly instead of needing its own separate update-steps function.
 omawsl_gh_copilot_install_steps() {
-  mise exec node@lts -- npm install -g @github/copilot
-
-  mkdir -p "$HOME/.local/bin"
-  cat > "$HOME/.local/bin/copilot" <<'WRAPPER'
-#!/usr/bin/env bash
-exec mise exec node@lts -- copilot "$@"
-WRAPPER
-  chmod +x "$HOME/.local/bin/copilot"
+  omawsl_install_npm_cli_wrapper @github/copilot copilot
 }
 
 # omawsl_gh_copilot_remove_old_extension

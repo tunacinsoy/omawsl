@@ -44,14 +44,23 @@ omawsl_install_apply_editor() {
     # shellcheck source=/dev/null
     source "$OMAWSL_ROOT_DIR/install/terminal/$f.sh"
   done
-  omawsl_install_vscode
-  omawsl_install_neovim
-  omawsl_install_opencode
-  omawsl_install_cursor
-  omawsl_install_claude_cli
-  omawsl_install_codex_cli
-  omawsl_install_gh_copilot
-  omawsl_install_antigravity_cli
+
+  # Each call is isolated (`|| echo ... skipping` rather than a bare call)
+  # so one editor's install failure - e.g. a flaky npm registry breaking
+  # app-codex-cli.sh's/app-gh-copilot.sh's/app-neovim.sh's `mise exec ...
+  # npm install` - can't abort this whole loop under this file's
+  # `set -euo pipefail` and silently skip every editor still queued after
+  # it, even though OMAWSL_EDITORS above already persisted all of them as
+  # picked. Same "log + continue" shape as orphan-tools.sh's own
+  # omawsl_orphan_tool_apply_update, which isolates updates the same way.
+  omawsl_install_vscode || echo "omawsl: failed to install VS Code - skipping, continuing with the rest." >&2
+  omawsl_install_neovim || echo "omawsl: failed to install Neovim - skipping, continuing with the rest." >&2
+  omawsl_install_opencode || echo "omawsl: failed to install opencode - skipping, continuing with the rest." >&2
+  omawsl_install_cursor || echo "omawsl: failed to install Cursor - skipping, continuing with the rest." >&2
+  omawsl_install_claude_cli || echo "omawsl: failed to install Claude Code CLI - skipping, continuing with the rest." >&2
+  omawsl_install_codex_cli || echo "omawsl: failed to install Codex CLI - skipping, continuing with the rest." >&2
+  omawsl_install_gh_copilot || echo "omawsl: failed to install GitHub Copilot CLI - skipping, continuing with the rest." >&2
+  omawsl_install_antigravity_cli || echo "omawsl: failed to install Antigravity CLI - skipping, continuing with the rest." >&2
 }
 
 # omawsl_install_apply_storage <picked_labels_csv> <existing_labels_csv>

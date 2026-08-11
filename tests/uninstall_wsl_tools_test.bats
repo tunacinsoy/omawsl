@@ -11,6 +11,7 @@ setup() {
   source "$REPO_ROOT/uninstall/app-neovim.sh"
   source "$REPO_ROOT/uninstall/app-opencode.sh"
   stub_command sudo
+  stub_command mise
 }
 
 @test "omawsl_uninstall_neovim removes the LazyVim config dir and purges the apt package" {
@@ -24,6 +25,31 @@ setup() {
 @test "omawsl_uninstall_neovim no-ops cleanly when nvim config never existed" {
   run omawsl_uninstall_neovim
   [ "$status" -eq 0 ]
+}
+
+@test "omawsl_uninstall_neovim also removes the tree-sitter-cli wrapper it installed" {
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/tree-sitter" <<'EOF'
+#!/usr/bin/env bash
+exec mise exec node@lts -- tree-sitter "$@"
+EOF
+  chmod +x "$HOME/.local/bin/tree-sitter"
+
+  run omawsl_uninstall_neovim
+  [ "$status" -eq 0 ]
+  [ ! -f "$HOME/.local/bin/tree-sitter" ]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm uninstall -g tree-sitter-cli"* ]]
+}
+
+@test "omawsl_uninstall_neovim no-ops the tree-sitter npm step cleanly when mise isn't reachable" {
+  stub_hide_command mise
+  mkdir -p "$HOME/.local/bin"
+  touch "$HOME/.local/bin/tree-sitter"
+  chmod +x "$HOME/.local/bin/tree-sitter"
+
+  run omawsl_uninstall_neovim
+  [ "$status" -eq 0 ]
+  [ ! -f "$HOME/.local/bin/tree-sitter" ]
 }
 
 @test "omawsl_uninstall_opencode removes the ~/.opencode directory" {
