@@ -285,13 +285,24 @@ setup() {
   [ "$output" = "" ]
 }
 
-@test "omawsl_install_npm_cli_wrapper installs the package via mise and writes an executable wrapper" {
+@test "omawsl_install_npm_cli_wrapper installs the package via mise, filters the allow-scripts advisory out of npm's output, and writes an executable wrapper" {
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
-  stub_command mise
+  stub_command_output_for mise "install -g" "$(cat <<'NPM_OUTPUT'
+npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+npm warn allow-scripts   tree-sitter-cli@0.26.12 (install: node install.js)
+npm warn allow-scripts
+npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+npm warn deprecated some-dep@1.0.0: use something-else instead
+added 1 package in 1s
+NPM_OUTPUT
+)"
   run omawsl_install_npm_cli_wrapper tree-sitter-cli tree-sitter
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g tree-sitter-cli"* ]]
+  [[ "$output" != *"allow-scripts"* ]]
+  [[ "$output" == *"npm warn deprecated some-dep"* ]]
+  [[ "$output" == *"added 1 package in 1s"* ]]
   [ -x "$HOME/.local/bin/tree-sitter" ]
   [[ "$(cat "$HOME/.local/bin/tree-sitter")" == *"exec mise exec node@lts -- tree-sitter \"\$@\""* ]]
 }

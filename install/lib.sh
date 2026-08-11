@@ -225,10 +225,25 @@ omawsl_remove_from_csv() {
 # call site. Assumes <bin_name> is both the wrapper's filename and the
 # command exec'd inside `mise exec` - true for all current callers, since
 # each npm package's installed binary name matches the wrapper name they
-# pass in.
+# pass in. npm's output is captured and its "npm warn allow-scripts" lines
+# (npm >=11.16, e.g. tree-sitter-cli's `install: node install.js`) are
+# filtered out before being printed - noise here, not a real problem: the
+# script still runs either way, and its suggested remedy
+# (`npm approve-scripts`) errors out on a global install anyway, since
+# there's no project package.json to record the approval in (issue #27,
+# upstream npm/cli#9463). Every other npm warning (deprecations,
+# EBADENGINE, ERESOLVE, audit notices, ...) still passes through
+# untouched, same "silence one known-benign message, keep everything else
+# visible" approach as the curl 404 handling in
+# omawsl_install_azure_cli's codename probe.
 omawsl_install_npm_cli_wrapper() {
   local package="$1" bin_name="$2"
-  mise exec node@lts -- npm install -g "$package" || return 1
+  local npm_output
+  npm_output="$(mise exec node@lts -- npm install -g "$package" 2>&1)" || {
+    printf '%s\n' "$npm_output" >&2
+    return 1
+  }
+  printf '%s\n' "$npm_output" | grep -v '^npm warn allow-scripts' || true
 
   mkdir -p "$HOME/.local/bin"
   cat > "$HOME/.local/bin/$bin_name" <<WRAPPER
