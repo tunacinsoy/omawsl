@@ -8,23 +8,15 @@ source "$SCRIPT_DIR/../install/lib.sh"
 # omawsl_uninstall_gh_copilot
 # Inverse of install/terminal/app-gh-copilot.sh: uninstalls the npm global
 # package via the same private mise-managed Node runtime it was installed
-# with, then reshims mise and removes the $HOME/.local/bin/copilot wrapper.
-# The reshim matters: `mise exec node@lts -- npm install -g ...` auto-reshims
-# on the way in (mise hooks install-like npm commands and registers `copilot`
-# as a mise-managed shim pointing at that node install's global bin), but
-# mise has no equivalent hook for `npm uninstall -g` - so without an explicit
-# `mise reshim` here, the stale shim at ~/.local/share/mise/shims/copilot
-# survives the npm uninstall and keeps `copilot` resolvable on PATH in any
-# shell using mise's shims-on-PATH activation, making this uninstall look
-# like a no-op even though the npm package and wrapper are both gone.
-# Also removes the old deprecated `gh-copilot` gh extension (invoked as `gh copilot ...`),
+# with, then removes the $HOME/.local/bin/copilot wrapper. Also removes the
+# old deprecated `gh-copilot` gh extension (invoked as `gh copilot ...`),
 # for anyone who still has it from before the switch to the standalone
 # `@github/copilot` npm package - same repo-slug-column match the old
 # uninstall used, since `gh extension list`'s first column is the
 # space-separated invocation name ("gh copilot"), not the hyphenated
-# "gh-copilot". No-ops the npm uninstall and reshim (but still removes the
-# wrapper) if mise isn't reachable, since a leftover wrapper pointing at a
-# now-broken `mise exec` call is worse than nothing. Also clears the persisted
+# "gh-copilot". No-ops the npm step (but still removes the wrapper) if
+# mise isn't reachable, since a leftover wrapper pointing at a now-broken
+# `mise exec` call is worse than nothing. Also clears the persisted
 # OMAWSL_COPILOT_AUTOPILOT choice, so a later reinstall re-prompts instead
 # of silently inheriting a stale answer. Also removes "GitHub Copilot CLI"
 # from the persisted OMAWSL_EDITORS list directly: this script supports
@@ -41,7 +33,6 @@ source "$SCRIPT_DIR/../install/lib.sh"
 omawsl_uninstall_gh_copilot() {
   if command -v mise &>/dev/null; then
     mise exec node@lts -- npm uninstall -g @github/copilot || true
-    mise reshim || true
   fi
   rm -f "$HOME/.local/bin/copilot"
 

@@ -22,14 +22,6 @@ setup() {
   [[ "$(stub_calls)" == *"mise exec node@lts -- npm uninstall -g @github/copilot"* ]]
 }
 
-@test "omawsl_uninstall_gh_copilot reshims mise to prune the stale copilot shim" {
-  stub_command mise
-  stub_command gh
-  run omawsl_uninstall_gh_copilot
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"mise reshim"* ]]
-}
-
 @test "omawsl_uninstall_gh_copilot no-ops the npm step cleanly when mise isn't reachable" {
   stub_hide_command mise
   stub_command gh
