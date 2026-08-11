@@ -25,10 +25,16 @@ omawsl_install_azure_cli() {
       # Microsoft's azure-cli apt repo lags behind new Ubuntu releases - fall
       # back to "jammy" (the same default Microsoft's own installer uses)
       # when the detected codename isn't published yet. A 404 here is an
-      # expected, already-handled outcome, not a real error, so stderr is
-      # silenced - otherwise -S makes curl print a scary-looking "curl: (22)
-      # ... 404" line for something that isn't actually a failure.
-      curl -fsSL -o /dev/null "https://packages.microsoft.com/repos/azure-cli/dists/$codename/Release" 2>/dev/null || codename="jammy"
+      # expected, already-handled outcome, not a real error, so only that
+      # specific case is silenced - a non-404 failure (DNS, TLS, a 500) still
+      # prints curl's diagnostic, since blanket-suppressing every failure
+      # mode would hide a real problem behind the same silent "jammy"
+      # fallback that also handles the benign 404 case.
+      local codename_probe_err
+      codename_probe_err="$(curl -fsSL -o /dev/null "https://packages.microsoft.com/repos/azure-cli/dists/$codename/Release" 2>&1)" || {
+        [[ "$codename_probe_err" == *"error: 404" ]] || printf '%s\n' "$codename_probe_err" >&2
+        codename="jammy"
+      }
       sudo install -m 0755 -d "$keyrings_dir" &&
       curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --yes --dearmor -o "$keyrings_dir/microsoft.gpg" &&
       sudo tee "$apt_sources_file" >/dev/null <<< "deb [arch=$(dpkg --print-architecture) signed-by=$keyrings_dir/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $codename main" &&

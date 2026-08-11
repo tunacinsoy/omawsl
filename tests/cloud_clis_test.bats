@@ -44,11 +44,9 @@ setup() {
   mkdir -p "$fake_bin"
   cat > "$fake_bin/curl" <<'FAKECURL'
 #!/usr/bin/env bash
-for arg in "$@"; do
-  case "$arg" in
-    *dists*Release) echo "curl: (22) The requested URL returned error: 404" >&2; exit 22 ;;
-  esac
-done
+case "$*" in
+  *dists*Release) echo "curl: (22) The requested URL returned error: 404" >&2; exit 22 ;;
+esac
 exit 0
 FAKECURL
   chmod +x "$fake_bin/curl"
@@ -58,6 +56,30 @@ FAKECURL
   run --separate-stderr omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
   [ "$status" -eq 0 ]
   [[ "$stderr" != *"curl:"* ]]
+}
+
+@test "azure-cli: still surfaces a non-404 codename probe failure to stderr" {
+  # A real failure of the codename probe (DNS blip, TLS error, a 500) must
+  # not be swallowed the same way as the expected 404 - only the 404 case is
+  # diagnostic noise the operator doesn't need to see; anything else is a
+  # signal worth keeping, even though the script still falls back to
+  # "jammy" either way.
+  fake_bin="$BATS_TEST_TMPDIR/fake-bin"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/curl" <<'FAKECURL'
+#!/usr/bin/env bash
+case "$*" in
+  *dists*Release) echo "curl: (22) The requested URL returned error: 500" >&2; exit 22 ;;
+esac
+exit 0
+FAKECURL
+  chmod +x "$fake_bin/curl"
+  export PATH="$fake_bin:$PATH"
+  sources_file="$BATS_TEST_TMPDIR/azure-cli.list"
+  keyrings_dir="$BATS_TEST_TMPDIR/keyrings"
+  run --separate-stderr omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
+  [ "$status" -eq 0 ]
+  [[ "$stderr" == *"curl: (22) The requested URL returned error: 500"* ]]
 }
 
 @test "azure-cli: no-ops when already installed" {
