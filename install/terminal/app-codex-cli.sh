@@ -13,14 +13,7 @@ source "$SCRIPT_DIR/../lib.sh"
 # resolves to and rewrites the wrapper unconditionally (cheap, and keeps
 # it in sync if this file's own wrapper contents ever change).
 omawsl_codex_cli_install_steps() {
-  mise exec node@lts -- npm install -g @openai/codex
-
-  mkdir -p "$HOME/.local/bin"
-  cat > "$HOME/.local/bin/codex" <<'WRAPPER'
-#!/usr/bin/env bash
-exec mise exec node@lts -- codex "$@"
-WRAPPER
-  chmod +x "$HOME/.local/bin/codex"
+  omawsl_install_npm_cli_wrapper @openai/codex codex
 }
 
 # omawsl_install_codex_cli

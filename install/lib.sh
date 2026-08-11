@@ -215,6 +215,29 @@ omawsl_remove_from_csv() {
   echo "$result"
 }
 
+# omawsl_install_npm_cli_wrapper <npm_package> <bin_name>
+# Installs <npm_package> globally via a private mise-managed Node runtime
+# and writes a $HOME/.local/bin/<bin_name> wrapper that execs it through
+# that same runtime - the install+wrap+chmod shape shared by every
+# mise-managed npm CLI this repo provisions (tree-sitter-cli, @openai/codex,
+# @github/copilot), factored out so a future change to that shape (e.g. a
+# different Node version pin) only needs to happen here, not once per
+# call site. Assumes <bin_name> is both the wrapper's filename and the
+# command exec'd inside `mise exec` - true for all current callers, since
+# each npm package's installed binary name matches the wrapper name they
+# pass in.
+omawsl_install_npm_cli_wrapper() {
+  local package="$1" bin_name="$2"
+  mise exec node@lts -- npm install -g "$package" || return 1
+
+  mkdir -p "$HOME/.local/bin"
+  cat > "$HOME/.local/bin/$bin_name" <<WRAPPER
+#!/usr/bin/env bash
+exec mise exec node@lts -- $bin_name "\$@"
+WRAPPER
+  chmod +x "$HOME/.local/bin/$bin_name"
+}
+
 # omawsl_prompt_copilot_autopilot_if_needed <picked_csv> <existing_csv>
 # Prompts once for whether `copilot` should always start in autopilot +
 # allow-all mode (docs/superpowers/specs/2026-08-09-copilot-autopilot-mode-design.md).

@@ -284,3 +284,23 @@ setup() {
   run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
   [ "$output" = "" ]
 }
+
+@test "omawsl_install_npm_cli_wrapper installs the package via mise and writes an executable wrapper" {
+  export HOME="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$HOME"
+  stub_command mise
+  run omawsl_install_npm_cli_wrapper tree-sitter-cli tree-sitter
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g tree-sitter-cli"* ]]
+  [ -x "$HOME/.local/bin/tree-sitter" ]
+  [[ "$(cat "$HOME/.local/bin/tree-sitter")" == *"exec mise exec node@lts -- tree-sitter \"\$@\""* ]]
+}
+
+@test "omawsl_install_npm_cli_wrapper propagates a failed npm install instead of writing a wrapper" {
+  export HOME="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$HOME"
+  stub_command mise 1
+  run omawsl_install_npm_cli_wrapper tree-sitter-cli tree-sitter
+  [ "$status" -ne 0 ]
+  [ ! -f "$HOME/.local/bin/tree-sitter" ]
+}

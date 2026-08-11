@@ -26,14 +26,7 @@ omawsl_install_treesitter_cli() {
     return 0
   fi
 
-  mise exec node@lts -- npm install -g tree-sitter-cli
-
-  mkdir -p "$HOME/.local/bin"
-  cat > "$HOME/.local/bin/tree-sitter" <<'WRAPPER'
-#!/usr/bin/env bash
-exec mise exec node@lts -- tree-sitter "$@"
-WRAPPER
-  chmod +x "$HOME/.local/bin/tree-sitter"
+  omawsl_install_npm_cli_wrapper tree-sitter-cli tree-sitter
 }
 
 # omawsl_install_neovim
