@@ -66,6 +66,34 @@ if command -v fzf &>/dev/null && command -v batcat &>/dev/null; then
 fi
 
 if command -v zoxide &>/dev/null; then
+  if command -v starship &>/dev/null; then
+    # _ZO_DOCTOR=0 suppresses zoxide's own "possible configuration issue"
+    # self-check, which false-positives specifically when starship also
+    # runs (as it does, later in this file - see the starship section
+    # below for why it has to be last) - so this is scoped to only fire
+    # when starship is actually present, leaving the doctor's diagnostic
+    # intact for zoxide-only hosts where a warning would mean a real
+    # misconfiguration. zoxide's hook keeps working either way: starship's
+    # init clobbers PROMPT_COMMAND down to the literal string
+    # "starship_precmd", but only after stashing whatever was already in
+    # there (zoxide's "__zoxide_hook;") into STARSHIP_PROMPT_COMMAND, which
+    # starship_precmd still `eval`s every prompt. zoxide's doctor check,
+    # though, just does a literal substring search for '__zoxide_hook' in
+    # $PROMPT_COMMAND, which no longer finds it once starship's rewritten
+    # that variable - a false positive on an already-working hook, not a
+    # real misconfiguration. Confirmed reproducible with the real zoxide
+    # 0.9.8 + starship binaries: `bash -i -c 'cd /tmp'` prints the warning
+    # with this unset (zoxide's own default) and stays silent with it set
+    # to 0. The hook installation itself is a separate, unconditional code
+    # path in zoxide's init script - not gated by _ZO_DOCTOR at all - so
+    # suppressing the doctor's warning here can't disable the hook it's
+    # complaining about. No `export`: zoxide's own init script defines
+    # `__zoxide_doctor` as a plain bash function that reads this var
+    # in-process each time `cd` is invoked, not a subprocess, so a bare
+    # assignment in this same shell is enough. See zoxide's own init
+    # output for the check itself and its documented opt-out.
+    _ZO_DOCTOR=0
+  fi
   eval "$(zoxide init bash)"
   alias cd='z'
 fi

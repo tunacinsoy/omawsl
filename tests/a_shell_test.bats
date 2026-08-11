@@ -242,6 +242,26 @@ EOF
   [ "$status" -ne 0 ]
 }
 
+@test "cd does not trigger zoxide's doctor false positive when starship is also installed" {
+  # Needs the real binaries, not stubs: the bug is in how starship's real
+  # PROMPT_COMMAND takeover (it clobbers PROMPT_COMMAND down to the
+  # literal string "starship_precmd", stashing whatever was there before -
+  # including zoxide's own hook - into STARSHIP_PROMPT_COMMAND, which it
+  # still `eval`s every prompt) interacts with zoxide's real doctor check
+  # (a literal substring search for '__zoxide_hook' in $PROMPT_COMMAND).
+  # The hook still fires correctly either way; only the substring check -
+  # and thus this false-positive warning - depends on the real init
+  # scripts of both tools.
+  command -v zoxide &>/dev/null || skip "zoxide not installed on this test host"
+  command -v starship &>/dev/null || skip "starship not installed on this test host"
+  export HOME="$BATS_TEST_TMPDIR/home_zoxide_doctor"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'cd /tmp'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"zoxide: detected a possible configuration issue"* ]]
+}
+
 @test "git shortcut and git commit aliases are defined when git is on PATH" {
   export HOME="$BATS_TEST_TMPDIR/home_with_git"
   mkdir -p "$HOME/.local/bin"
