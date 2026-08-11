@@ -43,6 +43,21 @@ omawsl_install_terminal_apps() {
   omawsl_install_cli
 }
 
+# omawsl_github_binary_install <url> <binary>
+# Downloads a tar.gz release asset from <url>, extracts <binary> from it
+# into /tmp, installs it to /usr/local/bin/<binary> via sudo, then cleans
+# up the /tmp copy - the exact 3-step sequence zellij/lazydocker/lazygit/
+# starship's own *_install_steps functions below each used to repeat by
+# hand (differing only in which URL to hit and which binary name to
+# extract/install). Not used for fastfetch, whose release ships a .deb
+# instead of a bare binary tarball.
+omawsl_github_binary_install() {
+  local url="$1" binary="$2"
+  curl -fsSL "$url" | tar -xz -C /tmp "$binary"
+  sudo install -m 0755 "/tmp/$binary" "/usr/local/bin/$binary"
+  rm -f "/tmp/$binary"
+}
+
 # omawsl_lazydocker_arch
 # Maps dpkg's architecture name to the naming lazydocker's own release
 # assets use - same mapping as omawsl_lazygit_arch above (lazydocker's
@@ -74,9 +89,7 @@ omawsl_lazydocker_install_steps() {
   version="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazydocker/releases/latest | grep -Po '"tag_name": "v\K[^"]+')"
   local arch
   arch="$(omawsl_lazydocker_arch)"
-  curl -fsSL "https://github.com/jesseduffield/lazydocker/releases/download/v${version}/lazydocker_${version}_Linux_${arch}.tar.gz" | tar -xz -C /tmp lazydocker
-  sudo install -m 0755 /tmp/lazydocker /usr/local/bin/lazydocker
-  rm -f /tmp/lazydocker
+  omawsl_github_binary_install "https://github.com/jesseduffield/lazydocker/releases/download/v${version}/lazydocker_${version}_Linux_${arch}.tar.gz" lazydocker
 }
 
 # omawsl_install_lazydocker
@@ -97,9 +110,7 @@ omawsl_install_lazydocker() {
 omawsl_zellij_install_steps() {
   local arch
   arch="$(uname -m)"
-  curl -fsSL "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz" | tar -xz -C /tmp
-  sudo install -m 0755 /tmp/zellij /usr/local/bin/zellij
-  rm -f /tmp/zellij
+  omawsl_github_binary_install "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz" zellij
 }
 
 # omawsl_install_zellij
@@ -138,9 +149,7 @@ omawsl_lazygit_install_steps() {
   version="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]+')"
   local arch
   arch="$(omawsl_lazygit_arch)"
-  curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_linux_${arch}.tar.gz" | tar -xz -C /tmp lazygit
-  sudo install -m 0755 /tmp/lazygit /usr/local/bin/lazygit
-  rm -f /tmp/lazygit
+  omawsl_github_binary_install "https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_linux_${arch}.tar.gz" lazygit
 }
 
 # omawsl_install_lazygit
@@ -220,9 +229,7 @@ omawsl_starship_asset() {
 omawsl_starship_install_steps() {
   local asset
   asset="$(omawsl_starship_asset)"
-  curl -fsSL "https://github.com/starship/starship/releases/latest/download/${asset}" | tar -xz -C /tmp starship
-  sudo install -m 0755 /tmp/starship /usr/local/bin/starship
-  rm -f /tmp/starship
+  omawsl_github_binary_install "https://github.com/starship/starship/releases/latest/download/${asset}" starship
 }
 
 # omawsl_install_starship

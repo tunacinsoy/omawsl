@@ -1,6 +1,10 @@
 # omawsl theme integration, no-Nerd-Font variant - same palette override
 # as starship.toml, layered onto starship's own official no-nerd-font
-# preset (configs/starship-plain.toml) instead of the icon default.
+# preset (configs/starship-plain.toml) instead of the icon default. The
+# module block below this palette (azure/battery/erlang/nodejs/pulumi)
+# is that preset's own content, duplicated byte-for-byte since TOML
+# can't include another file - see configs/starship-plain.toml's own
+# comment before editing it here.
 "$schema" = 'https://starship.rs/config-schema.json'
 
 palette = "osaka-jade"

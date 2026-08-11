@@ -253,7 +253,12 @@ setup() {
   run omawsl_doctor
   [ "$status" -eq 0 ]
   [[ "$output" == *"[PENDING] Starship not installed"* ]]
-  [[ "$output" == *"omawsl migrate"* ]]
+  # omawsl migrate no-ops on a machine that already migrated (it only
+  # reruns migrations newer than the persisted version state), so it
+  # would never actually reinstall starship - omawsl update's orphan-tools
+  # phase now offers a real recovery path instead (see
+  # bin/omawsl-sub/orphan-tools.sh's omawsl_orphan_tools_update).
+  [[ "$output" == *"omawsl update"* ]]
 }
 
 @test "omawsl_doctor stays silent about starship when it is installed" {

@@ -183,7 +183,7 @@ omawsl_orphan_tool_version_installed() {
 }
 
 # omawsl_orphan_tool_version_latest <slug>
-# GitHub Releases API for the 4 binary/curl-script-distributed tools that
+# GitHub Releases API for the 5 binary/curl-script-distributed tools that
 # actually publish releases (repo slugs confirmed live: zellij-org/zellij,
 # jesseduffield/lazydocker, starship/starship, anomalyco/opencode [formerly
 # sst/opencode - GitHub redirects the old path], anthropics/claude-code);
@@ -419,6 +419,21 @@ omawsl_orphan_tools_live_check() {
 omawsl_orphan_tools_update() {
   local slugs=() slug
   while IFS= read -r slug; do slugs+=("$slug"); done < <(omawsl_orphan_tools_installed_slugs)
+
+  # Unlike the other 8 orphan tools (opt-in picker targets - if the user
+  # never installed one, there's nothing to recover), starship is meant
+  # to be on every machine after the starship-default-prompt migration
+  # (design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md),
+  # same distinction bin/omawsl-sub/doctor.sh's own
+  # omawsl_doctor_starship_missing draws. Without this, a starship
+  # install that silently failed (offline box, corp proxy blocking
+  # GitHub) or was later removed would never appear in this picker at
+  # all - omawsl_orphan_tools_installed_slugs above only lists what's
+  # actually present - leaving doctor's "re-run: omawsl update"
+  # remediation with nothing to actually fix.
+  if ! omawsl_orphan_tool_installed starship; then
+    slugs+=(starship)
+  fi
 
   if [[ "${#slugs[@]}" -eq 0 ]]; then
     echo "omawsl: no orphan tools installed - nothing to check."

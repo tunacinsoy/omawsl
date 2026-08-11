@@ -7,15 +7,33 @@ OMAWSL_ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=../install/terminal/apps-terminal.sh
 source "$OMAWSL_ROOT_DIR/install/terminal/apps-terminal.sh"
-# shellcheck source=../bin/omawsl-sub/theme.sh
-source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/theme.sh"
 
 # Starship as the default prompt (design spec
 # docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md):
 # installs the binary and the un-themed plain-mode config for existing
 # installs, same as a fresh install's apps-terminal.sh already does.
+# Both calls must happen before theme.sh is sourced below: like every
+# install/bin script in this repo, apps-terminal.sh and theme.sh each set
+# a module-level (not locally-scoped) $SCRIPT_DIR to their own directory
+# at source time, and omawsl_install_starship_config resolves its source
+# config path via that global at *call* time, not source time - sourcing
+# theme.sh first would silently repoint it at bin/omawsl-sub before this
+# call ever runs.
+#
+# omawsl_install_starship is a network call (GitHub release download)
+# left unguarded here on purpose, matching every other *_install_steps
+# caller in this repo: `set -euo pipefail` above means a failure (offline
+# machine, corp proxy blocking GitHub) aborts this script with a nonzero
+# exit rather than silently limping on with no starship binary. The
+# caller, bin/omawsl-sub/migrate.sh's own omawsl_migrate, is what decides
+# what a failed migration script means for the rest of an `omawsl
+# update` run - see its comment for why that failure is caught and
+# turned into a retry instead of being allowed to propagate further.
 omawsl_install_starship
 omawsl_install_starship_config
+
+# shellcheck source=../bin/omawsl-sub/theme.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/theme.sh"
 
 # omawsl_starship_migrate_active_theme
 # Preserves visual consistency for anyone who already picked a real

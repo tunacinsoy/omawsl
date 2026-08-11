@@ -369,18 +369,45 @@ setup() {
   [[ "$output" != *"lazydocker"* ]]
 }
 
-@test "omawsl_orphan_tools_update no-ops cleanly when no orphan tool is installed" {
+@test "omawsl_orphan_tools_update no-ops cleanly when nothing needs attention (starship present, nothing else installed)" {
+  # starship is unconditionally included below even when
+  # omawsl_orphan_tools_installed_slugs finds nothing else - see
+  # omawsl_orphan_tools_update's own comment - so a genuine "nothing
+  # installed" no-op now requires starship itself to be present and
+  # already up to date, not merely absent from the picker list.
   stub_hide_command zellij lazydocker opencode claude codex agy gh copilot
+  stub_command starship
+  starship() { echo "starship 1.0.0"; }
+  export -f starship
+  omawsl_orphan_tool_version_latest() { echo "1.0.0"; }
+  export -f omawsl_orphan_tool_version_latest
   run omawsl_orphan_tools_update
   [ "$status" -eq 0 ]
-  [[ "$output" == *"no orphan tools installed"* ]]
+  [[ "$output" == *"already up to date"* ]]
+}
+
+@test "omawsl_orphan_tools_update offers to recover a missing starship even when nothing else is installed" {
+  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot starship
+  gum_stub_init
+  omawsl_orphan_tool_version_latest() { echo "1.20.0"; }
+  export -f omawsl_orphan_tool_version_latest
+  omawsl_starship_install_steps() { echo "starship-recovered" >> "$STUB_LOG"; }
+  export -f omawsl_starship_install_steps
+  gum_stub_respond "$(omawsl_orphan_tools_format_line starship "" 1.20.0)"
+
+  run omawsl_orphan_tools_update
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"gum choose"* ]]
+  [[ "$(stub_calls)" == *"starship-recovered"* ]]
 }
 
 @test "omawsl_orphan_tools_update skips the picker when everything is confirmed up to date" {
   stub_hide_command lazydocker opencode claude codex agy gh copilot
-  stub_command zellij
+  stub_command zellij starship
   zellij() { echo "zellij 1.0.0"; }
   export -f zellij
+  starship() { echo "starship 1.0.0"; }
+  export -f starship
   omawsl_orphan_tool_version_latest() { echo "1.0.0"; }
   export -f omawsl_orphan_tool_version_latest
   run omawsl_orphan_tools_update

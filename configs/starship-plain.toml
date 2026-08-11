@@ -1,3 +1,12 @@
+# Starship's own official no-Nerd-Font preset (design spec
+# docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md) -
+# this exact module block, byte-for-byte, is also embedded in every
+# themes/<name>/starship-plain.toml (10 copies) as the layer their own
+# [palettes.*] override sits on top of. TOML has no include/import
+# mechanism, so there's no way to reference this file from those instead
+# of duplicating it; if this block ever needs to change (e.g. a symbol
+# fix), grep for `git grep -l '"☁️ "'` to find and update every copy,
+# themes/*/starship-plain.toml included.
 "$schema" = 'https://starship.rs/config-schema.json'
 
 [azure]

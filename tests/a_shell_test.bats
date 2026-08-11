@@ -53,12 +53,15 @@ setup() {
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'echo "$INPUTRC"'
   [ "$status" -eq 0 ]
-  # Wildcard, not exact equality: a sandbox with no controlling TTY makes
-  # `bash -i` print "cannot set terminal process group"/"no job control"
-  # warnings to stderr, which bats' `run` merges into $output alongside
-  # the real one-line answer - same tolerant-of-noise style every other
-  # assertion in this file already uses.
-  [[ "$output" == *"$REPO_ROOT/configs/inputrc"* ]]
+  # Exact-line, not exact-equality: a sandbox with no controlling TTY
+  # makes `bash -i` print "cannot set terminal process group"/"no job
+  # control" warnings to stderr, which bats' `run` merges into $output
+  # alongside the real one-line answer, so a plain `==` comparison isn't
+  # safe here - but matching a whole line (rather than a bare substring)
+  # still catches a regression that duplicates or mangles the value,
+  # which a `*substring*` wildcard would miss. Same tolerant-of-noise
+  # style every other assertion in this file already uses.
+  [ "$(printf '%s\n' "$output" | grep -cFx "$REPO_ROOT/configs/inputrc")" -eq 1 ]
 }
 
 @test "a pre-existing ~/.inputrc is left untouched and INPUTRC is not overridden" {
@@ -136,9 +139,10 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias cat'
   [ "$status" -eq 0 ]
-  # Wildcard - see the INPUTRC test above for why exact equality is
-  # unsafe against $output here.
-  [[ "$output" == *"alias cat='batcat --paging=never'"* ]]
+  # Exact-line - see the INPUTRC test above for why exact equality
+  # against the whole of $output is unsafe, and why a bare substring
+  # match is too loose.
+  [ "$(printf '%s\n' "$output" | grep -cFx "alias cat='batcat --paging=never'")" -eq 1 ]
 }
 
 @test "cat is not aliased when batcat is not on PATH" {
@@ -159,9 +163,10 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias fd'
   [ "$status" -eq 0 ]
-  # Wildcard - see the INPUTRC test above for why exact equality is
-  # unsafe against $output here.
-  [[ "$output" == *"alias fd='fdfind'"* ]]
+  # Exact-line - see the INPUTRC test above for why exact equality
+  # against the whole of $output is unsafe, and why a bare substring
+  # match is too loose.
+  [ "$(printf '%s\n' "$output" | grep -cFx "alias fd='fdfind'")" -eq 1 ]
 }
 
 @test "ff previews with batcat when both fzf and batcat are on PATH" {
@@ -222,9 +227,10 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias cd'
   [ "$status" -eq 0 ]
-  # Wildcard - see the INPUTRC test above for why exact equality is
-  # unsafe against $output here.
-  [[ "$output" == *"alias cd='z'"* ]]
+  # Exact-line - see the INPUTRC test above for why exact equality
+  # against the whole of $output is unsafe, and why a bare substring
+  # match is too loose.
+  [ "$(printf '%s\n' "$output" | grep -cFx "alias cd='z'")" -eq 1 ]
 }
 
 @test "cd is not aliased when zoxide is not on PATH" {
@@ -423,6 +429,29 @@ EOF
   run bash -i -c 'echo "$STARSHIP_CONFIG"'
   [ "$status" -eq 0 ]
   [[ "$output" == *"$HOME/.config/starship-plain.toml"* ]]
+}
+
+@test "STARSHIP_CONFIG does not leak across a re-source after OMAWSL_FONT_MODE changes" {
+  export HOME="$BATS_TEST_TMPDIR/home_starship_resource"
+  mkdir -p "$HOME/.local/state/omawsl" "$HOME/.local/bin"
+  printf 'OMAWSL_FONT_MODE="Cascadia Mono (zero install)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  # Same repro as the reviewer's: source once under Cascadia Mono (sets
+  # STARSHIP_CONFIG), flip choices.env to Nerd Font, then source again in
+  # the same shell (e.g. a fresh `install.sh` run, or `omawsl migrate`
+  # updating choices.env followed by `source ~/.bashrc`) - the stale
+  # export must not survive into the second source.
+  run bash -i -c '
+    source "$HOME/.bashrc"
+    printf "OMAWSL_FONT_MODE=\"Nerd Font (enhanced)\"\n" > "$HOME/.local/state/omawsl/choices.env"
+    source "$HOME/.bashrc"
+    echo "STARSHIP_CONFIG=${STARSHIP_CONFIG:-unset}"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STARSHIP_CONFIG=unset"* ]]
 }
 
 @test "falls back to the legacy icon-only PS1 when starship is not on PATH" {

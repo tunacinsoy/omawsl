@@ -40,7 +40,19 @@ omawsl_update() {
     return 1
   fi
 
-  omawsl_migrate
+  # Guarded rather than a bare call: omawsl_migrate (bin/omawsl-sub/
+  # migrate.sh) already catches its own migration failures and returns 0,
+  # but that contract living in a different file is exactly the kind of
+  # thing a future change there could accidentally regress - this `if`
+  # is cheap insurance so a migration failure, even a hard one, can never
+  # again take the orphan-tools phase below down with it (see
+  # migrate.sh's own comment for the full story of why that combo
+  # matters: an offline machine/corp proxy failing the starship download
+  # in migrations/1786305600.sh must not cost the user their lazydocker/
+  # zellij/etc. updates too).
+  if ! omawsl_migrate; then
+    echo "omawsl: warning - migrate step failed; continuing with orphan-tool updates." >&2
+  fi
 
   echo "omawsl: update complete."
 

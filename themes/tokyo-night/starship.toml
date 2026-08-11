@@ -4,7 +4,9 @@
 # docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md) -
 # no format override, so starship's real $all default module set stays
 # intact; only the named colors its built-in module styles reference get
-# remapped to this theme's own palette.
+# remapped to this theme's own palette. This [palettes.*] block is
+# duplicated verbatim in this theme's own starship-plain.toml (no TOML
+# include mechanism to share it) - keep both in sync if you touch it.
 palette = "tokyo-night"
 
 [palettes.tokyo-night]

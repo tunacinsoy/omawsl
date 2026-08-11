@@ -20,6 +20,16 @@ setup() {
   diff "$HOME/.config/starship-plain.toml" "$REPO_ROOT/configs/starship-plain.toml"
 }
 
+@test "exits non-zero when starship's download fails (offline/network issue), instead of limping on" {
+  stub_command curl 1
+  run bash "$REPO_ROOT/migrations/1786305600.sh"
+  # bin/omawsl-sub/migrate.sh's own omawsl_migrate is what turns this
+  # failure into a retry rather than an aborted 'omawsl update' - see
+  # migrate_test.bats. This script itself must still fail loudly so that
+  # caller has an actual failure to react to.
+  [ "$status" -ne 0 ]
+}
+
 @test "skips the starship install when it's already present" {
   stub_command starship
   run bash "$REPO_ROOT/migrations/1786305600.sh"

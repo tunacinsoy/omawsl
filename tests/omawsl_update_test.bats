@@ -81,3 +81,35 @@ setup() {
   [[ "$(stub_calls)" == *"orphan-tools-update-called"* ]]
   [[ "$output" == *"update complete"* ]]
 }
+
+@test "omawsl_update still runs orphan-tools updates when omawsl_migrate fails" {
+  local origin="$BATS_TEST_TMPDIR/origin.git"
+  git init -q --bare "$origin"
+
+  local seed="$BATS_TEST_TMPDIR/seed"
+  git clone -q "$origin" "$seed"
+  git -C "$seed" checkout -q -B master
+  echo "1" > "$seed/version"
+  git -C "$seed" add version
+  git -C "$seed" commit -q -m init
+  git -C "$seed" push -q origin master
+
+  export OMAWSL_HOME="$BATS_TEST_TMPDIR/home-repo"
+  git clone -q "$origin" "$OMAWSL_HOME"
+
+  # Defense-in-depth check (see update.sh's own comment): even if a
+  # migration failure somehow propagates as a hard non-zero return from
+  # omawsl_migrate itself - despite migrate.sh's own contract to catch
+  # that internally - omawsl_update must still reach the orphan-tools
+  # phase instead of aborting the rest of the update.
+  omawsl_migrate() { echo "migrate-called" >> "$STUB_LOG"; return 1; }
+  export -f omawsl_migrate
+  omawsl_orphan_tools_update() { echo "orphan-tools-update-called" >> "$STUB_LOG"; }
+  export -f omawsl_orphan_tools_update
+
+  run omawsl_update
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"migrate-called"* ]]
+  [[ "$(stub_calls)" == *"orphan-tools-update-called"* ]]
+  [[ "$output" == *"warning"*"migrate step failed"* ]]
+}
