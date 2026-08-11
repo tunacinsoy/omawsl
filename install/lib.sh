@@ -225,10 +225,15 @@ omawsl_remove_from_csv() {
 # call site. Assumes <bin_name> is both the wrapper's filename and the
 # command exec'd inside `mise exec` - true for all current callers, since
 # each npm package's installed binary name matches the wrapper name they
-# pass in.
+# pass in. `--loglevel=error` silences npm's "allow-scripts" advisory
+# warning (npm >=11.16, e.g. tree-sitter-cli's `install: node install.js`)
+# - it's noise here, not a real problem: the script still runs either way,
+# and its suggested remedy (`npm approve-scripts`) errors out on a global
+# install anyway, since there's no project package.json to record the
+# approval in (issue #27, upstream npm/cli#9463).
 omawsl_install_npm_cli_wrapper() {
   local package="$1" bin_name="$2"
-  mise exec node@lts -- npm install -g "$package" || return 1
+  mise exec node@lts -- npm install -g "$package" --loglevel=error || return 1
 
   mkdir -p "$HOME/.local/bin"
   cat > "$HOME/.local/bin/$bin_name" <<WRAPPER

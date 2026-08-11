@@ -296,6 +296,15 @@ setup() {
   [[ "$(cat "$HOME/.local/bin/tree-sitter")" == *"exec mise exec node@lts -- tree-sitter \"\$@\""* ]]
 }
 
+@test "omawsl_install_npm_cli_wrapper passes --loglevel=error to npm install to silence the allow-scripts warning" {
+  export HOME="$BATS_TEST_TMPDIR/home"
+  mkdir -p "$HOME"
+  stub_command mise
+  run omawsl_install_npm_cli_wrapper tree-sitter-cli tree-sitter
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g tree-sitter-cli --loglevel=error"* ]]
+}
+
 @test "omawsl_install_npm_cli_wrapper propagates a failed npm install instead of writing a wrapper" {
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
