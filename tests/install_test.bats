@@ -54,6 +54,11 @@ setup() {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
   gum_stub_respond $'VS Code\nNeovim\nGitHub Copilot CLI'
+  # GitHub Copilot CLI was just picked above, so
+  # omawsl_prompt_copilot_autopilot_if_needed (install/lib.sh) fires its own
+  # gum choose right after the editors prompt, before languages - answer it
+  # here or every response below silently shifts down one slot.
+  gum_stub_respond "No - interactive by default (recommended)"
   gum_stub_respond $'Go\nTerraform'
   gum_stub_respond ""
   gum_stub_respond ""
