@@ -11,8 +11,8 @@ STUB_OUTPUT_REGISTRY_ROOT=""
 export STUB_OUTPUT_REGISTRY_ROOT
 
 stub_init() {
-  STUB_LOG="$(mktemp)"
-  STUB_OUTPUT_REGISTRY_ROOT="$(mktemp -d)"
+  STUB_LOG="$(mktemp "$BATS_TEST_TMPDIR/stub_log.XXXXXX")"
+  STUB_OUTPUT_REGISTRY_ROOT="$(mktemp -d "$BATS_TEST_TMPDIR/stub_output_registry.XXXXXX")"
 }
 
 stub_calls() {
@@ -92,7 +92,7 @@ GUM_RESPONSE_DIR=""
 export GUM_RESPONSE_DIR
 
 gum_stub_init() {
-  GUM_RESPONSE_DIR="$(mktemp -d)"
+  GUM_RESPONSE_DIR="$(mktemp -d "$BATS_TEST_TMPDIR/gum_response.XXXXXX")"
   echo 0 > "$GUM_RESPONSE_DIR/.next"
   echo 0 > "$GUM_RESPONSE_DIR/.call"
 }
@@ -125,7 +125,7 @@ export -f gum
 # simulate as "not installed", e.g. terraform/az after a real Task 6 run).
 stub_hide_command() {
   local hide_names=("$@")
-  local shadow_dir; shadow_dir="$(mktemp -d)"
+  local shadow_dir; shadow_dir="$(mktemp -d "$BATS_TEST_TMPDIR/stub_hide_command.XXXXXX")"
   local sysdir hide
   for sysdir in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin /usr/games /usr/local/games /usr/lib/wsl/lib; do
     [[ -d "$sysdir" ]] || continue
