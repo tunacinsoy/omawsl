@@ -37,23 +37,6 @@ if [ -z "${INPUTRC:-}" ] && [ ! -f "$HOME/.inputrc" ]; then
   export INPUTRC="$(dirname "${BASH_SOURCE[0]}")/inputrc"
 fi
 
-# Omakub-parity icon-only prompt: a single Nerd Font glyph in the prompt
-# itself, path shown in the terminal tab/window title instead of inline.
-# Falls back to a plain user@host:path prompt when OMAWSL_FONT_MODE (set at
-# install time - docs/windows-setup.md#fonts) is the zero-install Cascadia
-# Mono option: that glyph renders as a tofu box without a matching Nerd
-# Font, confirmed on a real corporate machine without one installed.
-# Missing/unset (e.g. an install that predates this choice) keeps today's
-# icon-only default rather than silently changing existing prompts.
-OMAWSL_FONT_MODE="$(grep -m1 '^OMAWSL_FONT_MODE=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
-if [[ "$OMAWSL_FONT_MODE" == "Cascadia Mono"* ]]; then
-  PS1='\u@\h:\w\$ '
-else
-  PS1=$' '
-fi
-PS1="\[\e]0;\w\a\]$PS1"
-unset OMAWSL_FONT_MODE
-
 if command -v eza &>/dev/null; then
   alias ls='eza -lh --group-directories-first --icons=auto'
   alias lsa='ls -a'
@@ -184,13 +167,60 @@ fi
 # profile is dynamically generated per machine with its own GUID, too
 # fragile to target directly), so the same effect is achieved here
 # instead - terminal-emulator-agnostic, works the same in Windows
-# Terminal, VS Code's integrated terminal, or over SSH. Must be the very
-# last thing in this file: `exec` replaces the current shell process, so
-# nothing after this line would ever run. Guarded on $ZELLIJ (which
-# zellij itself sets in any shell it spawns) so opening a new pane/tab
-# INSIDE an existing session doesn't try to exec another zellij - the
-# same guard zellij's own docs recommend.
+# Terminal, VS Code's integrated terminal, or over SSH. Guarded on $ZELLIJ
+# (which zellij itself sets in any shell it spawns) so opening a new
+# pane/tab INSIDE an existing session doesn't try to exec another zellij -
+# the same guard zellij's own docs recommend. Computed here (rather than
+# inline at the exec site below) so the starship section right after can
+# skip its own subprocess spawn in this same condition - this outer
+# shell's prompt is discarded the instant exec replaces it, so evaluating
+# `starship init` for it would be a wasted fork.
+_omawsl_will_exec_zellij=0
 if [[ -z "${ZELLIJ:-}" ]] && command -v zellij &>/dev/null; then
+  _omawsl_will_exec_zellij=1
+fi
+
+# Starship (design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md):
+# starship's own README says to add its init line at the END of .bashrc,
+# after any other tool that also hooks PROMPT_COMMAND (zoxide/mise above) -
+# starship/starship#6093 documents hooks registered after starship's own
+# breaking the chain. Placed last (but still before the zellij exec guard
+# below, which replaces this shell process outright) so starship's
+# language-version modules read the already-updated PATH/env from those
+# tools' own hooks, not a stale value from before they ran.
+OMAWSL_FONT_MODE="$(grep -m1 '^OMAWSL_FONT_MODE=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
+_omawsl_cascadia_mono=0
+[[ "$OMAWSL_FONT_MODE" == "Cascadia Mono"* ]] && _omawsl_cascadia_mono=1
+if command -v starship &>/dev/null; then
+  # Set on every source, both branches - otherwise a font-mode switch
+  # (re-sourcing this file, or a fresh pane inheriting the outer shell's
+  # exported env across the exec below) would leave a stale value from
+  # whichever mode was active last time this ran instead of tracking the
+  # current choices.env.
+  if [[ "$_omawsl_cascadia_mono" -eq 1 ]]; then
+    export STARSHIP_CONFIG="$HOME/.config/starship-plain.toml"
+  else
+    unset STARSHIP_CONFIG
+  fi
+  if [[ "$_omawsl_will_exec_zellij" -eq 0 ]]; then
+    eval "$(starship init bash)"
+  fi
+else
+  # Pre-starship fallback - offline/failed install, or a checkout that
+  # predates this feature and hasn't finished migrating yet (Task 6).
+  # Exact byte-for-byte copy of the old static PS1 logic this replaces.
+  if [[ "$_omawsl_cascadia_mono" -eq 1 ]]; then
+    PS1='\u@\h:\w\$ '
+  else
+    PS1=$' '
+  fi
+  PS1="\[\e]0;\w\a\]$PS1"
+fi
+unset OMAWSL_FONT_MODE _omawsl_cascadia_mono
+
+# Must be the very last thing in this file: `exec` replaces the current
+# shell process, so nothing after this line would ever run.
+if [[ "$_omawsl_will_exec_zellij" -eq 1 ]]; then
   # WSL2/WSLg's $XDG_RUNTIME_DIR (/mnt/wslg/runtime-dir) is a synthetic
   # mount hardcoded to UID 1000 that doesn't reliably support the chmod
   # 0700 zellij needs on its own socket dir (microsoft/WSL#9689, #10896,
@@ -199,5 +229,7 @@ if [[ -z "${ZELLIJ:-}" ]] && command -v zellij &>/dev/null; then
   # /tmp-based directory zellij already falls back to when
   # XDG_RUNTIME_DIR is unset, sidestepping the broken mount entirely.
   export ZELLIJ_SOCKET_DIR="/tmp/zellij-$(id -u)"
+  unset _omawsl_will_exec_zellij
   exec zellij
 fi
+unset _omawsl_will_exec_zellij

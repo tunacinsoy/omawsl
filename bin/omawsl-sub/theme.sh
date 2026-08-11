@@ -130,6 +130,9 @@ omawsl_theme_apply() {
     cp "$theme_dir/neovim.lua" "$HOME/.config/nvim/lua/plugins/theme.lua"
   fi
 
+  cp "$theme_dir/starship.toml" "$HOME/.config/starship.toml"
+  cp "$theme_dir/starship-plain.toml" "$HOME/.config/starship-plain.toml"
+
   # shellcheck source=/dev/null
   source "$theme_dir/vscode.sh"
 

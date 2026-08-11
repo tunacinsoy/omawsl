@@ -1,0 +1,24 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# omawsl theme integration (design spec
+# docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md) -
+# no format override, so starship's real $all default module set stays
+# intact; only the named colors its built-in module styles reference get
+# remapped to this theme's own palette. This [palettes.*] block is
+# duplicated verbatim in this theme's own starship-plain.toml (no TOML
+# include mechanism to share it) - keep both in sync if you touch it.
+palette = "tokyo-night"
+
+[palettes.tokyo-night]
+red = "#F93357"
+green = "#9ECE6A"
+blue = "#7AA2F7"
+yellow = "#E0AF68"
+magenta = "#BB9AF7"
+purple = "#BB9AF7"
+orange = "#FF9E64"
+cyan = "#2AC3DE"
+black = "#383E5A"
+white = "#C0CAF5"
+bg = "#1A1B26"
+fg = "#A9B1D6"

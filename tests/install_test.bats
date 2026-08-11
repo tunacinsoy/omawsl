@@ -11,19 +11,20 @@ setup() {
   mkdir -p "$HOME"
   stub_command sudo
   stub_command git
-  # lazygit's install steps (install/terminal/apps-terminal.sh) parse a
-  # GitHub API JSON response to resolve the latest version - a plain dumb
-  # stub_command curl (no stdout) would make that lookup come up empty
-  # and abort the run under set -e. Scoped to just that one URL (see
+  # lazygit's and lazydocker's install steps (install/terminal/apps-terminal.sh)
+  # both parse a GitHub API JSON response to resolve the latest version - a
+  # plain dumb stub_command curl (no stdout) would make that lookup come up
+  # empty and abort the run under set -e. Scoped to just these two URLs (see
   # apps_terminal_test.bats for the full rationale) so it doesn't disturb
   # the other curl|bash / curl|tar pipes this end-to-end run also exercises.
   stub_command_output_for curl "api.github.com/repos/jesseduffield/lazygit" '{"tag_name": "v9.9.9"}'
+  stub_command_output_for curl "api.github.com/repos/jesseduffield/lazydocker" '{"tag_name": "v8.8.8"}'
   stub_command gpg
   stub_command mise
   stub_command gem
   stub_command tar
   stub_command gh
-  stub_hide_command docker terraform az gcloud aws lazydocker zellij lazygit fastfetch code cursor claude codex agy opencode copilot
+  stub_hide_command docker terraform az gcloud aws lazydocker zellij lazygit fastfetch starship code cursor claude codex agy opencode copilot
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"

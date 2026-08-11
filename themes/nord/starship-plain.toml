@@ -1,0 +1,43 @@
+# omawsl theme integration, no-Nerd-Font variant - same palette override
+# as starship.toml, layered onto starship's own official no-nerd-font
+# preset (configs/starship-plain.toml) instead of the icon default. The
+# module block below this palette (azure/battery/erlang/nodejs/pulumi)
+# is that preset's own content, duplicated byte-for-byte since TOML
+# can't include another file - see configs/starship-plain.toml's own
+# comment before editing it here.
+"$schema" = 'https://starship.rs/config-schema.json'
+
+palette = "nord"
+
+[palettes.nord]
+red = "#BF616A"
+green = "#A3BE8C"
+blue = "#81A1C1"
+yellow = "#EBCB8B"
+magenta = "#B48EAD"
+purple = "#B48EAD"
+orange = "#D08770"
+cyan = "#88C0D0"
+black = "#3B4252"
+white = "#E5E9F0"
+bg = "#2E3440"
+fg = "#D8DEE9"
+
+[azure]
+symbol = "☁️ "
+
+[battery]
+full_symbol = "• "
+charging_symbol = "⇡ "
+discharging_symbol = "⇣ "
+unknown_symbol = "❓ "
+empty_symbol = "❗ "
+
+[erlang]
+symbol = "ⓔ "
+
+[nodejs]
+symbol = "[⬢](bold green) "
+
+[pulumi]
+symbol = "🧊 "

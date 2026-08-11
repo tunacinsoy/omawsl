@@ -36,9 +36,26 @@ omawsl_install_terminal_apps() {
   omawsl_install_zellij
   omawsl_install_lazygit
   omawsl_install_fastfetch
+  omawsl_install_starship
   omawsl_install_zellij_config
   omawsl_install_btop_config
+  omawsl_install_starship_config
   omawsl_install_cli
+}
+
+# omawsl_github_binary_install <url> <binary>
+# Downloads a tar.gz release asset from <url>, extracts <binary> from it
+# into /tmp, installs it to /usr/local/bin/<binary> via sudo, then cleans
+# up the /tmp copy - the exact 3-step sequence zellij/lazydocker/lazygit/
+# starship's own *_install_steps functions below each used to repeat by
+# hand (differing only in which URL to hit and which binary name to
+# extract/install). Not used for fastfetch, whose release ships a .deb
+# instead of a bare binary tarball.
+omawsl_github_binary_install() {
+  local url="$1" binary="$2"
+  curl -fsSL "$url" | tar -xz -C /tmp "$binary"
+  sudo install -m 0755 "/tmp/$binary" "/usr/local/bin/$binary"
+  rm -f "/tmp/$binary"
 }
 
 # omawsl_lazydocker_arch
@@ -72,9 +89,7 @@ omawsl_lazydocker_install_steps() {
   version="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazydocker/releases/latest | grep -Po '"tag_name": "v\K[^"]+')"
   local arch
   arch="$(omawsl_lazydocker_arch)"
-  curl -fsSL "https://github.com/jesseduffield/lazydocker/releases/download/v${version}/lazydocker_${version}_Linux_${arch}.tar.gz" | tar -xz -C /tmp lazydocker
-  sudo install -m 0755 /tmp/lazydocker /usr/local/bin/lazydocker
-  rm -f /tmp/lazydocker
+  omawsl_github_binary_install "https://github.com/jesseduffield/lazydocker/releases/download/v${version}/lazydocker_${version}_Linux_${arch}.tar.gz" lazydocker
 }
 
 # omawsl_install_lazydocker
@@ -95,9 +110,7 @@ omawsl_install_lazydocker() {
 omawsl_zellij_install_steps() {
   local arch
   arch="$(uname -m)"
-  curl -fsSL "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz" | tar -xz -C /tmp
-  sudo install -m 0755 /tmp/zellij /usr/local/bin/zellij
-  rm -f /tmp/zellij
+  omawsl_github_binary_install "https://github.com/zellij-org/zellij/releases/latest/download/zellij-${arch}-unknown-linux-musl.tar.gz" zellij
 }
 
 # omawsl_install_zellij
@@ -136,9 +149,7 @@ omawsl_lazygit_install_steps() {
   version="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest | grep -Po '"tag_name": "v\K[^"]+')"
   local arch
   arch="$(omawsl_lazygit_arch)"
-  curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_linux_${arch}.tar.gz" | tar -xz -C /tmp lazygit
-  sudo install -m 0755 /tmp/lazygit /usr/local/bin/lazygit
-  rm -f /tmp/lazygit
+  omawsl_github_binary_install "https://github.com/jesseduffield/lazygit/releases/download/v${version}/lazygit_${version}_linux_${arch}.tar.gz" lazygit
 }
 
 # omawsl_install_lazygit
@@ -194,6 +205,61 @@ omawsl_install_fastfetch() {
     return 0
   fi
   omawsl_fastfetch_install_steps
+}
+
+# omawsl_starship_asset
+# starship's GitHub releases publish a glibc ("gnu") build for x86_64 but
+# only a musl build for aarch64 (confirmed against the current release's
+# asset list - no aarch64-unknown-linux-gnu asset exists). musl binaries
+# are statically linked, so the aarch64 musl build runs fine on Ubuntu's
+# glibc userspace regardless - this is exactly why upstream only ships
+# musl for non-x86_64 Linux targets.
+omawsl_starship_asset() {
+  case "$(uname -m)" in
+    aarch64) echo "starship-aarch64-unknown-linux-musl.tar.gz" ;;
+    *) echo "starship-x86_64-unknown-linux-gnu.tar.gz" ;;
+  esac
+}
+
+# omawsl_starship_install_steps
+# The actual install command, no guard - same split rationale as
+# omawsl_zellij_install_steps above. Reused unguarded by
+# bin/omawsl-sub/orphan-tools.sh's forced-update path and by the
+# starship migration.
+omawsl_starship_install_steps() {
+  local asset
+  asset="$(omawsl_starship_asset)"
+  omawsl_github_binary_install "https://github.com/starship/starship/releases/latest/download/${asset}" starship
+}
+
+# omawsl_install_starship
+# No Ubuntu package exists for starship - installs the official prebuilt
+# binary release directly from GitHub rather than starship's own
+# `curl -sS https://starship.rs/install.sh | sh`, so the exact steps stay
+# auditable here instead of delegating to an unseen remote script.
+omawsl_install_starship() {
+  if command -v starship &>/dev/null; then
+    return 0
+  fi
+  omawsl_starship_install_steps
+}
+
+# omawsl_install_starship_config
+# Deploys omawsl's own configs/starship-plain.toml (starship's own
+# official no-nerd-font preset - Cascadia Mono users' plain-mode config)
+# to starship's real config location, copy-if-absent like
+# omawsl_install_zellij_config above. No equivalent deploy for the
+# Nerd Font/icon case: absence of ~/.config/starship.toml is itself the
+# correct un-themed default (starship's real, literal zero-config
+# built-in look) until `omawsl theme <name>` writes a themed one
+# (Task 3).
+omawsl_install_starship_config() {
+  local config_file="$HOME/.config/starship-plain.toml"
+  if [[ -f "$config_file" ]]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$config_file")"
+  cp "$SCRIPT_DIR/../../configs/starship-plain.toml" "$config_file"
 }
 
 # omawsl_install_zellij_config

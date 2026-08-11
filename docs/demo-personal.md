@@ -77,7 +77,8 @@
       At the font picker, choose "Nerd Font (enhanced)" — matching the Prep step above.
       Say: "This is what tells the prompt itself, not just eza, to use the icon glyph — pick the
       option that matches whatever you actually merged into Windows Terminal, or this and eza's
-      icons disagree with each other." Point out the icon-only prompt on the next line.
+      icons disagree with each other." Point out starship's icon-based default prompt on the
+      next line.
 
 - [ ] **10. Install runs.**
       Say, while apt/mise run in the background, faster-paced than the corporate take: "Same

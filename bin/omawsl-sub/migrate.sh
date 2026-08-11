@@ -60,6 +60,19 @@ omawsl_pending_migrations() {
 # with zero actual migrations), bumps state to match - otherwise a later
 # `migrate` run would see nothing pending but state would never reflect
 # "fully up to date."
+#
+# A migration script failing (e.g. migrations/1786305600.sh's network
+# call to fetch starship, on an offline machine or behind a proxy that
+# blocks GitHub) stops the loop - later pending migrations may depend on
+# an earlier one having actually succeeded, so silently skipping ahead
+# isn't safe - but does NOT propagate that failure to the caller as a
+# hard error: bin/omawsl-sub/update.sh's own omawsl_update calls this
+# before omawsl_orphan_tools_update, and a failed migration has nothing
+# to do with whether those unrelated tool updates (lazydocker, zellij,
+# ...) can still run. The failed migration's timestamp is deliberately
+# left unrecorded (the `echo "$ts" > version` line is only reached on
+# success), so it's retried automatically on the very next 'omawsl
+# migrate'/'omawsl update' run - no separate recovery path needed here.
 omawsl_migrate() {
   local pending; pending="$(omawsl_pending_migrations)"
   local dir; dir="$(omawsl_migrations_dir)"
@@ -72,8 +85,12 @@ omawsl_migrate() {
     local ts
     while IFS= read -r ts; do
       echo "omawsl: running migration $ts..."
-      bash "$dir/$ts.sh"
-      echo "$ts" > "$state_dir/version"
+      if bash "$dir/$ts.sh"; then
+        echo "$ts" > "$state_dir/version"
+      else
+        echo "omawsl: warning - migration $ts failed and will be retried on the next 'omawsl migrate'/'omawsl update' run." >&2
+        return 0
+      fi
     done <<< "$pending"
     echo "omawsl: migrations complete."
   fi

@@ -53,7 +53,15 @@ setup() {
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'echo "$INPUTRC"'
   [ "$status" -eq 0 ]
-  [[ "$output" == "$REPO_ROOT/configs/inputrc" ]]
+  # Exact-line, not exact-equality: a sandbox with no controlling TTY
+  # makes `bash -i` print "cannot set terminal process group"/"no job
+  # control" warnings to stderr, which bats' `run` merges into $output
+  # alongside the real one-line answer, so a plain `==` comparison isn't
+  # safe here - but matching a whole line (rather than a bare substring)
+  # still catches a regression that duplicates or mangles the value,
+  # which a `*substring*` wildcard would miss. Same tolerant-of-noise
+  # style every other assertion in this file already uses.
+  [ "$(printf '%s\n' "$output" | grep -cFx "$REPO_ROOT/configs/inputrc")" -eq 1 ]
 }
 
 @test "a pre-existing ~/.inputrc is left untouched and INPUTRC is not overridden" {
@@ -131,7 +139,10 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias cat'
   [ "$status" -eq 0 ]
-  [[ "$output" == "alias cat='batcat --paging=never'" ]]
+  # Exact-line - see the INPUTRC test above for why exact equality
+  # against the whole of $output is unsafe, and why a bare substring
+  # match is too loose.
+  [ "$(printf '%s\n' "$output" | grep -cFx "alias cat='batcat --paging=never'")" -eq 1 ]
 }
 
 @test "cat is not aliased when batcat is not on PATH" {
@@ -152,7 +163,10 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias fd'
   [ "$status" -eq 0 ]
-  [[ "$output" == "alias fd='fdfind'" ]]
+  # Exact-line - see the INPUTRC test above for why exact equality
+  # against the whole of $output is unsafe, and why a bare substring
+  # match is too loose.
+  [ "$(printf '%s\n' "$output" | grep -cFx "alias fd='fdfind'")" -eq 1 ]
 }
 
 @test "ff previews with batcat when both fzf and batcat are on PATH" {
@@ -213,7 +227,10 @@ EOF
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias cd'
   [ "$status" -eq 0 ]
-  [[ "$output" == "alias cd='z'" ]]
+  # Exact-line - see the INPUTRC test above for why exact equality
+  # against the whole of $output is unsafe, and why a bare substring
+  # match is too loose.
+  [ "$(printf '%s\n' "$output" | grep -cFx "alias cd='z'")" -eq 1 ]
 }
 
 @test "cd is not aliased when zoxide is not on PATH" {
@@ -376,39 +393,101 @@ EOF
   [ "$status" -ne 0 ]
 }
 
-@test "PS1 uses Omakub's icon-only prompt with the path in the window title, not user@host:path, when no font choice was ever persisted" {
-  export HOME="$BATS_TEST_TMPDIR/home_no_font_choice"
+@test "STARSHIP_CONFIG is unset (starship's real built-in default) when OMAWSL_FONT_MODE is unset and starship is installed" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_font_choice_starship"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "STARSHIP_CONFIG=${STARSHIP_CONFIG:-unset}"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STARSHIP_CONFIG=unset"* ]]
+}
+
+@test "STARSHIP_CONFIG is unset when OMAWSL_FONT_MODE is Nerd Font and starship is installed" {
+  export HOME="$BATS_TEST_TMPDIR/home_nerd_font_starship"
+  mkdir -p "$HOME/.local/state/omawsl" "$HOME/.local/bin"
+  printf 'OMAWSL_FONT_MODE="Nerd Font (enhanced)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "STARSHIP_CONFIG=${STARSHIP_CONFIG:-unset}"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STARSHIP_CONFIG=unset"* ]]
+}
+
+@test "STARSHIP_CONFIG points at the plain preset when OMAWSL_FONT_MODE is Cascadia Mono and starship is installed" {
+  export HOME="$BATS_TEST_TMPDIR/home_cascadia_starship"
+  mkdir -p "$HOME/.local/state/omawsl" "$HOME/.local/bin"
+  printf 'OMAWSL_FONT_MODE="Cascadia Mono (zero install)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'echo "$STARSHIP_CONFIG"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"$HOME/.config/starship-plain.toml"* ]]
+}
+
+@test "STARSHIP_CONFIG does not leak across a re-source after OMAWSL_FONT_MODE changes" {
+  export HOME="$BATS_TEST_TMPDIR/home_starship_resource"
+  mkdir -p "$HOME/.local/state/omawsl" "$HOME/.local/bin"
+  printf 'OMAWSL_FONT_MODE="Cascadia Mono (zero install)"\n' > "$HOME/.local/state/omawsl/choices.env"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/starship"
+  chmod +x "$HOME/.local/bin/starship"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  # Same repro as the reviewer's: source once under Cascadia Mono (sets
+  # STARSHIP_CONFIG), flip choices.env to Nerd Font, then source again in
+  # the same shell (e.g. a fresh `install.sh` run, or `omawsl migrate`
+  # updating choices.env followed by `source ~/.bashrc`) - the stale
+  # export must not survive into the second source.
+  run bash -i -c '
+    source "$HOME/.bashrc"
+    printf "OMAWSL_FONT_MODE=\"Nerd Font (enhanced)\"\n" > "$HOME/.local/state/omawsl/choices.env"
+    source "$HOME/.bashrc"
+    echo "STARSHIP_CONFIG=${STARSHIP_CONFIG:-unset}"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STARSHIP_CONFIG=unset"* ]]
+}
+
+@test "falls back to the legacy icon-only PS1 when starship is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_starship"
   mkdir -p "$HOME"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command starship
   run bash -i -c 'echo "$PS1"'
   [ "$status" -eq 0 ]
   [[ "$output" != *'\u@\h'* ]]
   [[ "$output" == *'\[\e]0;\w\a\]'* ]]
 }
 
-@test "PS1 stays icon-only when OMAWSL_FONT_MODE is Nerd Font" {
-  export HOME="$BATS_TEST_TMPDIR/home_nerd_font"
-  mkdir -p "$HOME/.local/state/omawsl"
-  printf 'OMAWSL_FONT_MODE="Nerd Font (enhanced)"\n' > "$HOME/.local/state/omawsl/choices.env"
-  bash "$REPO_ROOT/install/terminal/a-shell.sh"
-  run bash -i -c 'echo "$PS1"'
-  [ "$status" -eq 0 ]
-  [[ "$output" != *'\u@\h'* ]]
-  [[ "$output" == *'\[\e]0;\w\a\]'* ]]
-}
-
-@test "PS1 falls back to a plain user@host:path prompt when OMAWSL_FONT_MODE is Cascadia Mono" {
-  # docs/windows-setup.md#fonts' zero-install option has no Nerd Font
-  # installed, so Omakub's icon-only PS1 glyph would render as a tofu box -
-  # confirmed on a real corporate machine without a Nerd Font.
-  export HOME="$BATS_TEST_TMPDIR/home_cascadia"
+@test "falls back to the legacy Cascadia Mono PS1 when starship is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_starship_cascadia"
   mkdir -p "$HOME/.local/state/omawsl"
   printf 'OMAWSL_FONT_MODE="Cascadia Mono (zero install)"\n' > "$HOME/.local/state/omawsl/choices.env"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command starship
   run bash -i -c 'echo "$PS1"'
   [ "$status" -eq 0 ]
   [[ "$output" == *'\u@\h:\w\$ '* ]]
   [[ "$output" == *'\[\e]0;\w\a\]'* ]]
+}
+
+@test "starship init runs after zoxide/mise activation in configs/bashrc, not before" {
+  local file="$REPO_ROOT/configs/bashrc"
+  local zoxide_line mise_line starship_line
+  zoxide_line="$(grep -n 'zoxide init bash' "$file" | cut -d: -f1)"
+  mise_line="$(grep -n 'mise activate bash' "$file" | cut -d: -f1)"
+  starship_line="$(grep -n 'starship init bash' "$file" | cut -d: -f1)"
+  [ -n "$zoxide_line" ]
+  [ -n "$mise_line" ]
+  [ -n "$starship_line" ]
+  [ "$starship_line" -gt "$zoxide_line" ]
+  [ "$starship_line" -gt "$mise_line" ]
 }
 
 # --- zellij auto-launch (Omakub parity: every new interactive shell drops

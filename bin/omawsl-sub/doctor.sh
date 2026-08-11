@@ -139,6 +139,28 @@ omawsl_doctor_docker_proxy_stale() {
   [[ -z "$http_proxy_val" && -z "$https_proxy_val" ]]
 }
 
+# omawsl_doctor_starship_missing
+# Unlike zellij (never promised universal, just always installed in
+# practice), starship is explicitly meant to be on every machine after
+# design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md
+# ships, so a silently failed install (offline box, corp proxy blocking
+# GitHub) needs to surface somewhere - doctor is that somewhere.
+#
+# Deliberately its own `command -v starship` one-liner rather than
+# reusing bin/omawsl-sub/orphan-tools.sh's near-identical
+# omawsl_orphan_tool_installed starship case: that file is a much
+# heavier dependency (it sources apps-terminal.sh plus 5 app-*.sh files
+# and cloud-clis.sh just to get its own registry), and
+# tests/omawsl_doctor_test.bats sources doctor.sh in isolation
+# specifically so this file's own tests don't have to stub all of that
+# too. Matches the precedent orphan-tools.sh's own
+# omawsl_orphan_tool_installed comment already documents for the other 6
+# non-always-on tools - same tradeoff, same direction, just made from
+# doctor.sh's side of it this time.
+omawsl_doctor_starship_missing() {
+  ! command -v starship &>/dev/null
+}
+
 # omawsl_doctor_report_category <category> <check_fn> <choices_key>
 # Reports every item in the category's registry that's either actually
 # installed (regardless of whether it was ever selected through omawsl's
@@ -203,6 +225,12 @@ omawsl_doctor() {
     echo
     echo "Docker:"
     echo "  [PENDING] Docker daemon proxy config looks stale - no HTTP_PROXY/HTTPS_PROXY is set in this shell, but omawsl-proxy.conf still exists. Off that network now? sudo rm <path-to-omawsl-proxy.conf> && sudo systemctl daemon-reload && sudo systemctl restart docker. Still on it? Export the proxy vars and re-run install.sh instead."
+  fi
+
+  if omawsl_doctor_starship_missing; then
+    echo
+    echo "Starship:"
+    echo "  [PENDING] Starship not installed - prompt is using the legacy fallback. Re-run: omawsl update"
   fi
 }
 

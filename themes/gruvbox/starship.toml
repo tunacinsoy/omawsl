@@ -1,0 +1,24 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# omawsl theme integration (design spec
+# docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md) -
+# no format override, so starship's real $all default module set stays
+# intact; only the named colors its built-in module styles reference get
+# remapped to this theme's own palette. This [palettes.*] block is
+# duplicated verbatim in this theme's own starship-plain.toml (no TOML
+# include mechanism to share it) - keep both in sync if you touch it.
+palette = "gruvbox"
+
+[palettes.gruvbox]
+red = "#cc241d"
+green = "#98971a"
+blue = "#3c8588"
+yellow = "#d79921"
+magenta = "#b16286"
+purple = "#b16286"
+orange = "#d65d0e"
+cyan = "#689d6a"
+black = "#3c3836"
+white = "#fbf1c7"
+bg = "#282828"
+fg = "#d5c4a1"

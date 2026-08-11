@@ -32,14 +32,14 @@ source "$OMAWSL_ROOT_DIR/install/terminal/cloud-clis.sh"
 # belong there.
 
 # omawsl_orphan_tool_slugs
-# All 8 orphan-tool slugs, in a fixed display order.
+# All 9 orphan-tool slugs, in a fixed display order.
 omawsl_orphan_tool_slugs() {
-  printf '%s\n' zellij lazydocker opencode claude codex antigravity gh-copilot aws
+  printf '%s\n' zellij lazydocker starship opencode claude codex antigravity gh-copilot aws
 }
 
 # omawsl_orphan_tool_label <slug>
-# zellij/lazydocker aren't in items.sh (always-on, not a picker target),
-# so they get their own labels here; the other 6 slugs are already
+# zellij/lazydocker/starship aren't in items.sh (always-on, not a picker
+# target), so they get their own labels here; the other 6 slugs are already
 # registered there under the exact same slug names install/uninstall/
 # doctor use - reused via omawsl_item_label rather than duplicating the
 # same 6 label strings a second time.
@@ -47,14 +47,15 @@ omawsl_orphan_tool_label() {
   case "$1" in
     zellij) echo "Zellij" ;;
     lazydocker) echo "LazyDocker" ;;
+    starship) echo "Starship" ;;
     opencode|claude|codex|antigravity|gh-copilot|aws) omawsl_item_label "$1" ;;
     *) return 1 ;;
   esac
 }
 
 # omawsl_orphan_tool_installed <slug>
-# Is this orphan tool actually present right now? zellij/lazydocker get a
-# direct command -v check (they're not in items.sh, so
+# Is this orphan tool actually present right now? zellij/lazydocker/starship
+# get a direct command -v check (they're not in items.sh, so
 # bin/omawsl-sub/doctor.sh's own per-slug checks don't cover them
 # either); the other 6 repeat the same one-line checks doctor.sh and
 # each tool's own install-script guard already use - this repo already
@@ -67,6 +68,7 @@ omawsl_orphan_tool_installed() {
   case "$slug" in
     zellij) command -v zellij &>/dev/null ;;
     lazydocker) command -v lazydocker &>/dev/null ;;
+    starship) command -v starship &>/dev/null ;;
     opencode) command -v opencode &>/dev/null ;;
     claude) command -v claude &>/dev/null ;;
     codex) command -v codex &>/dev/null ;;
@@ -169,6 +171,7 @@ omawsl_orphan_tool_version_installed() {
   case "$slug" in
     zellij) omawsl_orphan_extract_semver "$(zellij --version 2>/dev/null || true)" ;;
     lazydocker) omawsl_orphan_extract_semver "$(lazydocker --version 2>/dev/null || true)" ;;
+    starship) omawsl_orphan_extract_semver "$(starship --version 2>/dev/null || true)" ;;
     opencode) omawsl_orphan_extract_semver "$(opencode --version 2>/dev/null || true)" ;;
     claude) omawsl_orphan_extract_semver "$(claude --version 2>/dev/null || true)" ;;
     codex) omawsl_orphan_extract_semver "$(codex --version 2>/dev/null || true)" ;;
@@ -180,12 +183,12 @@ omawsl_orphan_tool_version_installed() {
 }
 
 # omawsl_orphan_tool_version_latest <slug>
-# GitHub Releases API for the 4 binary/curl-script-distributed tools that
+# GitHub Releases API for the 5 binary/curl-script-distributed tools that
 # actually publish releases (repo slugs confirmed live: zellij-org/zellij,
-# jesseduffield/lazydocker, anomalyco/opencode [formerly sst/opencode -
-# GitHub redirects the old path], anthropics/claude-code); GitHub tags API
-# for aws/aws-cli, which doesn't publish GitHub Releases at all (confirmed:
-# releases/latest 404s for that repo every time - see
+# jesseduffield/lazydocker, starship/starship, anomalyco/opencode [formerly
+# sst/opencode - GitHub redirects the old path], anthropics/claude-code);
+# GitHub tags API for aws/aws-cli, which doesn't publish GitHub Releases at
+# all (confirmed: releases/latest 404s for that repo every time - see
 # omawsl_orphan_latest_from_github_tags); npm registry for the 2 tools
 # installed via a private mise-managed Node runtime, gh-copilot included
 # since it switched from the retired `gh extension install
@@ -196,6 +199,7 @@ omawsl_orphan_tool_version_latest() {
   case "$slug" in
     zellij) omawsl_orphan_latest_from_github zellij-org/zellij ;;
     lazydocker) omawsl_orphan_latest_from_github jesseduffield/lazydocker ;;
+    starship) omawsl_orphan_latest_from_github starship/starship ;;
     opencode) omawsl_orphan_latest_from_github anomalyco/opencode ;;
     claude) omawsl_orphan_latest_from_github anthropics/claude-code ;;
     codex) omawsl_orphan_latest_from_npm "@openai/codex" ;;
@@ -327,6 +331,7 @@ omawsl_orphan_tool_apply_update() {
   case "$slug" in
     zellij) omawsl_zellij_install_steps || ok=0 ;;
     lazydocker) omawsl_lazydocker_install_steps || ok=0 ;;
+    starship) omawsl_starship_install_steps || ok=0 ;;
     opencode) omawsl_opencode_install_steps || ok=0 ;;
     claude) omawsl_claude_cli_install_steps || ok=0 ;;
     codex) omawsl_codex_cli_install_steps || ok=0 ;;
@@ -343,7 +348,7 @@ omawsl_orphan_tool_apply_update() {
 }
 
 # omawsl_orphan_tools_installed_slugs
-# Which of the 8 orphan tools are actually installed right now, in
+# Which of the 9 orphan tools are actually installed right now, in
 # registry order.
 omawsl_orphan_tools_installed_slugs() {
   local slug
@@ -414,6 +419,21 @@ omawsl_orphan_tools_live_check() {
 omawsl_orphan_tools_update() {
   local slugs=() slug
   while IFS= read -r slug; do slugs+=("$slug"); done < <(omawsl_orphan_tools_installed_slugs)
+
+  # Unlike the other 8 orphan tools (opt-in picker targets - if the user
+  # never installed one, there's nothing to recover), starship is meant
+  # to be on every machine after the starship-default-prompt migration
+  # (design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md),
+  # same distinction bin/omawsl-sub/doctor.sh's own
+  # omawsl_doctor_starship_missing draws. Without this, a starship
+  # install that silently failed (offline box, corp proxy blocking
+  # GitHub) or was later removed would never appear in this picker at
+  # all - omawsl_orphan_tools_installed_slugs above only lists what's
+  # actually present - leaving doctor's "re-run: omawsl update"
+  # remediation with nothing to actually fix.
+  if ! omawsl_orphan_tool_installed starship; then
+    slugs+=(starship)
+  fi
 
   if [[ "${#slugs[@]}" -eq 0 ]]; then
     echo "omawsl: no orphan tools installed - nothing to check."
