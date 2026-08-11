@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+bats_require_minimum_version 1.5.0
+
 load 'helpers/stubs'
 
 setup() {
@@ -29,6 +31,55 @@ setup() {
   [[ "$(stub_calls)" == *"sudo gpg --yes --dearmor -o $keyrings_dir/microsoft.gpg"* ]]
   [[ "$(stub_calls)" == *"sudo tee $sources_file"* ]]
   [[ "$(stub_calls)" == *"sudo apt-get install -y azure-cli"* ]]
+}
+
+@test "azure-cli: does not leak the codename probe's 404 as curl stderr noise" {
+  # Real curl (not the arg-logging stub_command shim) so it can reproduce the
+  # actual stderr text real curl prints for a 404 under -fsSL's -S flag - the
+  # eval-based stub only logs args and never writes to stderr, so it can't
+  # exercise this. Simulates the exact scenario from issue #14: a host
+  # codename (e.g. "resolute") Microsoft's azure-cli repo has no Release file
+  # for yet.
+  fake_bin="$BATS_TEST_TMPDIR/fake-bin"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/curl" <<'FAKECURL'
+#!/usr/bin/env bash
+case "$*" in
+  *dists*Release) echo "curl: (22) The requested URL returned error: 404" >&2; exit 22 ;;
+esac
+exit 0
+FAKECURL
+  chmod +x "$fake_bin/curl"
+  export PATH="$fake_bin:$PATH"
+  sources_file="$BATS_TEST_TMPDIR/azure-cli.list"
+  keyrings_dir="$BATS_TEST_TMPDIR/keyrings"
+  run --separate-stderr omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
+  [ "$status" -eq 0 ]
+  [[ "$stderr" != *"curl:"* ]]
+}
+
+@test "azure-cli: still surfaces a non-404 codename probe failure to stderr" {
+  # A real failure of the codename probe (DNS blip, TLS error, a 500) must
+  # not be swallowed the same way as the expected 404 - only the 404 case is
+  # diagnostic noise the operator doesn't need to see; anything else is a
+  # signal worth keeping, even though the script still falls back to
+  # "jammy" either way.
+  fake_bin="$BATS_TEST_TMPDIR/fake-bin"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/curl" <<'FAKECURL'
+#!/usr/bin/env bash
+case "$*" in
+  *dists*Release) echo "curl: (22) The requested URL returned error: 500" >&2; exit 22 ;;
+esac
+exit 0
+FAKECURL
+  chmod +x "$fake_bin/curl"
+  export PATH="$fake_bin:$PATH"
+  sources_file="$BATS_TEST_TMPDIR/azure-cli.list"
+  keyrings_dir="$BATS_TEST_TMPDIR/keyrings"
+  run --separate-stderr omawsl_install_azure_cli "$sources_file" "$keyrings_dir"
+  [ "$status" -eq 0 ]
+  [[ "$stderr" == *"curl: (22) The requested URL returned error: 500"* ]]
 }
 
 @test "azure-cli: no-ops when already installed" {
