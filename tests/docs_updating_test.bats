@@ -15,8 +15,8 @@ DOC="$REPO_ROOT/docs/updating.md"
   grep -qi "own update" "$DOC"
 }
 
-@test "docs/updating.md lists all 7 orphan tools by name" {
-  for tool in Zellij LazyDocker opencode "Claude Code CLI" "Codex CLI" "Antigravity CLI" "GitHub Copilot CLI"; do
+@test "docs/updating.md lists all 8 orphan tools by name" {
+  for tool in Zellij LazyDocker opencode "Claude Code CLI" "Codex CLI" "Antigravity CLI" "GitHub Copilot CLI" Herdr; do
     grep -qF "$tool" "$DOC" || { echo "missing tool: $tool"; return 1; }
   done
 }

@@ -34,7 +34,7 @@ the same way omawsl never auto-installs them in the first place.
 
 ## The rest: `omawsl update`
 
-Nine tools have no update command of their own - no apt package, no mise tool, nothing to
+Ten tools have no update command of their own - no apt package, no mise tool, nothing to
 run yourself. `omawsl update` checks each one that's currently installed against its real
 latest release, then offers a picker (pre-checked for anything outdated) to bring them
 current:
@@ -48,6 +48,7 @@ current:
 - Antigravity CLI
 - GitHub Copilot CLI
 - AWS CLI
+- Herdr
 
 If everything here is already confirmed up to date, `omawsl update` says so and skips the
 picker - there's nothing for it to offer.
