@@ -241,48 +241,39 @@ setup() {
   grep -qF 'some line the user added by hand' "$bashrc"
 }
 
-@test "omawsl_prompt_copilot_autopilot_if_needed prompts and persists when Copilot CLI is newly picked" {
-  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  gum_stub_respond "Yes - autopilot + allow-all"
-  omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" ""
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "Yes - autopilot + allow-all" ]
-  [[ "$(stub_calls)" == *"autopilot mode"* ]]
-}
-
-@test "omawsl_prompt_copilot_autopilot_if_needed does not prompt when Copilot CLI is not in the picked list" {
-  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  omawsl_prompt_copilot_autopilot_if_needed "VS Code" ""
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "" ]
-  [ -z "$(stub_calls)" ]
-}
-
-@test "omawsl_prompt_copilot_autopilot_if_needed does not re-prompt when Copilot CLI was already selected before" {
-  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" "GitHub Copilot CLI"
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "" ]
-  [ -z "$(stub_calls)" ]
-}
-
-@test "omawsl_prompt_copilot_autopilot_if_needed does not re-prompt once an answer is already persisted" {
-  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "No - interactive by default (recommended)"
-  omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" ""
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "No - interactive by default (recommended)" ]
-  [ -z "$(stub_calls)" ]
-}
-
-@test "omawsl_prompt_copilot_autopilot_if_needed returns cleanly without persisting anything when the prompt is cancelled" {
-  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  gum() { echo "gum $*" >> "$STUB_LOG"; return 1; }
-  export -f gum
-  run omawsl_prompt_copilot_autopilot_if_needed "GitHub Copilot CLI" ""
+@test "omawsl_notice_ai_autopilot_if_needed prints a notice naming the tool and its flag when newly picked" {
+  run omawsl_notice_ai_autopilot_if_needed "Claude Code CLI" ""
   [ "$status" -eq 0 ]
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "" ]
+  [ "$output" = "omawsl: Claude Code CLI starts in autopilot mode by default (--dangerously-skip-permissions) - auto-approves all tool use, no confirmation." ]
+}
+
+@test "omawsl_notice_ai_autopilot_if_needed prints nothing when the tool isn't in the picked list" {
+  run omawsl_notice_ai_autopilot_if_needed "VS Code" ""
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "omawsl_notice_ai_autopilot_if_needed prints nothing when the tool was already selected before" {
+  run omawsl_notice_ai_autopilot_if_needed "Codex CLI" "Codex CLI"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "omawsl_notice_ai_autopilot_if_needed prints one line per newly-picked tool, in a single call" {
+  run omawsl_notice_ai_autopilot_if_needed "Claude Code CLI,Codex CLI,GitHub Copilot CLI,Antigravity CLI,opencode" ""
+  [ "$status" -eq 0 ]
+  [ "$(printf '%s\n' "$output" | wc -l)" -eq 5 ]
+  [[ "$output" == *"omawsl: Claude Code CLI starts in autopilot mode by default (--dangerously-skip-permissions)"* ]]
+  [[ "$output" == *"omawsl: Codex CLI starts in autopilot mode by default (--dangerously-bypass-approvals-and-sandbox)"* ]]
+  [[ "$output" == *"omawsl: GitHub Copilot CLI starts in autopilot mode by default (--autopilot --allow-all)"* ]]
+  [[ "$output" == *"omawsl: Antigravity CLI starts in autopilot mode by default (--dangerously-skip-permissions)"* ]]
+  [[ "$output" == *"omawsl: opencode starts in autopilot mode by default (--auto)"* ]]
+}
+
+@test "omawsl_notice_ai_autopilot_if_needed only notices newly-picked tools, not ones already existing, in a mixed call" {
+  run omawsl_notice_ai_autopilot_if_needed "Claude Code CLI,Codex CLI" "Codex CLI"
+  [ "$status" -eq 0 ]
+  [ "$output" = "omawsl: Claude Code CLI starts in autopilot mode by default (--dangerously-skip-permissions) - auto-approves all tool use, no confirmation." ]
 }
 
 @test "omawsl_install_npm_cli_wrapper installs the package via mise, filters the allow-scripts advisory out of npm's output, and writes an executable wrapper" {
