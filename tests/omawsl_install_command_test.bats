@@ -15,7 +15,7 @@ setup() {
   stub_command sudo
   stub_command mise
   stub_command gem
-  stub_hide_command docker terraform az gcloud aws code cursor claude codex agy opencode
+  stub_hide_command docker terraform az gcloud aws code cursor claude codex agy opencode copilot herdr
 }
 
 @test "omawsl install language go - installs go directly and merges it into OMAWSL_LANGUAGES" {
@@ -117,4 +117,12 @@ Python"
   run omawsl_install_command editor gh-copilot
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" != *"autopilot mode"* ]]
+}
+
+@test "omawsl install editor herdr - installs herdr directly and merges it into OMAWSL_EDITORS" {
+  stub_command curl
+  run omawsl_install_command editor herdr
+  [ "$status" -eq 0 ]
+  [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "Herdr" ]]
+  [[ "$(stub_calls)" == *"curl -fsSL https://herdr.dev/install.sh"* ]]
 }

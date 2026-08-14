@@ -63,6 +63,7 @@ omawsl_doctor_editor_installed() {
     codex) command -v codex &>/dev/null ;;
     antigravity) command -v agy &>/dev/null ;;
     gh-copilot) command -v copilot &>/dev/null ;;
+    herdr) command -v herdr &>/dev/null ;;
     *) return 1 ;;
   esac
 }

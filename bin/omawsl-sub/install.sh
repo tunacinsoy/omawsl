@@ -40,7 +40,7 @@ omawsl_install_apply_editor() {
   export OMAWSL_EDITORS="$merged"
   omawsl_save_choice OMAWSL_EDITORS "$merged"
   local f
-  for f in app-vscode app-neovim app-opencode app-cursor app-claude-cli app-codex-cli app-gh-copilot app-antigravity-cli; do
+  for f in app-vscode app-neovim app-opencode app-cursor app-claude-cli app-codex-cli app-gh-copilot app-antigravity-cli app-herdr; do
     # shellcheck source=/dev/null
     source "$OMAWSL_ROOT_DIR/install/terminal/$f.sh"
   done
@@ -61,6 +61,7 @@ omawsl_install_apply_editor() {
   omawsl_install_codex_cli || echo "omawsl: failed to install Codex CLI - skipping, continuing with the rest." >&2
   omawsl_install_gh_copilot || echo "omawsl: failed to install GitHub Copilot CLI - skipping, continuing with the rest." >&2
   omawsl_install_antigravity_cli || echo "omawsl: failed to install Antigravity CLI - skipping, continuing with the rest." >&2
+  omawsl_install_herdr || echo "omawsl: failed to install Herdr - skipping, continuing with the rest." >&2
 }
 
 # omawsl_install_apply_storage <picked_labels_csv> <existing_labels_csv>
