@@ -12,7 +12,7 @@ setup() {
   source "$REPO_ROOT/bin/omawsl-sub/orphan-tools.sh"
 }
 
-@test "omawsl_orphan_tool_slugs lists all 9 orphan tools" {
+@test "omawsl_orphan_tool_slugs lists all 10 orphan tools" {
   run omawsl_orphan_tool_slugs
   [ "$status" -eq 0 ]
   [[ "$output" == *"zellij"* ]]
@@ -24,7 +24,8 @@ setup() {
   [[ "$output" == *"antigravity"* ]]
   [[ "$output" == *"gh-copilot"* ]]
   [[ "$output" == *"aws"* ]]
-  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 9 ]
+  [[ "$output" == *"herdr"* ]]
+  [ "$(omawsl_orphan_tool_slugs | wc -l)" -eq 10 ]
 }
 
 @test "omawsl_orphan_tool_label returns Zellij/LazyDocker directly and reuses items.sh for the rest" {
@@ -33,6 +34,7 @@ setup() {
   [ "$(omawsl_orphan_tool_label codex)" = "$(omawsl_item_label codex)" ]
   [ "$(omawsl_orphan_tool_label gh-copilot)" = "GitHub Copilot CLI" ]
   [ "$(omawsl_orphan_tool_label aws)" = "AWS CLI" ]
+  [ "$(omawsl_orphan_tool_label herdr)" = "Herdr" ]
 }
 
 @test "omawsl_orphan_tool_label fails for an unknown slug" {
@@ -152,7 +154,7 @@ setup() {
             omawsl_starship_install_steps omawsl_opencode_install_steps \
             omawsl_claude_cli_install_steps omawsl_codex_cli_install_steps \
             omawsl_antigravity_cli_install_steps omawsl_gh_copilot_install_steps \
-            omawsl_aws_cli_install_steps; do
+            omawsl_aws_cli_install_steps omawsl_herdr_install_steps; do
     declare -F "$fn" >/dev/null || { echo "missing function: $fn"; return 1; }
   done
 }
@@ -359,7 +361,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_installed_slugs lists only what's actually installed" {
-  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot
+  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot herdr
   stub_command zellij
   stub_command codex
   run omawsl_orphan_tools_installed_slugs
@@ -375,7 +377,7 @@ setup() {
   # omawsl_orphan_tools_update's own comment - so a genuine "nothing
   # installed" no-op now requires starship itself to be present and
   # already up to date, not merely absent from the picker list.
-  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot
+  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot herdr
   stub_command starship
   starship() { echo "starship 1.0.0"; }
   export -f starship
@@ -387,7 +389,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update offers to recover a missing starship even when nothing else is installed" {
-  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot starship
+  stub_hide_command zellij lazydocker opencode claude codex agy gh copilot starship herdr
   gum_stub_init
   omawsl_orphan_tool_version_latest() { echo "1.20.0"; }
   export -f omawsl_orphan_tool_version_latest
@@ -402,7 +404,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update skips the picker when everything is confirmed up to date" {
-  stub_hide_command lazydocker opencode claude codex agy gh copilot
+  stub_hide_command lazydocker opencode claude codex agy gh copilot herdr
   stub_command zellij starship
   zellij() { echo "zellij 1.0.0"; }
   export -f zellij
@@ -417,7 +419,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update shows the picker, pre-selecting only outdated tools, and applies what's picked" {
-  stub_hide_command lazydocker opencode claude codex agy gh copilot
+  stub_hide_command lazydocker opencode claude codex agy gh copilot herdr
   stub_command zellij
   gum_stub_init
   zellij() { echo "zellij 1.0.0"; }
@@ -436,7 +438,7 @@ setup() {
 }
 
 @test "omawsl_orphan_tools_update still shows the picker when a tool is unknown, even with none confirmed outdated" {
-  stub_hide_command lazydocker opencode claude codex agy gh copilot
+  stub_hide_command lazydocker opencode claude codex agy gh copilot herdr
   stub_command zellij
   gum_stub_init
   zellij() { echo "zellij 1.0.0"; }
@@ -493,4 +495,32 @@ setup() {
   run omawsl_orphan_tool_apply_update starship
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"starship-reinstalled"* ]]
+}
+
+@test "omawsl_orphan_tool_installed checks herdr via command -v" {
+  stub_hide_command herdr
+  run omawsl_orphan_tool_installed herdr
+  [ "$status" -ne 0 ]
+  stub_command herdr
+  run omawsl_orphan_tool_installed herdr
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl_orphan_tool_version_installed extracts herdr's version" {
+  herdr() { echo "herdr 0.8.0"; }
+  export -f herdr
+  [ "$(omawsl_orphan_tool_version_installed herdr)" = "0.8.0" ]
+}
+
+@test "omawsl_orphan_tool_version_latest resolves herdr via the GitHub releases API" {
+  stub_command_output_for curl "api.github.com/repos/herdrdev/herdr" '{"tag_name": "v0.9.0"}'
+  [ "$(omawsl_orphan_tool_version_latest herdr)" = "0.9.0" ]
+}
+
+@test "omawsl_orphan_tool_apply_update reinstalls herdr via its install steps" {
+  omawsl_herdr_install_steps() { echo "herdr-reinstalled" >> "$STUB_LOG"; }
+  export -f omawsl_herdr_install_steps
+  run omawsl_orphan_tool_apply_update herdr
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"herdr-reinstalled"* ]]
 }
