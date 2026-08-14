@@ -14,7 +14,7 @@ setup() {
   source "$REPO_ROOT/bin/omawsl-sub/install.sh"
   stub_command sudo
   stub_command git
-  stub_hide_command docker terraform az gcloud aws code cursor claude codex agy opencode copilot
+  stub_hide_command docker terraform az gcloud aws code cursor claude codex agy opencode copilot herdr
 }
 
 @test "one editor's failed npm install does not abort the rest of the editor chain" {

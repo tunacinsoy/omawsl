@@ -41,10 +41,10 @@ omawsl_orphan_tool_slugs() {
 
 # omawsl_orphan_tool_label <slug>
 # zellij/lazydocker/starship aren't in items.sh (always-on, not a picker
-# target), so they get their own labels here; the other 6 slugs are already
+# target), so they get their own labels here; the other 7 slugs are already
 # registered there under the exact same slug names install/uninstall/
 # doctor use - reused via omawsl_item_label rather than duplicating the
-# same 6 label strings a second time.
+# same 7 label strings a second time.
 omawsl_orphan_tool_label() {
   case "$1" in
     zellij) echo "Zellij" ;;
@@ -59,7 +59,7 @@ omawsl_orphan_tool_label() {
 # Is this orphan tool actually present right now? zellij/lazydocker/starship
 # get a direct command -v check (they're not in items.sh, so
 # bin/omawsl-sub/doctor.sh's own per-slug checks don't cover them
-# either); the other 6 repeat the same one-line checks doctor.sh and
+# either); the other 7 repeat the same one-line checks doctor.sh and
 # each tool's own install-script guard already use - this repo already
 # has that exact check duplicated in at least two places per tool
 # (app-codex-cli.sh's own guard, doctor.sh's omawsl_doctor_editor_installed),
@@ -187,10 +187,11 @@ omawsl_orphan_tool_version_installed() {
 }
 
 # omawsl_orphan_tool_version_latest <slug>
-# GitHub Releases API for the 5 binary/curl-script-distributed tools that
+# GitHub Releases API for the 6 binary/curl-script-distributed tools that
 # actually publish releases (repo slugs confirmed live: zellij-org/zellij,
 # jesseduffield/lazydocker, starship/starship, anomalyco/opencode [formerly
-# sst/opencode - GitHub redirects the old path], anthropics/claude-code);
+# sst/opencode - GitHub redirects the old path], anthropics/claude-code,
+# herdrdev/herdr);
 # GitHub tags API for aws/aws-cli, which doesn't publish GitHub Releases at
 # all (confirmed: releases/latest 404s for that repo every time - see
 # omawsl_orphan_latest_from_github_tags); npm registry for the 2 tools
@@ -354,7 +355,7 @@ omawsl_orphan_tool_apply_update() {
 }
 
 # omawsl_orphan_tools_installed_slugs
-# Which of the 9 orphan tools are actually installed right now, in
+# Which of the 10 orphan tools are actually installed right now, in
 # registry order.
 omawsl_orphan_tools_installed_slugs() {
   local slug
@@ -426,7 +427,7 @@ omawsl_orphan_tools_update() {
   local slugs=() slug
   while IFS= read -r slug; do slugs+=("$slug"); done < <(omawsl_orphan_tools_installed_slugs)
 
-  # Unlike the other 8 orphan tools (opt-in picker targets - if the user
+  # Unlike the other 9 orphan tools (opt-in picker targets - if the user
   # never installed one, there's nothing to recover), starship is meant
   # to be on every machine after the starship-default-prompt migration
   # (design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md),
