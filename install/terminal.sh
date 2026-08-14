@@ -34,6 +34,7 @@ OMAWSL_TERMINAL_SCRIPTS=(
   "terminal/app-codex-cli.sh"
   "terminal/app-gh-copilot.sh"
   "terminal/app-antigravity-cli.sh"
+  "terminal/app-herdr.sh"
 )
 
 omawsl_run_terminal_scripts() {
@@ -59,6 +60,7 @@ omawsl_run_terminal_scripts() {
     ["terminal/app-codex-cli.sh"]="omawsl_install_codex_cli"
     ["terminal/app-gh-copilot.sh"]="omawsl_install_gh_copilot"
     ["terminal/app-antigravity-cli.sh"]="omawsl_install_antigravity_cli"
+    ["terminal/app-herdr.sh"]="omawsl_install_herdr"
   )
 
   for script in "${OMAWSL_TERMINAL_SCRIPTS[@]}"; do

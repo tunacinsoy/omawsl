@@ -81,7 +81,8 @@ terminal/app-cursor.sh
 terminal/app-claude-cli.sh
 terminal/app-codex-cli.sh
 terminal/app-gh-copilot.sh
-terminal/app-antigravity-cli.sh"
+terminal/app-antigravity-cli.sh
+terminal/app-herdr.sh"
 
   [ "$actual_order" = "$expected_order" ]
   [ -f "$HOME/.bashrc" ]

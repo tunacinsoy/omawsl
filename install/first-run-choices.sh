@@ -29,7 +29,7 @@ omawsl_first_run_choices() {
 
   OMAWSL_EDITORS="$(omawsl_prompt_multi "Editors & AI tooling (space to select, enter to confirm)" \
     "VS Code" "Neovim" "opencode" "Cursor" \
-    "Claude Code CLI" "Codex CLI" "GitHub Copilot CLI" "Antigravity CLI")"
+    "Claude Code CLI" "Codex CLI" "GitHub Copilot CLI" "Antigravity CLI" "Herdr")"
 
   omawsl_prompt_copilot_autopilot_if_needed "$OMAWSL_EDITORS" ""
 
