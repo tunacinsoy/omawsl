@@ -11,6 +11,7 @@ setup() {
   source "$REPO_ROOT/uninstall/app-claude-cli.sh"
   source "$REPO_ROOT/uninstall/app-codex-cli.sh"
   source "$REPO_ROOT/uninstall/app-antigravity-cli.sh"
+  source "$REPO_ROOT/uninstall/app-herdr.sh"
 }
 
 @test "omawsl_uninstall_claude_cli removes the binary and its data dir" {
@@ -52,4 +53,13 @@ EOF
   run omawsl_uninstall_codex_cli
   [ "$status" -eq 0 ]
   [ ! -f "$HOME/.local/bin/codex" ]
+}
+
+@test "omawsl_uninstall_herdr removes the binary and its config dir" {
+  mkdir -p "$HOME/.local/bin" "$HOME/.config/herdr"
+  touch "$HOME/.local/bin/herdr"
+  run omawsl_uninstall_herdr
+  [ "$status" -eq 0 ]
+  [ ! -f "$HOME/.local/bin/herdr" ]
+  [ ! -d "$HOME/.config/herdr" ]
 }
