@@ -31,7 +31,7 @@ omawsl_first_run_choices() {
     "VS Code" "Neovim" "opencode" "Cursor" \
     "Claude Code CLI" "Codex CLI" "GitHub Copilot CLI" "Antigravity CLI")"
 
-  omawsl_prompt_copilot_autopilot_if_needed "$OMAWSL_EDITORS" ""
+  omawsl_notice_ai_autopilot_if_needed "$OMAWSL_EDITORS" ""
 
   OMAWSL_LANGUAGES="$(omawsl_prompt_multi "Languages & cloud tools" \
     "Ruby on Rails" "Node.js" "Go" "PHP" "Python" "Elixir" "Rust" "Java" \
