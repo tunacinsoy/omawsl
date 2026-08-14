@@ -70,8 +70,8 @@
 - [ ] **7. Pick editors/AI tooling: VS Code + GitHub Copilot CLI.**
       Say: "VS Code because it's the editor most corporate teams already standardize on, and
       GitHub Copilot CLI to show the one AI-tool pick that has a real prerequisite. It'll also
-      ask whether `copilot` should always start in autopilot mode — say no here, since that's
-      an opt-in most teams will want their own IT policy to decide on."
+      print a one-time notice that `copilot` now starts in autopilot mode by default — that's
+      not a prompt to answer, just an informational heads-up."
 
 - [ ] **8. Pick storage: PostgreSQL.**
       Say: "One storage engine, containerized automatically — no manual `docker run` needed
