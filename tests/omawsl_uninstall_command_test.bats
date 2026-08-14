@@ -20,6 +20,7 @@ setup() {
   [[ "$(omawsl_item_category gcp)" == "cloud" ]]
   [[ "$(omawsl_item_category vscode)" == "editor" ]]
   [[ "$(omawsl_item_category gh-copilot)" == "editor" ]]
+  [[ "$(omawsl_item_category herdr)" == "editor" ]]
   [[ "$(omawsl_item_category mysql)" == "storage" ]]
   [[ "$(omawsl_item_category docker)" == "docker" ]]
   ! omawsl_item_category not-a-real-slug
@@ -29,20 +30,22 @@ setup() {
   [[ "$(omawsl_item_label ruby)" == "Ruby on Rails" ]]
   [[ "$(omawsl_item_label vscode)" == "VS Code" ]]
   [[ "$(omawsl_item_label gh-copilot)" == "GitHub Copilot CLI" ]]
+  [[ "$(omawsl_item_label herdr)" == "Herdr" ]]
   [[ "$(omawsl_item_label postgresql)" == "PostgreSQL" ]]
   [[ "$(omawsl_item_label azure)" == "Azure CLI" ]]
   [[ "$(omawsl_item_label aws)" == "AWS CLI" ]]
   [[ "$(omawsl_item_label gcp)" == "GCP CLI" ]]
 }
 
-@test "omawsl_item_slugs lists all 9 language slugs, 3 cloud slugs, 8 editor slugs, 3 storage slugs" {
+@test "omawsl_item_slugs lists all 9 language slugs, 3 cloud slugs, 9 editor slugs, 3 storage slugs" {
   [[ "$(omawsl_item_slugs language | wc -l)" -eq 9 ]]
   [[ "$(omawsl_item_slugs language)" != *"azure"* ]]
   [[ "$(omawsl_item_slugs cloud | wc -l)" -eq 3 ]]
   [[ "$(omawsl_item_slugs cloud)" == *"azure"* ]]
   [[ "$(omawsl_item_slugs cloud)" == *"aws"* ]]
   [[ "$(omawsl_item_slugs cloud)" == *"gcp"* ]]
-  [[ "$(omawsl_item_slugs editor | wc -l)" -eq 8 ]]
+  [[ "$(omawsl_item_slugs editor | wc -l)" -eq 9 ]]
+  [[ "$(omawsl_item_slugs editor)" == *"herdr"* ]]
   [[ "$(omawsl_item_slugs storage | wc -l)" -eq 3 ]]
 }
 
