@@ -59,24 +59,26 @@ setup() {
   [ "$OMAWSL_STORAGE" = "" ]
 }
 
-@test "prompts for copilot autopilot mode when GitHub Copilot CLI is selected, and persists the answer" {
+@test "prints an autopilot notice for each newly-picked AI CLI, one per tool" {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
-  gum_stub_respond "GitHub Copilot CLI"
-  gum_stub_respond "Yes - autopilot + allow-all"
+  gum_stub_respond $'Claude Code CLI\nCodex CLI\nGitHub Copilot CLI\nAntigravity CLI\nopencode'
   gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond ""
   gum_stub_respond "Nerd Font (enhanced)"
 
-  omawsl_first_run_choices
+  run omawsl_first_run_choices
 
-  [ "$OMAWSL_EDITORS" = "GitHub Copilot CLI" ]
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "Yes - autopilot + allow-all" ]
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"omawsl: Claude Code CLI starts in autopilot mode by default"* ]]
+  [[ "$output" == *"omawsl: Codex CLI starts in autopilot mode by default"* ]]
+  [[ "$output" == *"omawsl: GitHub Copilot CLI starts in autopilot mode by default"* ]]
+  [[ "$output" == *"omawsl: Antigravity CLI starts in autopilot mode by default"* ]]
+  [[ "$output" == *"omawsl: opencode starts in autopilot mode by default"* ]]
 }
 
-@test "does not prompt for copilot autopilot mode when GitHub Copilot CLI is not selected" {
+@test "does not print an autopilot notice when no AI CLI is selected" {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
   gum_stub_respond "VS Code"
@@ -85,9 +87,8 @@ setup() {
   gum_stub_respond ""
   gum_stub_respond "Nerd Font (enhanced)"
 
-  omawsl_first_run_choices
+  run omawsl_first_run_choices
 
-  [ "$OMAWSL_EDITORS" = "VS Code" ]
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "" ]
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"autopilot mode"* ]]
 }

@@ -100,21 +100,26 @@ Python"
   [ "$status" -eq 0 ]
 }
 
-@test "omawsl install editor gh-copilot - prompts for autopilot mode since newly added and persists the answer" {
+@test "omawsl install editor gh-copilot - prints an autopilot notice since newly added" {
   stub_command gh
   stub_hide_command copilot
-  gum_stub_respond "Yes - autopilot + allow-all"
   run omawsl_install_command editor gh-copilot
   [ "$status" -eq 0 ]
   [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "GitHub Copilot CLI" ]]
-  [[ "$(omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT)" == "Yes - autopilot + allow-all" ]]
+  [[ "$output" == *"omawsl: GitHub Copilot CLI starts in autopilot mode by default (--autopilot --allow-all)"* ]]
 }
 
-@test "omawsl install editor gh-copilot - does not re-prompt when GitHub Copilot CLI is already installed" {
+@test "omawsl install editor gh-copilot - does not reprint the notice when GitHub Copilot CLI is already installed" {
   stub_command gh
   stub_command copilot
   omawsl_save_choice OMAWSL_EDITORS "GitHub Copilot CLI"
   run omawsl_install_command editor gh-copilot
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" != *"autopilot mode"* ]]
+  [[ "$output" != *"autopilot mode"* ]]
+}
+
+@test "omawsl install editor vscode - does not print an autopilot notice for a non-AI-CLI editor" {
+  run omawsl_install_command editor vscode
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"autopilot mode"* ]]
 }

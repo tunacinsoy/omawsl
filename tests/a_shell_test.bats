@@ -315,12 +315,53 @@ EOF
   [[ "$output" != *"alias lzd="* ]]
 }
 
-@test "copilot is aliased to autopilot+allow-all mode when copilot is on PATH and the autopilot choice is Yes" {
-  export HOME="$BATS_TEST_TMPDIR/home_copilot_autopilot_yes"
-  mkdir -p "$HOME/.local/bin" "$HOME/.local/state/omawsl"
+@test "claude is aliased to autopilot mode (--dangerously-skip-permissions) when claude is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_claude"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/claude"
+  chmod +x "$HOME/.local/bin/claude"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias claude'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias claude='claude --dangerously-skip-permissions'"* ]]
+}
+
+@test "claude is not aliased when claude is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_claude"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command claude
+  run bash -i -c 'alias claude'
+  [ "$status" -ne 0 ]
+}
+
+@test "codex is aliased to autopilot mode (--dangerously-bypass-approvals-and-sandbox) when codex is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_codex"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/codex"
+  chmod +x "$HOME/.local/bin/codex"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias codex'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias codex='codex --dangerously-bypass-approvals-and-sandbox'"* ]]
+}
+
+@test "codex is not aliased when codex is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_codex"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command codex
+  run bash -i -c 'alias codex'
+  [ "$status" -ne 0 ]
+}
+
+@test "copilot is unconditionally aliased to autopilot+allow-all mode when copilot is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_copilot"
+  mkdir -p "$HOME/.local/bin"
   printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
   chmod +x "$HOME/.local/bin/copilot"
-  printf 'OMAWSL_COPILOT_AUTOPILOT="Yes - autopilot + allow-all"\n' > "$HOME/.local/state/omawsl/choices.env"
   export PATH="$HOME/.local/bin:$PATH"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias copilot'
@@ -328,33 +369,9 @@ EOF
   [[ "$output" == *"alias copilot='copilot --autopilot --allow-all'"* ]]
 }
 
-@test "copilot is not aliased when the autopilot choice is No" {
-  export HOME="$BATS_TEST_TMPDIR/home_copilot_autopilot_no"
-  mkdir -p "$HOME/.local/bin" "$HOME/.local/state/omawsl"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
-  chmod +x "$HOME/.local/bin/copilot"
-  printf 'OMAWSL_COPILOT_AUTOPILOT="No - interactive by default (recommended)"\n' > "$HOME/.local/state/omawsl/choices.env"
-  export PATH="$HOME/.local/bin:$PATH"
-  bash "$REPO_ROOT/install/terminal/a-shell.sh"
-  run bash -i -c 'alias copilot'
-  [ "$status" -ne 0 ]
-}
-
-@test "copilot is not aliased when no autopilot choice was ever persisted, even though copilot is on PATH" {
-  export HOME="$BATS_TEST_TMPDIR/home_copilot_no_choice"
-  mkdir -p "$HOME/.local/bin"
-  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
-  chmod +x "$HOME/.local/bin/copilot"
-  export PATH="$HOME/.local/bin:$PATH"
-  bash "$REPO_ROOT/install/terminal/a-shell.sh"
-  run bash -i -c 'alias copilot'
-  [ "$status" -ne 0 ]
-}
-
-@test "copilot alias is not defined when copilot is not on PATH, even if the autopilot choice is Yes" {
-  export HOME="$BATS_TEST_TMPDIR/home_copilot_missing"
-  mkdir -p "$HOME/.local/state/omawsl"
-  printf 'OMAWSL_COPILOT_AUTOPILOT="Yes - autopilot + allow-all"\n' > "$HOME/.local/state/omawsl/choices.env"
+@test "copilot is not aliased when copilot is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_copilot"
+  mkdir -p "$HOME"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   stub_hide_command copilot
   run bash -i -c 'alias copilot'
@@ -363,14 +380,66 @@ EOF
 
 @test "copilot alias is defined even though copilot is only reachable via \$HOME/.local/bin, added later in the same file (PATH-ordering regression guard)" {
   export HOME="$BATS_TEST_TMPDIR/home_copilot_path_order"
-  mkdir -p "$HOME/.local/bin" "$HOME/.local/state/omawsl"
+  mkdir -p "$HOME/.local/bin"
   printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/copilot"
   chmod +x "$HOME/.local/bin/copilot"
-  printf 'OMAWSL_COPILOT_AUTOPILOT="Yes - autopilot + allow-all"\n' > "$HOME/.local/state/omawsl/choices.env"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
   run bash -i -c 'alias copilot'
   [ "$status" -eq 0 ]
   [[ "$output" == *"alias copilot='copilot --autopilot --allow-all'"* ]]
+}
+
+@test "agy is aliased to autopilot mode (--dangerously-skip-permissions) when agy is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_agy"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/agy"
+  chmod +x "$HOME/.local/bin/agy"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias agy'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias agy='agy --dangerously-skip-permissions'"* ]]
+}
+
+@test "agy is not aliased when agy is not on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_agy"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command agy
+  run bash -i -c 'alias agy'
+  [ "$status" -ne 0 ]
+}
+
+@test "opencode is aliased to autopilot mode (--auto) when opencode is on PATH" {
+  export HOME="$BATS_TEST_TMPDIR/home_opencode"
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.local/bin/opencode"
+  chmod +x "$HOME/.local/bin/opencode"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias opencode'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias opencode='opencode --auto'"* ]]
+}
+
+@test "opencode is not aliased when opencode is not installed anywhere" {
+  export HOME="$BATS_TEST_TMPDIR/home_no_opencode"
+  mkdir -p "$HOME"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  stub_hide_command opencode
+  run bash -i -c 'alias opencode'
+  [ "$status" -ne 0 ]
+}
+
+@test "opencode is aliased even though it's only reachable via \$HOME/.opencode/bin, whose PATH export comes later in the same file (PATH-ordering regression guard)" {
+  export HOME="$BATS_TEST_TMPDIR/home_opencode_path_order"
+  mkdir -p "$HOME/.opencode/bin"
+  printf '#!/usr/bin/env bash\ntrue\n' > "$HOME/.opencode/bin/opencode"
+  chmod +x "$HOME/.opencode/bin/opencode"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+  run bash -i -c 'alias opencode'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alias opencode='opencode --auto'"* ]]
 }
 
 @test "n opens nvim on the current directory when called with no arguments" {

@@ -253,29 +253,33 @@ WRAPPER
   chmod +x "$HOME/.local/bin/$bin_name"
 }
 
-# omawsl_prompt_copilot_autopilot_if_needed <picked_csv> <existing_csv>
-# Prompts once for whether `copilot` should always start in autopilot +
-# allow-all mode (docs/superpowers/specs/2026-08-09-copilot-autopilot-mode-design.md).
-# Only fires when GitHub Copilot CLI is newly selected this run (present in
-# picked_csv, absent from existing_csv) and no answer is persisted yet -
-# never re-asks on an unrelated `omawsl install` run, and never re-asks once
-# already answered. Auto-approving all of an AI agent's tool use is a
-# safety-relevant default, not a convenience one, so - unlike every other
-# choice in first-run-choices.sh - this one is opt-in rather than always
-# asked. A cancelled or failed prompt (Esc, Ctrl-C, or `gum` missing) is
-# treated as not-yet-answered - nothing is persisted, and the prompt fires
-# again next time, instead of aborting the caller under `set -e` or locking
-# in a stale empty answer.
-omawsl_prompt_copilot_autopilot_if_needed() {
+# omawsl_notice_ai_autopilot_if_needed <picked_csv> <existing_csv>
+# Prints a one-time informational notice for each of the five AI CLI tools
+# newly selected this run (present in picked_csv, absent from existing_csv) -
+# see docs/superpowers/specs/2026-08-14-ai-cli-autopilot-mode-design.md.
+# Replaces omawsl_prompt_copilot_autopilot_if_needed entirely: all five tools
+# start in autopilot mode unconditionally now, so there is nothing to ask and
+# nothing to persist - this exists purely so someone isn't surprised days
+# later that one of these tools behaves differently than they remember.
+# Named per-tool rather than a static list of all five, so the notice never
+# implies a tool the user didn't just pick is already being auto-approved.
+# No persisted state anywhere: the picked_csv/existing_csv diff alone gives
+# the "one-time per machine" property, since once a label lands in the
+# persisted OMAWSL_EDITORS it counts as "existing" on every later run.
+omawsl_notice_ai_autopilot_if_needed() {
   local picked="$1" existing="$2"
-  omawsl_list_has "$picked" "GitHub Copilot CLI" || return 0
-  omawsl_list_has "$existing" "GitHub Copilot CLI" && return 0
-  [[ -z "$(omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT)" ]] || return 0
-
-  local answer
-  answer="$(gum choose --header "GitHub Copilot CLI: always start in autopilot mode (auto-approves all tool use, no confirmation)?" \
-    "No - interactive by default (recommended)" "Yes - autopilot + allow-all")" || return 0
-  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "$answer"
+  local label flag
+  while IFS='|' read -r label flag; do
+    omawsl_list_has "$picked" "$label" || continue
+    omawsl_list_has "$existing" "$label" && continue
+    echo "omawsl: $label starts in autopilot mode by default ($flag) - auto-approves all tool use, no confirmation."
+  done <<'AI_CLI_FLAGS'
+Claude Code CLI|--dangerously-skip-permissions
+Codex CLI|--dangerously-bypass-approvals-and-sandbox
+GitHub Copilot CLI|--autopilot --allow-all
+Antigravity CLI|--dangerously-skip-permissions
+opencode|--auto
+AI_CLI_FLAGS
 }
 
 # omawsl_ensure_bashrc_source_line <bashrc_file> <target_file>

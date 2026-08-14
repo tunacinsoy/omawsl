@@ -54,11 +54,11 @@ setup() {
   gum_stub_respond "Personal / unrestricted"
   gum_stub_respond "Docker Engine only, inside WSL (recommended)"
   gum_stub_respond $'VS Code\nNeovim\nGitHub Copilot CLI'
-  # GitHub Copilot CLI was just picked above, so
-  # omawsl_prompt_copilot_autopilot_if_needed (install/lib.sh) fires its own
-  # gum choose right after the editors prompt, before languages - answer it
-  # here or every response below silently shifts down one slot.
-  gum_stub_respond "No - interactive by default (recommended)"
+  # GitHub Copilot CLI was just picked above.
+  # omawsl_notice_ai_autopilot_if_needed (install/lib.sh) fires right after
+  # the editors prompt, before languages, but only prints a notice - it
+  # never calls gum, so (unlike the old per-tool opt-in prompt this
+  # replaced) there is no extra response to queue here.
   gum_stub_respond $'Go\nTerraform'
   gum_stub_respond ""
   gum_stub_respond ""
@@ -94,6 +94,7 @@ setup() {
   [ -f "$HOME/.vscode-server/data/Machine/settings.json" ]
   [[ "$(stub_calls)" == *"git clone https://github.com/LazyVim/starter $HOME/.config/nvim"* ]]
   [[ "$(stub_calls)" == *"mise exec node@lts -- npm install -g @github/copilot"* ]]
+  [[ "$output" == *"omawsl: GitHub Copilot CLI starts in autopilot mode by default (--autopilot --allow-all)"* ]]
   [[ "$(stub_calls)" != *"cursor-server"* ]]
   # Not a bare "opencode" substring check: the gum stub logs its own
   # invocation verbatim, including every offered-but-unselected choice

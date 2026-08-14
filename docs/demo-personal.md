@@ -68,7 +68,8 @@
 - [ ] **7. Pick editors/AI tooling: opencode + Claude Code CLI.**
       Say: "These two need nothing extra on the Windows side, unlike VS Code/Cursor — good
       pick for a pure-terminal power-user flow. Notice there was no Windows-side install for
-      either of these back in Prep."
+      either of these back in Prep. The installer will print a one-time notice for each tool
+      confirming it starts in autopilot mode by default."
 
 - [ ] **8. Pick storage: PostgreSQL + Redis.**
       Say: "Both come up as containers automatically — no manual `docker run` needed."
