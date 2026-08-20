@@ -11,9 +11,8 @@ source "$SCRIPT_DIR/migrate.sh"
 source "$SCRIPT_DIR/orphan-tools.sh"
 
 # omawsl_update
-# Entry point for `bin/omawsl update` (design spec §14, extended by
-# docs/superpowers/specs/2026-07-13-omawsl-update-mechanism-design.md
-# §4): git pull inside $OMAWSL_HOME, runs pending migrations, then offers
+# Entry point for `bin/omawsl update` (design spec §14, §4): git pull
+# inside $OMAWSL_HOME, runs pending migrations, then offers
 # to update the 9 "orphan" tools that have no native updater of their
 # own (§3 of that spec) - never wraps `apt upgrade`/`mise upgrade`
 # themselves. Detects a dirty working tree first (someone hand-edited a

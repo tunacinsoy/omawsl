@@ -255,7 +255,7 @@ WRAPPER
 
 # omawsl_prompt_copilot_autopilot_if_needed <picked_csv> <existing_csv>
 # Prompts once for whether `copilot` should always start in autopilot +
-# allow-all mode (docs/superpowers/specs/2026-08-09-copilot-autopilot-mode-design.md).
+# allow-all mode.
 # Only fires when GitHub Copilot CLI is newly selected this run (present in
 # picked_csv, absent from existing_csv) and no answer is persisted yet -
 # never re-asks on an unrelated `omawsl install` run, and never re-asks once
@@ -281,9 +281,7 @@ omawsl_prompt_copilot_autopilot_if_needed() {
 # omawsl_ensure_bashrc_source_line <bashrc_file> <target_file>
 # Appends exactly one guarded, marker-delimited `source <target_file>` line
 # to <bashrc_file>, only if not already present - the corp-safe config
-# editing policy (design spec
-# docs/superpowers/specs/2026-07-28-corp-safe-config-editing-design.md):
-# omawsl owns <target_file> outright (freely rewritten elsewhere) but adds
+# editing policy: omawsl owns <target_file> outright (freely rewritten elsewhere) but adds
 # at most one small, idempotent line to a file it doesn't own, never
 # touching anything already there. Creates <bashrc_file> if missing.
 omawsl_ensure_bashrc_source_line() {

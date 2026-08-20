@@ -24,8 +24,7 @@ source "$OMAWSL_ROOT_DIR/install/terminal/cloud-clis.sh"
 
 # Registry + version-check adapters for omawsl's "orphan" tools - tools
 # omawsl installs that have no native update command of their own (no
-# apt/mise coverage), per
-# docs/superpowers/specs/2026-07-13-omawsl-update-mechanism-design.md §3.
+# apt/mise coverage).
 # Deliberately separate from items.sh: items.sh is the install/uninstall/
 # doctor picker registry (language/editor/storage categories only);
 # zellij and lazydocker are always-on, not picker targets, so they don't
@@ -422,8 +421,7 @@ omawsl_orphan_tools_update() {
 
   # Unlike the other 8 orphan tools (opt-in picker targets - if the user
   # never installed one, there's nothing to recover), starship is meant
-  # to be on every machine after the starship-default-prompt migration
-  # (design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md),
+  # to be on every machine after the starship-default-prompt migration,
   # same distinction bin/omawsl-sub/doctor.sh's own
   # omawsl_doctor_starship_missing draws. Without this, a starship
   # install that silently failed (offline box, corp proxy blocking

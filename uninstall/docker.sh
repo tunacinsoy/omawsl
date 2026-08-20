@@ -33,8 +33,7 @@ omawsl_uninstall_omawsl_containers() {
 # nothing here for THIS repo to uninstall. Otherwise purges docker-ce and
 # its apt source/keyring, same paths omawsl_install_docker_ce writes
 # (install/terminal/docker.sh), and removes omawsl-proxy.conf - the one
-# file omawsl_configure_docker_proxy might have created (design spec
-# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md) -
+# file omawsl_configure_docker_proxy might have created -
 # never anything else under docker_service_d_dir. Deliberately leaves the
 # user's docker group membership in place rather than auto-revoking it -
 # that's a broader system change than "undo what omawsl installed."

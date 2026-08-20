@@ -77,9 +77,8 @@ omawsl_detect_proxy_env() {
 # True if some *other* .conf file already in <dir> sets a proxy - e.g. a
 # corp IT manual's own drop-in. omawsl backs off entirely in this case
 # rather than risk two drop-ins silently overriding each other for the
-# same key (design spec
-# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md:
-# omawsl never edits or competes with a file it doesn't exclusively own).
+# same key (omawsl never edits or competes with a file it doesn't
+# exclusively own).
 omawsl_docker_proxy_conflict() {
   local dir="$1" own_file="$2"
   [[ -d "$dir" ]] || return 1
@@ -95,8 +94,7 @@ omawsl_docker_proxy_conflict() {
 # omawsl_configure_docker_proxy [dir]
 # Detects a corp proxy from the environment and configures dockerd to use
 # it via its own exclusively-owned drop-in - never the conventional
-# http-proxy.conf name a corp manual would use (design spec
-# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md).
+# http-proxy.conf name a corp manual would use.
 # dockerd runs as a systemd service and never inherits the interactive
 # shell's HTTP_PROXY/HTTPS_PROXY - confirmed on a real corp machine, where
 # curl (proxy-aware) reached registry-1.docker.io fine while `docker pull`

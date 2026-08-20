@@ -2,9 +2,8 @@
 
 REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
-# Best-effort static regression guard (design spec
-# docs/superpowers/specs/2026-07-28-corp-safe-config-editing-design.md):
-# fails if any install/uninstall/migrations/bin script ever gains a
+# Best-effort static regression guard: fails if any
+# install/uninstall/migrations/bin script ever gains a
 # write-operation pattern targeting one of the never-touch files. migrations/
 # and bin/ are scanned too, not just install/uninstall - migrations/ in
 # particular exists solely to write to files under $HOME, so it's exactly
@@ -37,9 +36,7 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 }
 
 # docker.service.d/* is never-touch except omawsl's own exclusively-owned
-# omawsl-proxy.conf (design spec
-# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md):
-# omawsl writes only that one distinctly-named file, never the conventional
+# omawsl-proxy.conf: omawsl writes only that one distinctly-named file, never the conventional
 # http-proxy.conf name a corp manual would use, and never at all if another
 # file in that directory already configures a proxy. This checks the real
 # codebase for a write to anything else under docker.service.d/.

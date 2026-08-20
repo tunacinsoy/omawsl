@@ -128,7 +128,7 @@ EOF
   [[ "$output" == *"MISE_ACTIVATED_MARKER"* ]]
 }
 
-# --- aliases parity (docs/superpowers/specs/2026-07-14-omawsl-aliases-parity-design.md) ---
+# --- aliases parity ---
 
 @test "cat is aliased to batcat when batcat is on PATH (apt's bat package installs the binary as batcat)" {
   export HOME="$BATS_TEST_TMPDIR/home_with_batcat"

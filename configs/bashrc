@@ -29,8 +29,7 @@ else
 fi
 
 # Only points at omawsl's own inputrc when the user (or a corp policy) has
-# no ~/.inputrc of their own - corp-safe config editing policy (design spec
-# docs/superpowers/specs/2026-07-28-corp-safe-config-editing-design.md).
+# no ~/.inputrc of their own - corp-safe config editing policy.
 # ${BASH_SOURCE[0]} here resolves to this file's own real path (baked in
 # by a-shell.sh's source line), so this needs no separate path variable.
 if [ -z "${INPUTRC:-}" ] && [ ! -f "$HOME/.inputrc" ]; then
@@ -153,8 +152,7 @@ if command -v lazydocker &>/dev/null; then
   alias lzd='lazydocker'
 fi
 
-# Opt-in only (docs/superpowers/specs/2026-08-09-copilot-autopilot-mode-design.md)
-# - auto-approving every tool/path/URL Copilot CLI touches is a
+# Opt-in only - auto-approving every tool/path/URL Copilot CLI touches is a
 # safety-relevant default, not a convenience one, so this alias only exists
 # when the user explicitly chose it during install or `omawsl install`.
 # Like lazydocker above, `copilot` has no apt package - it installs to
@@ -208,8 +206,7 @@ if [[ -z "${ZELLIJ:-}" ]] && command -v zellij &>/dev/null; then
   _omawsl_will_exec_zellij=1
 fi
 
-# Starship (design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md):
-# starship's own README says to add its init line at the END of .bashrc,
+# Starship: starship's own README says to add its init line at the END of .bashrc,
 # after any other tool that also hooks PROMPT_COMMAND (zoxide/mise above) -
 # starship/starship#6093 documents hooks registered after starship's own
 # breaking the chain. Placed last (but still before the zellij exec guard

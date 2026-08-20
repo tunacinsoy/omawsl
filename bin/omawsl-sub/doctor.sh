@@ -106,9 +106,7 @@ omawsl_doctor_storage_installed() {
 # proxy changed since the last install.sh run. False (silent) once
 # configured, once no proxy is present, or once another file already
 # provides one - mirrors omawsl_configure_docker_proxy's own back-off
-# logic exactly (design spec
-# docs/superpowers/specs/2026-07-29-docker-daemon-proxy-autoconfig-design.md),
-# since doctor only ever reports, it never writes anything itself.
+# logic exactly, since doctor only ever reports, it never writes anything itself.
 omawsl_doctor_docker_proxy_pending() {
   local dir="${1:-${OMAWSL_DOCKER_SERVICE_D_DIR:-/etc/systemd/system/docker.service.d}}"
   [[ "$(omawsl_load_choice OMAWSL_DOCKER_MODE)" == "Docker Desktop for Windows" ]] && return 1
@@ -141,9 +139,8 @@ omawsl_doctor_docker_proxy_stale() {
 
 # omawsl_doctor_starship_missing
 # Unlike zellij (never promised universal, just always installed in
-# practice), starship is explicitly meant to be on every machine after
-# design spec docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md
-# ships, so a silently failed install (offline box, corp proxy blocking
+# practice), starship is explicitly meant to be on every machine, so a
+# silently failed install (offline box, corp proxy blocking
 # GitHub) needs to surface somewhere - doctor is that somewhere.
 #
 # Deliberately its own `command -v starship` one-liner rather than

@@ -6,9 +6,7 @@ OMAWSL_ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=../install/lib.sh
 source "$OMAWSL_ROOT_DIR/install/lib.sh"
 
-# Corp-safe config editing migration (design spec
-# docs/superpowers/specs/2026-07-28-corp-safe-config-editing-design.md):
-# every prior install/update `cp`-overwrote ~/.bashrc and ~/.inputrc
+# Corp-safe config editing migration: every prior install/update `cp`-overwrote ~/.bashrc and ~/.inputrc
 # wholesale, but a file starting with omawsl's own banner comment only
 # proves omawsl *created* it originally - it says nothing about whether
 # the user (or corp IT) appended their own lines to it since their last

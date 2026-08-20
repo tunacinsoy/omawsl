@@ -8,9 +8,7 @@ source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=../install/terminal/apps-terminal.sh
 source "$OMAWSL_ROOT_DIR/install/terminal/apps-terminal.sh"
 
-# Starship as the default prompt (design spec
-# docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md):
-# installs the binary and the un-themed plain-mode config for existing
+# Starship as the default prompt: installs the binary and the un-themed plain-mode config for existing
 # installs, same as a fresh install's apps-terminal.sh already does.
 # Both calls must happen before theme.sh is sourced below: like every
 # install/bin script in this repo, apps-terminal.sh and theme.sh each set

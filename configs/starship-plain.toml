@@ -1,5 +1,4 @@
-# Starship's own official no-Nerd-Font preset (design spec
-# docs/superpowers/specs/2026-08-09-starship-default-prompt-design.md) -
+# Starship's own official no-Nerd-Font preset -
 # this exact module block, byte-for-byte, is also embedded in every
 # themes/<name>/starship-plain.toml (10 copies) as the layer their own
 # [palettes.*] override sits on top of. TOML has no include/import
