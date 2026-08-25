@@ -271,10 +271,46 @@ omawsl_install_starship_config() {
 omawsl_install_zellij_config() {
   local config_file="$HOME/.config/zellij/config.kdl"
   if [[ -f "$config_file" ]]; then
+    omawsl_zellij_ensure_pane_frame_style
     return 0
   fi
   mkdir -p "$(dirname "$config_file")"
   cp "$SCRIPT_DIR/../../configs/zellij.kdl" "$config_file"
+}
+
+# omawsl_zellij_ensure_pane_frame_style
+# Defends against a real drift bug: zellij auto-regenerates
+# ~/.config/zellij/config.kdl (backing the old one up to config.kdl.bak)
+# whenever a new zellij release bumps its own config schema, and the
+# freshly-generated file always reflects zellij's *current* defaults for
+# anything the old file never set explicitly - including pane_frame_style,
+# whose own default silently changed from "full" (a full border around
+# each pane) to "titles" (a single title line) in zellij 0.45.0. Since
+# configs/zellij.kdl never set that option before this fix, every user who
+# ran `omawsl update` across that zellij release had their panes silently
+# reskinned on the very next zellij launch, with no omawsl file ever
+# actually changing. Content-checked and idempotent, same convention as
+# every other guarded-append in this repo (docs/config-safety.md): only
+# appends when the setting isn't already present, so it never clobbers a
+# value the user (or a future omawsl config revision) set on purpose.
+# Called from omawsl_orphan_tool_apply_update's zellij case on every
+# `omawsl update` that touches the zellij binary - not just once at
+# install - since that's exactly when zellij itself might rewrite this
+# file out from under omawsl's own settings.
+omawsl_zellij_ensure_pane_frame_style() {
+  local config_file="$HOME/.config/zellij/config.kdl"
+  [[ -f "$config_file" ]] || return 0
+  grep -qE '^[[:space:]]*pane_frame_style\b' "$config_file" && return 0
+  {
+    echo ""
+    echo "// omawsl: pin the classic full-box pane frame - zellij's own default"
+    echo "// changed to \"titles\" in 0.45.0, and zellij regenerates this file"
+    echo "// (backing the old one up to config.kdl.bak) on breaking config-schema"
+    echo "// bumps, so this is re-checked on every 'omawsl update' that touches"
+    echo "// zellij, not just once at install."
+    echo 'pane_frame_style "full"'
+  } >> "$config_file"
+  echo "omawsl: added pane_frame_style \"full\" to $config_file (missing - possibly reset by zellij's own config auto-migration, or predating this setting)."
 }
 
 # omawsl_install_btop_config

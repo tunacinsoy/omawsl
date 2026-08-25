@@ -246,6 +246,32 @@ unset OMAWSL_FONT_MODE _omawsl_cascadia_mono
 # Must be the very last thing in this file: `exec` replaces the current
 # shell process, so nothing after this line would ever run.
 if [[ "$_omawsl_will_exec_zellij" -eq 1 ]]; then
+  # Re-pin pane_frame_style right before every zellij launch, not just once
+  # in apps-terminal.sh's install/update path: zellij auto-regenerates
+  # ~/.config/zellij/config.kdl (backing the old one up to config.kdl.bak)
+  # on breaking config-schema bumps, but it does that lazily, the next
+  # time zellij itself actually starts - not at whatever earlier moment
+  # `omawsl update` happened to fetch the new binary. That regenerated
+  # file always reflects zellij's *current* default for anything the old
+  # file never set explicitly, and pane_frame_style's own default silently
+  # changed from "full" (a full border around each pane) to "titles" (a
+  # single title line) in zellij 0.45.0 - so every config.kdl that
+  # predates this line got silently reskinned on its very next zellij
+  # launch after that regeneration, with no omawsl file ever appearing to
+  # change. Checking here, right before every exec, is the only point
+  # that's guaranteed to run after zellij's own last regeneration and
+  # before its next launch. Content-checked and idempotent, same
+  # guarded-append convention as every other shared-file touch in this
+  # repo (docs/config-safety.md): a no-op if the setting is already
+  # present, whatever its value, so a deliberate override is never
+  # clobbered. Kept deliberately dependency-free (no sourcing another
+  # omawsl script) since this runs on every single interactive shell.
+  _omawsl_zellij_config="$HOME/.config/zellij/config.kdl"
+  if [[ -f "$_omawsl_zellij_config" ]] && ! grep -qE '^[[:space:]]*pane_frame_style\b' "$_omawsl_zellij_config"; then
+    printf '\n// omawsl: pin the classic full-box pane frame - see configs/zellij.kdl\npane_frame_style "full"\n' >> "$_omawsl_zellij_config"
+  fi
+  unset _omawsl_zellij_config
+
   # WSL2/WSLg's $XDG_RUNTIME_DIR (/mnt/wslg/runtime-dir) is a synthetic
   # mount hardcoded to UID 1000 that doesn't reliably support the chmod
   # 0700 zellij needs on its own socket dir (microsoft/WSL#9689, #10896,

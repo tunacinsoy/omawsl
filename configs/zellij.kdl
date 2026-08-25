@@ -2,6 +2,15 @@ theme "tokyo-night"
 default_layout "compact"
 on_force_close "quit"
 
+// Pin the classic full-box pane frame explicitly: zellij 0.45.0 changed its
+// own default from "full" to "titles" (a single title bar per pane instead
+// of a full border), which silently reskinned every pane split the moment
+// `omawsl update` pulled that release - this repo's config had never set
+// the option before, so it inherited whichever default the newly-installed
+// zellij binary shipped with. Pinning it here stops any future zellij
+// release from changing this look out from under users again.
+pane_frame_style "full"
+
 default_mode "locked"
 keybinds clear-defaults=true {
     locked {

@@ -328,7 +328,7 @@ omawsl_orphan_tool_apply_update() {
   local label; label="$(omawsl_orphan_tool_label "$slug")"
   local ok=1
   case "$slug" in
-    zellij) omawsl_zellij_install_steps || ok=0 ;;
+    zellij) omawsl_zellij_install_steps || ok=0; omawsl_zellij_ensure_pane_frame_style ;;
     lazydocker) omawsl_lazydocker_install_steps || ok=0 ;;
     starship) omawsl_starship_install_steps || ok=0 ;;
     opencode) omawsl_opencode_install_steps || ok=0 ;;
