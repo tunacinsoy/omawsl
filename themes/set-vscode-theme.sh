@@ -20,8 +20,8 @@ omawsl_strip_jsonc_comments() {
   sed -E 's#/\*.*\*/##g; s#(^|[^:])//.*$#\1#' "$1"
 }
 
-# omawsl_theme_set_vscode_settings <settings_file> <color_theme>
-# Merges "workbench.colorTheme" into an existing VS Code/Cursor-shaped
+# omawsl_json_set_string_value <settings_file> <key> <value>
+# Merges a single string-valued key into an existing VS Code/Cursor-shaped
 # settings.json, whether it's strict JSON (every omawsl-deployed
 # Remote-WSL machine-settings file) or JSONC with comments (typical of
 # a hand-edited native settings.json - design spec "Sync theme to
@@ -29,9 +29,14 @@ omawsl_strip_jsonc_comments() {
 # the settings file doesn't exist yet or if jq isn't reachable. Always
 # backs up to <settings_file>.bak first and re-validates its own edit
 # before committing - a corrupted settings.json breaks the user's whole
-# editor, not just the theme.
+# editor, not just whichever setting this call is for.
 #
-# <color_theme> is NOT letters-and-spaces-only - real values include
+# Generalized from the original theme-only merge (still exposed below as
+# omawsl_theme_set_vscode_settings, a thin wrapper, so every existing
+# caller/test keeps working unchanged) so the same JSONC-safe machinery
+# can also deploy other single-string settings, like "update.mode".
+#
+# <value> is NOT letters-and-spaces-only - real values include
 # "Ocean Green: Dark", "Monokai Pro (Filter Ristretto)", "Rosé Pine
 # Dawn" (see themes/*/vscode.sh). The JSONC-fallback path below never
 # interpolates it into a sed s/// or awk sub() replacement (both treat
@@ -41,25 +46,25 @@ omawsl_strip_jsonc_comments() {
 # concatenation instead, then reprinted with awk's `print` (never
 # `sub()`/`gsub()`), which has no replacement-text metacharacter
 # handling at all.
-omawsl_theme_set_vscode_settings() {
-  local settings_file="$1" color_theme="$2"
+omawsl_json_set_string_value() {
+  local settings_file="$1" key="$2" value="$3"
   [[ -f "$settings_file" ]] || return 0
   command -v jq &>/dev/null || return 0
 
   cp "$settings_file" "$settings_file.bak" || {
-    echo "omawsl: couldn't back up $settings_file - skipping the color sync." >&2
+    echo "omawsl: couldn't back up $settings_file - skipping the $key sync." >&2
     echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
     return 0
   }
 
   # Fast path: strict JSON, no comments - merge directly with jq. jq's
-  # --arg safely handles any theme name, no escaping concerns here.
+  # --arg safely handles any value, no escaping concerns here.
   if jq empty "$settings_file" 2>/dev/null; then
     local tmp
     tmp="$(mktemp)"
-    jq --arg theme "$color_theme" '.["workbench.colorTheme"] = $theme' "$settings_file" > "$tmp"
+    jq --arg key "$key" --arg val "$value" '.[$key] = $val' "$settings_file" > "$tmp"
     cp "$tmp" "$settings_file" || {
-      echo "omawsl: couldn't write to $settings_file - skipping the color sync." >&2
+      echo "omawsl: couldn't write to $settings_file - skipping the $key sync." >&2
       echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
       rm -f "$tmp"
       return 0
@@ -78,20 +83,21 @@ omawsl_theme_set_vscode_settings() {
   omawsl_strip_jsonc_comments "$settings_file" > "$stripped"
 
   if ! jq empty "$stripped" 2>/dev/null; then
-    echo "omawsl: $settings_file isn't valid JSON - skipping the color sync." >&2
+    echo "omawsl: $settings_file isn't valid JSON - skipping the $key sync." >&2
     echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
     rm -f "$stripped"
     return 0
   fi
 
-  local tmp_edited
+  local tmp_edited key_re
   tmp_edited="$(mktemp)"
-  if jq -e 'has("workbench.colorTheme")' "$stripped" >/dev/null; then
+  key_re="${key//./\\.}"
+  if jq -e --arg key "$key" 'has($key)' "$stripped" >/dev/null; then
     local line_no old_line new_line
-    line_no="$(grep -n '"workbench\.colorTheme"' "$settings_file" | head -1 | cut -d: -f1)"
+    line_no="$(grep -n "\"$key_re\"" "$settings_file" | head -1 | cut -d: -f1)"
     old_line="$(sed -n "${line_no}p" "$settings_file")"
-    if [[ "$old_line" =~ ^(.*\"workbench\.colorTheme\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"(.*)$ ]]; then
-      printf -v new_line '%s"%s"%s' "${BASH_REMATCH[1]}" "$color_theme" "${BASH_REMATCH[2]}"
+    if [[ "$old_line" =~ ^(.*\"$key_re\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"(.*)$ ]]; then
+      printf -v new_line '%s"%s"%s' "${BASH_REMATCH[1]}" "$value" "${BASH_REMATCH[2]}"
       awk -v n="$line_no" -v content="$new_line" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
     else
       cp "$settings_file" "$tmp_edited"
@@ -110,7 +116,7 @@ omawsl_theme_set_vscode_settings() {
     old_line="$(sed -n "${line_no}p" "$settings_file")"
     before="${old_line%%\{*}"
     after="${old_line#*\{}"
-    printf -v new_content '%s{\n  "workbench.colorTheme": "%s",\n%s' "$before" "$color_theme" "$after"
+    printf -v new_content '%s{\n  "%s": "%s",\n%s' "$before" "$key" "$value" "$after"
     awk -v n="$line_no" -v content="$new_content" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
   fi
 
@@ -123,17 +129,25 @@ omawsl_theme_set_vscode_settings() {
   omawsl_strip_jsonc_comments "$tmp_edited" > "$recheck"
   if jq empty "$recheck" 2>/dev/null; then
     cp "$tmp_edited" "$settings_file" || {
-      echo "omawsl: couldn't write to $settings_file - skipping the color sync." >&2
+      echo "omawsl: couldn't write to $settings_file - skipping the $key sync." >&2
       echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
       rm -f "$stripped" "$tmp_edited" "$recheck"
       return 0
     }
   else
-    echo "omawsl: the color sync edit to $settings_file produced invalid JSON - leaving it untouched (backup at $settings_file.bak)." >&2
+    echo "omawsl: the $key sync edit to $settings_file produced invalid JSON - leaving it untouched (backup at $settings_file.bak)." >&2
     echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
   fi
 
   rm -f "$stripped" "$tmp_edited" "$recheck"
+}
+
+# omawsl_theme_set_vscode_settings <settings_file> <color_theme>
+# Thin wrapper around omawsl_json_set_string_value, kept as its own name
+# for every existing caller/test - see that function for the actual
+# JSONC-safe merge logic.
+omawsl_theme_set_vscode_settings() {
+  omawsl_json_set_string_value "$1" "workbench.colorTheme" "$2"
 }
 
 # omawsl_theme_ensure_vscode_settings_exists <settings_file>
