@@ -2,16 +2,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Namespaced, not bare $SCRIPT_DIR: set-vscode-theme.sh (sourced below)
+# sets its own bare (non-local) $SCRIPT_DIR from its own ${BASH_SOURCE[0]}
+# when sourced, clobbering this file's copy (confirmed live - it silently
+# pointed at .../themes afterward, which broke
+# omawsl_install_vscode_settings's relative path below and made it fail
+# its `cp` under this file's `set -e`). Captured into its own name before
+# any sourcing happens, so this stays correct regardless of what else
+# gets sourced after it - unlike re-deriving $SCRIPT_DIR post-source,
+# which only works as long as this stays the *last* source in the file.
+OMAWSL_APP_VSCODE_DIR="$SCRIPT_DIR"
 # shellcheck source=../lib.sh
 source "$SCRIPT_DIR/../lib.sh"
 # shellcheck source=../../themes/set-vscode-theme.sh
 source "$SCRIPT_DIR/../../themes/set-vscode-theme.sh"
-# Re-derive SCRIPT_DIR: set-vscode-theme.sh sets its own bare (non-local)
-# $SCRIPT_DIR from its own ${BASH_SOURCE[0]} when sourced above, clobbering
-# this file's copy (confirmed live - it silently pointed at .../themes
-# afterward, which broke omawsl_install_vscode_settings's relative path
-# below and made it fail its `cp` under this file's `set -e`).
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # omawsl_install_vscode_settings [settings_file]
 # Deploys configs/vscode.json to VS Code Remote-WSL's machine-level
@@ -23,11 +27,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 omawsl_install_vscode_settings() {
   local settings_file="${1:-$HOME/.vscode-server/data/Machine/settings.json}"
   mkdir -p "$(dirname "$settings_file")"
-  cp "$SCRIPT_DIR/../../configs/vscode.json" "$settings_file"
+  cp "$OMAWSL_APP_VSCODE_DIR/../../configs/vscode.json" "$settings_file"
 }
 
 # omawsl_vscode_disable_auto_update
-# Sets "update.mode": "none" in the native Windows-side VS Code
+# Sets "update.mode": "manual" in the native Windows-side VS Code
 # settings.json - issue #32/#9's actual root cause: the WSL `code` CLI's
 # own wrapper script spawns a full Electron/Node helper process on every
 # single invocation (even just to locate the Remote-WSL extension), which
@@ -40,10 +44,16 @@ omawsl_install_vscode_settings() {
 # staged update actually swaps in (which can happen on the very next
 # `code` launch), the WSL side sees a "new" commit and reinstalls the
 # whole server - so this can appear to happen on nearly every `code .`,
-# not just after a deliberate update. Setting update.mode to "none" makes
-# updating VS Code fully opt-in (the user has to trigger it themselves),
-# which is exactly what stops the version drift Remote-WSL is reacting
-# to. Same detect-and-defer shape as everywhere else in this file: only
+# not just after a deliberate update. Setting update.mode to "manual"
+# (not "none", which disables updates outright - confirmed against VS
+# Code's own product.json enumDescriptions: "none" = "Disable updates.",
+# "manual" = "Disable automatic background update checks. Updates will
+# be available if you manually check for updates.") disables only the
+# automatic background check/stage that's the actual root cause, while
+# leaving VS Code's own "Check for Updates" command working - matching
+# issue #32's explicit ask that updating "be opt-in whenever user
+# decides to do so", not disabled entirely. Same detect-and-defer shape
+# as everywhere else in this file: only
 # touches the native settings.json if VS Code's own data dir already
 # exists (omawsl_theme_ensure_vscode_settings_exists's rule - never
 # invents config for software that isn't installed), and silently no-ops
@@ -51,9 +61,10 @@ omawsl_install_vscode_settings() {
 omawsl_vscode_disable_auto_update() {
   local profile
   profile="$(omawsl_windows_userprofile)" || return 0
-  local code_settings="$profile/AppData/Roaming/Code/User/settings.json"
+  local code_settings
+  code_settings="$(omawsl_native_vscode_settings_path "$profile")"
   omawsl_theme_ensure_vscode_settings_exists "$code_settings"
-  omawsl_json_set_string_value "$code_settings" "update.mode" "none"
+  omawsl_json_set_string_value "$code_settings" "update.mode" "manual"
 }
 
 # omawsl_install_vscode

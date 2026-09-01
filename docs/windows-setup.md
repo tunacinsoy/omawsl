@@ -96,13 +96,13 @@ If you run `install.sh` before doing this, nothing fails - the shared settings f
 deploys (it's inert until VS Code connects), and only the one step needing the live `code` CLI
 is skipped, with a reminder to come back to it.
 
-`install.sh` also sets `"update.mode": "none"` in VS Code's own native `settings.json` on
+`install.sh` also sets `"update.mode": "manual"` in VS Code's own native `settings.json` on
 Windows (once VS Code has been installed and run at least once). VS Code's default auto-updater
 checks for and stages a new build practically every time `code` is invoked from WSL, and since
 Remote-WSL's server install is pinned to the exact commit of the currently-running build, that
-made "Updating VS Code Server" reinstall on nearly every `code .` (issues #9, #32). This makes
-updating VS Code fully opt-in - use VS Code's own "Check for Updates" command whenever you want
-one.
+made "Updating VS Code Server" reinstall on nearly every `code .` (issues #9, #32). This disables
+only the automatic background check, making updating VS Code fully opt-in - use VS Code's own
+"Check for Updates" command whenever you want one.
 
 <a id="cursor"></a>
 ## Cursor

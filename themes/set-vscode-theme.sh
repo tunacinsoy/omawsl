@@ -20,6 +20,15 @@ omawsl_strip_jsonc_comments() {
   sed -E 's#/\*.*\*/##g; s#(^|[^:])//.*$#\1#' "$1"
 }
 
+# omawsl_native_vscode_settings_path <profile>
+# Path to VS Code's native Windows-side settings.json under a resolved
+# Windows user profile (omawsl_windows_userprofile's output) - the one
+# place this path is spelled out, shared by the theme sync below and
+# app-vscode.sh's update.mode deploy so the two can't drift apart.
+omawsl_native_vscode_settings_path() {
+  echo "$1/AppData/Roaming/Code/User/settings.json"
+}
+
 # omawsl_json_set_string_value <settings_file> <key> <value>
 # Merges a single string-valued key into an existing VS Code/Cursor-shaped
 # settings.json, whether it's strict JSON (every omawsl-deployed
@@ -207,7 +216,8 @@ omawsl_theme_apply_vscode() {
 
   local profile
   if profile="$(omawsl_windows_userprofile)"; then
-    local code_settings="$profile/AppData/Roaming/Code/User/settings.json"
+    local code_settings
+    code_settings="$(omawsl_native_vscode_settings_path "$profile")"
     local cursor_settings="$profile/AppData/Roaming/Cursor/User/settings.json"
     omawsl_theme_ensure_vscode_settings_exists "$code_settings"
     omawsl_theme_ensure_vscode_settings_exists "$cursor_settings"

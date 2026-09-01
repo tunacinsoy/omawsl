@@ -53,7 +53,7 @@ setup() {
   [[ "$output" == *"docs/windows-setup.md#vscode"* ]]
 }
 
-@test "omawsl_install_vscode sets update.mode to none in the native settings.json when VS Code is installed on Windows (issue #32/#9)" {
+@test "omawsl_install_vscode sets update.mode to manual in the native settings.json when VS Code is installed on Windows (issue #32/#9)" {
   export OMAWSL_EDITORS="VS Code"
   stub_command code
   WINHOME="$BATS_TEST_TMPDIR/winhome"
@@ -72,7 +72,7 @@ setup() {
   [ "$status" -eq 0 ]
   local code_settings="$WINHOME/AppData/Roaming/Code/User/settings.json"
   [ -f "$code_settings" ]
-  [[ "$(jq -r '.["update.mode"]' "$code_settings")" == "none" ]]
+  [[ "$(jq -r '.["update.mode"]' "$code_settings")" == "manual" ]]
 }
 
 @test "omawsl_install_vscode does not create native settings.json for a VS Code that isn't actually installed on Windows" {
