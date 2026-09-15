@@ -1,0 +1,7 @@
+# Dusk — tiny sample theme, practice data only.
+theme[main_bg]="#2a1f2d"
+theme[main_fg]="#f0e0e8"
+theme[title]="#f0e0e8"
+theme[hi_fg]="#7788dd"
+theme[selected_bg]="#3a2a3d"
+theme[selected_fg]="#e0b866"

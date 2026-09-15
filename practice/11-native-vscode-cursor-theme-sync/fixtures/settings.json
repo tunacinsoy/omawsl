@@ -1,0 +1,9 @@
+{
+  // bumped this for the new monitor, don't touch
+  "editor.fontSize": 14,
+  "editor.fontFamily": "'CaskaydiaCove Nerd Font', 'Cascadia Code', monospace",
+  /* formatOnSave keeps biting me on generated files, leave off */
+  "editor.formatOnSave": false,
+  "workbench.colorTheme": "Default Dark Modern", // set this by hand ages ago
+  "files.trimTrailingWhitespace": true
+}

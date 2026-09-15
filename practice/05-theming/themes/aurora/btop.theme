@@ -1,0 +1,7 @@
+# Aurora — tiny sample theme, practice data only.
+theme[main_bg]="#101020"
+theme[main_fg]="#e0e0f0"
+theme[title]="#e0e0f0"
+theme[hi_fg]="#5599ff"
+theme[selected_bg]="#20203a"
+theme[selected_fg]="#ffe066"

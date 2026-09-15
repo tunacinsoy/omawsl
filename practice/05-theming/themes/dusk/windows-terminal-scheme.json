@@ -1,0 +1,23 @@
+{
+    "name": "Dusk",
+    "background": "#2a1f2d",
+    "foreground": "#f0e0e8",
+    "cursorColor": "#f0e0e8",
+    "selectionBackground": "#3a2a3d",
+    "black": "#2a1f2d",
+    "red": "#e05577",
+    "green": "#88cc77",
+    "yellow": "#e0b866",
+    "blue": "#7788dd",
+    "purple": "#cc77bb",
+    "cyan": "#77bbcc",
+    "white": "#f0e0e8",
+    "brightBlack": "#3a2a3d",
+    "brightRed": "#e05577",
+    "brightGreen": "#88cc77",
+    "brightYellow": "#e0b866",
+    "brightBlue": "#7788dd",
+    "brightPurple": "#cc77bb",
+    "brightCyan": "#77bbcc",
+    "brightWhite": "#fbf5f8"
+}

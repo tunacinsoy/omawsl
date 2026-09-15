@@ -1,0 +1,23 @@
+{
+    "name": "Aurora",
+    "background": "#101020",
+    "foreground": "#e0e0f0",
+    "cursorColor": "#e0e0f0",
+    "selectionBackground": "#20203a",
+    "black": "#101020",
+    "red": "#ff5566",
+    "green": "#66ff99",
+    "yellow": "#ffe066",
+    "blue": "#5599ff",
+    "purple": "#cc66ff",
+    "cyan": "#66ffe0",
+    "white": "#e0e0f0",
+    "brightBlack": "#20203a",
+    "brightRed": "#ff5566",
+    "brightGreen": "#66ff99",
+    "brightYellow": "#ffe066",
+    "brightBlue": "#5599ff",
+    "brightPurple": "#cc66ff",
+    "brightCyan": "#66ffe0",
+    "brightWhite": "#f5f5ff"
+}

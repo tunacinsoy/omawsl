@@ -1,0 +1,15 @@
+themes {
+    dusk {
+        bg "#2a1f2d"
+        fg "#f0e0e8"
+        black "#2a1f2d"
+        red "#e05577"
+        green "#88cc77"
+        yellow "#e0b866"
+        blue "#7788dd"
+        magenta "#cc77bb"
+        cyan "#77bbcc"
+        white "#f0e0e8"
+        orange "#dd8855"
+    }
+}
