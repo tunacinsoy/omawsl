@@ -60,6 +60,9 @@ color scheme, synced automatically.
 
 See [`docs/updating.md`](docs/updating.md) for how to keep everything current - omawsl itself, language runtimes, system packages, and the handful of tools with no native updater of their own.
 
+Changing omawsl itself? See [`docs/testing-changes.md`](docs/testing-changes.md) for testing a
+branch on real machines before merging it - merging to `master` releases it to everyone.
+
 See [`docs/config-safety.md`](docs/config-safety.md) for how omawsl avoids colliding with a
 corporate WSL2 setup manual or your own hand edits - the policy, and the full list of files
 omawsl never creates or modifies.
