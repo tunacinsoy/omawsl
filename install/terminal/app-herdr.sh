@@ -81,15 +81,32 @@ omawsl_install_herdr_config() {
   fi
 }
 
+# omawsl_herdr_ensure_installed
+# Succeeds once herdr is on PATH, downloading it first if needed. Judged
+# by the binary actually being there afterwards, not by the installer's
+# exit status - a corporate network blocking herdr.dev is the expected
+# failure, and it must never take a whole install.sh run down with it.
+omawsl_herdr_ensure_installed() {
+  command -v herdr &>/dev/null && return 0
+  omawsl_herdr_install_steps || true
+  hash -r
+  command -v herdr &>/dev/null
+}
+
 # omawsl_install_herdr
 # Only when Herdr is the chosen multiplexer (OMAWSL_MULTIPLEXER, set by
 # install/first-run-choices.sh or `omawsl multiplexer herdr`). Idempotent:
 # the download is skipped when herdr is already on PATH, the config deploy
-# is copy-if-absent.
+# is copy-if-absent. If Herdr can't be installed, the choice goes back to
+# zellij (with a warning) rather than staying on a Herdr that bashrc would
+# silently skip.
 omawsl_install_herdr() {
   [[ "${OMAWSL_MULTIPLEXER:-}" == herdr ]] || return 0
-  if ! command -v herdr &>/dev/null; then
-    omawsl_herdr_install_steps
+  if ! omawsl_herdr_ensure_installed; then
+    echo "omawsl: Herdr couldn't be installed - new terminals will open zellij. Try again later with: omawsl multiplexer herdr" >&2
+    export OMAWSL_MULTIPLEXER=zellij
+    omawsl_save_choice OMAWSL_MULTIPLEXER zellij
+    return 0
   fi
   omawsl_install_herdr_config
 }

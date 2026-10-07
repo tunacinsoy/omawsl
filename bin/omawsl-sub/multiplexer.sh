@@ -26,13 +26,9 @@ omawsl_multiplexer_set() {
   case "$slug" in
     zellij) ;;
     herdr)
-      if ! command -v herdr &>/dev/null; then
-        omawsl_herdr_install_steps || true
-        hash -r
-        if ! command -v herdr &>/dev/null; then
-          echo "omawsl: Herdr install failed - staying on $(omawsl_multiplexer_current)." >&2
-          return 1
-        fi
+      if ! omawsl_herdr_ensure_installed; then
+        echo "omawsl: Herdr install failed - staying on $(omawsl_multiplexer_current)." >&2
+        return 1
       fi
       omawsl_install_herdr_config
       ;;

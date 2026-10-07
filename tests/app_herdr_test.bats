@@ -24,6 +24,16 @@ setup() {
 @test "installs via the official installer when herdr is chosen and missing" {
   export OMAWSL_MULTIPLEXER=herdr
   stub_hide_command herdr
+  # The piped-to `sh` stands in for herdr.dev's installer: it puts a herdr
+  # on PATH, like the real one does.
+  sh() {
+    echo "sh $*" >> "$STUB_LOG"
+    mkdir -p "$HOME/.local/bin"
+    printf '#!/usr/bin/env bash\n' > "$HOME/.local/bin/herdr"
+    chmod +x "$HOME/.local/bin/herdr"
+  }
+  export -f sh
+  export PATH="$HOME/.local/bin:$PATH"
   run omawsl_install_herdr
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"curl -fsSL https://herdr.dev/install.sh"* ]]
@@ -95,4 +105,17 @@ setup() {
   run omawsl_herdr_apply_theme nord
   [ "$status" -eq 0 ]
   [ ! -e "$HOME/.config/herdr" ]
+}
+
+@test "a failed Herdr download falls back to zellij instead of aborting the install" {
+  export OMAWSL_MULTIPLEXER=herdr
+  omawsl_save_choice OMAWSL_MULTIPLEXER herdr
+  stub_hide_command herdr
+  curl() { echo "curl $*" >> "$STUB_LOG"; return 6; }
+  export -f curl
+  run omawsl_install_herdr
+  [ "$status" -eq 0 ]
+  [ "$(omawsl_load_choice OMAWSL_MULTIPLEXER)" = "zellij" ]
+  [[ "$output" == *"new terminals will open zellij"* ]]
+  [ ! -f "$HOME/.config/herdr/config.toml" ]
 }
