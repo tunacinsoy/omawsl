@@ -296,3 +296,20 @@ omawsl_ensure_bashrc_source_line() {
     printf '# <<< omawsl <<<\n'
   } >> "$bashrc_file"
 }
+
+# Terminal multiplexer choice (issue #10) - the picker labels, shared by
+# install/first-run-choices.sh and `omawsl multiplexer`, so the two can't
+# drift. choices.env stores the slug, not the label: configs/bashrc
+# compares it on every single shell start.
+OMAWSL_MULTIPLEXER_LABEL_ZELLIJ="Zellij (default)"
+OMAWSL_MULTIPLEXER_LABEL_HERDR="Herdr (preview, built for AI coding agents)"
+
+# omawsl_multiplexer_slug <label_or_slug>
+# "herdr" for Herdr's label or slug; "zellij" for anything else, including
+# an empty answer - zellij is the default everywhere.
+omawsl_multiplexer_slug() {
+  case "$1" in
+    "$OMAWSL_MULTIPLEXER_LABEL_HERDR"|herdr) echo "herdr" ;;
+    *) echo "zellij" ;;
+  esac
+}
