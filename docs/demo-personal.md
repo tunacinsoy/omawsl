@@ -97,7 +97,7 @@
       ```
       Use the interactive picker this time (not named args like the corporate take) — cycle
       through several: catppuccin, gruvbox, rose-pine, osaka-jade.
-      Say: "Ten ported Omakub themes, applied consistently across zellij, btop, Neovim,
+      Say: "Thirteen themes - Omakub's ten plus Dracula, One Dark and Solarized - applied consistently across zellij, btop, Neovim,
       opencode, and — watch the tab bar — Windows Terminal itself, live."
       ⭐ Why this matters: Windows Terminal theme auto-sync — the one deliberate exception to
       omawsl never touching Windows-side files automatically.

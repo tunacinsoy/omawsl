@@ -64,11 +64,32 @@ setup() {
 }
 
 @test "does not overwrite an existing zellij config.kdl" {
+  # The one line omawsl may still add to a user's config is the guarded
+  # pane_frame_style pin (tested below) - present here already, so the
+  # file must come back byte-for-byte unchanged.
   mkdir -p "$HOME/.config/zellij"
-  echo "theme \"my-custom-theme\"" > "$HOME/.config/zellij/config.kdl"
+  printf 'theme "my-custom-theme"\npane_frame_style "titles"\n' > "$HOME/.config/zellij/config.kdl"
   run omawsl_install_zellij_config
   [ "$status" -eq 0 ]
-  [[ "$(cat "$HOME/.config/zellij/config.kdl")" == 'theme "my-custom-theme"' ]]
+  [[ "$(cat "$HOME/.config/zellij/config.kdl")" == $'theme "my-custom-theme"\npane_frame_style "titles"' ]]
+}
+
+@test "pins pane_frame_style in an existing zellij config.kdl that lacks it, keeping the user's content" {
+  mkdir -p "$HOME/.config/zellij"
+  echo 'theme "my-custom-theme"' > "$HOME/.config/zellij/config.kdl"
+  run omawsl_install_zellij_config
+  [ "$status" -eq 0 ]
+  [[ "$(head -n1 "$HOME/.config/zellij/config.kdl")" == 'theme "my-custom-theme"' ]]
+  grep -qx 'pane_frame_style "full"' "$HOME/.config/zellij/config.kdl"
+  ! diff -q "$HOME/.config/zellij/config.kdl" "$REPO_ROOT/configs/zellij.kdl" >/dev/null
+}
+
+@test "pinning pane_frame_style is idempotent" {
+  mkdir -p "$HOME/.config/zellij"
+  echo 'theme "my-custom-theme"' > "$HOME/.config/zellij/config.kdl"
+  omawsl_install_zellij_config
+  omawsl_install_zellij_config
+  [ "$(grep -c '^pane_frame_style' "$HOME/.config/zellij/config.kdl")" -eq 1 ]
 }
 
 @test "deploys configs/btop.conf to ~/.config/btop/btop.conf" {
@@ -211,4 +232,8 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"sudo install -m 0755 /tmp/starship /usr/local/bin/starship"* ]]
   diff "$HOME/.config/starship-plain.toml" "$REPO_ROOT/configs/starship-plain.toml"
+}
+
+@test "installs netcat-openbsd for the Herdr mode helper's socket calls" {
+  grep -qE 'apt-get install -y .*netcat-openbsd' "$REPO_ROOT/install/terminal/apps-terminal.sh"
 }

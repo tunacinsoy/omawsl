@@ -18,6 +18,8 @@ source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/uninstall.sh"
 source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/install.sh"
 # shellcheck source=omawsl-sub/doctor.sh
 source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/doctor.sh"
+# shellcheck source=omawsl-sub/multiplexer.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/multiplexer.sh"
 
 omawsl_usage() {
   cat <<'EOF'
@@ -34,6 +36,9 @@ Commands:
   uninstall <name>          Remove one installed item by name.
   doctor                    Report what's installed/configured, and what's
                              still pending.
+  multiplexer [name]        Choose what new terminals open: zellij
+                             (default) or herdr. With no name, choose
+                             interactively.
 EOF
 }
 
@@ -60,6 +65,10 @@ omawsl_main() {
       ;;
     doctor)
       omawsl_doctor
+      ;;
+    multiplexer)
+      shift
+      omawsl_multiplexer_command "$@"
       ;;
     ""|-h|--help)
       omawsl_usage

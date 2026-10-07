@@ -193,6 +193,25 @@ omawsl_doctor_report_category() {
   fi
 }
 
+# omawsl_doctor_report_multiplexer
+# Which multiplexer new terminals open (OMAWSL_MULTIPLEXER, zellij when
+# unset) and whether it's actually there. A chosen-but-missing Herdr isn't
+# broken - configs/bashrc falls back to zellij - but it's not what the
+# user picked, so it's PENDING.
+omawsl_doctor_report_multiplexer() {
+  if [[ "$(omawsl_load_choice OMAWSL_MULTIPLEXER)" == herdr ]]; then
+    if command -v herdr &>/dev/null; then
+      echo "  [OK]      Herdr (preview)"
+    else
+      echo "  [PENDING] Herdr - run: omawsl multiplexer herdr (new terminals open zellij until then)"
+    fi
+  elif command -v zellij &>/dev/null; then
+    echo "  [OK]      Zellij"
+  else
+    echo "  [PENDING] Zellij not installed - re-run install.sh"
+  fi
+}
+
 # omawsl_doctor
 # Entry point for `bin/omawsl doctor` (design spec §14).
 omawsl_doctor() {
@@ -209,6 +228,9 @@ omawsl_doctor() {
   echo
   echo "Storage:"
   omawsl_doctor_report_category storage omawsl_doctor_storage_installed OMAWSL_STORAGE
+  echo
+  echo "Terminal multiplexer:"
+  omawsl_doctor_report_multiplexer
 
   if [[ "$(omawsl_load_choice OMAWSL_DOCKER_MODE)" == "Docker Desktop for Windows" ]] && ! omawsl_docker_reachable; then
     echo

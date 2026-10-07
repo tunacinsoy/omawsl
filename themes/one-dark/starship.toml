@@ -1,0 +1,23 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# omawsl theme integration -
+# no format override, so starship's real $all default module set stays
+# intact; only the named colors its built-in module styles reference get
+# remapped to this theme's own palette. This [palettes.*] block is
+# duplicated verbatim in this theme's own starship-plain.toml (no TOML
+# include mechanism to share it) - keep both in sync if you touch it.
+palette = "one_dark"
+
+[palettes.one_dark]
+red = "#E06C75"
+green = "#98C379"
+blue = "#61AFEF"
+yellow = "#E5C07B"
+magenta = "#C678DD"
+purple = "#C678DD"
+orange = "#D19A66"
+cyan = "#56B6C2"
+black = "#282C34"
+white = "#ABB2BF"
+bg = "#282C34"
+fg = "#ABB2BF"

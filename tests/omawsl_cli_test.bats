@@ -11,10 +11,23 @@ setup() {
   source "$REPO_ROOT/bin/omawsl-sub/theme.sh"
 }
 
-@test "omawsl_theme_names lists all 10 themes" {
-  [[ "$(omawsl_theme_names | wc -l)" -eq 10 ]]
-  [[ "$(omawsl_theme_names)" == *"tokyo-night"* ]]
-  [[ "$(omawsl_theme_names)" == *"rose-pine"* ]]
+@test "omawsl_theme_names lists all 13 themes, alphabetically" {
+  [[ "$(omawsl_theme_names | wc -l)" -eq 13 ]]
+  [[ "$(omawsl_theme_names)" == "$(omawsl_theme_names | sort)" ]]
+  [[ "$(omawsl_theme_names)" == *"dracula"* ]]
+  [[ "$(omawsl_theme_names)" == *"one-dark"* ]]
+  [[ "$(omawsl_theme_names)" == *"solarized"* ]]
+}
+
+@test "one-dark has an opencode preset; dracula and solarized don't" {
+  [ "$(omawsl_theme_opencode_preset one-dark)" = "one-dark" ]
+  ! omawsl_theme_opencode_preset dracula
+  ! omawsl_theme_opencode_preset solarized
+}
+
+@test "omawsl_theme_display_name title-cases the new themes" {
+  [ "$(omawsl_theme_display_name one-dark)" = "One Dark" ]
+  [ "$(omawsl_theme_folder_name "One Dark")" = "one-dark" ]
 }
 
 @test "omawsl_theme_is_valid accepts real theme names and rejects unknown ones" {
@@ -222,6 +235,7 @@ setup() {
   [[ "$output" == *"install"* ]]
   [[ "$output" == *"uninstall"* ]]
   [[ "$output" == *"doctor"* ]]
+  [[ "$output" == *"multiplexer"* ]]
 }
 
 @test "bin/omawsl doctor runs end to end with no selections made" {
@@ -237,4 +251,15 @@ setup() {
   run bash "$REPO_ROOT/bin/omawsl" uninstall
   [ "$status" -ne 0 ]
   [[ "$output" == *"Usage: omawsl uninstall"* ]]
+}
+
+@test "bin/omawsl theme also switches Herdr's theme when a Herdr config exists" {
+  command -v jq &>/dev/null || skip "jq not installed on this test host"
+  mkdir -p "$HOME/.config/zellij" "$HOME/.config/herdr"
+  cp "$REPO_ROOT/configs/zellij.kdl" "$HOME/.config/zellij/config.kdl"
+  printf '[theme]\nname = "tokyo-night"\n' > "$HOME/.config/herdr/config.toml"
+  stub_hide_command herdr
+  run bash "$REPO_ROOT/bin/omawsl" theme rose-pine
+  [ "$status" -eq 0 ]
+  grep -qx 'name = "rose-pine-dawn"' "$HOME/.config/herdr/config.toml"
 }

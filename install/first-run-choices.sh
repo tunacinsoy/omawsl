@@ -55,7 +55,12 @@ omawsl_first_run_choices() {
   OMAWSL_FONT_MODE="$(omawsl_prompt_single "Which font did you set up in Windows Terminal? (docs/windows-setup.md#fonts)" \
     "Nerd Font (enhanced)" "Cascadia Mono (zero install)")"
 
-  export OMAWSL_NETWORK_MODE OMAWSL_DOCKER_MODE OMAWSL_EDITORS OMAWSL_LANGUAGES OMAWSL_CLOUD_CLIS OMAWSL_STORAGE OMAWSL_FONT_MODE
+  # Which multiplexer every new terminal opens - configs/bashrc reads it
+  # back. Asked last so the existing answers' order never shifts.
+  OMAWSL_MULTIPLEXER="$(omawsl_multiplexer_slug "$(omawsl_prompt_single "Terminal multiplexer - what should every new terminal open?" \
+    "$OMAWSL_MULTIPLEXER_LABEL_ZELLIJ" "$OMAWSL_MULTIPLEXER_LABEL_HERDR")")"
+
+  export OMAWSL_NETWORK_MODE OMAWSL_DOCKER_MODE OMAWSL_EDITORS OMAWSL_LANGUAGES OMAWSL_CLOUD_CLIS OMAWSL_STORAGE OMAWSL_FONT_MODE OMAWSL_MULTIPLEXER
 
   omawsl_save_choice OMAWSL_NETWORK_MODE "$OMAWSL_NETWORK_MODE"
   omawsl_save_choice OMAWSL_DOCKER_MODE "$OMAWSL_DOCKER_MODE"
@@ -64,6 +69,7 @@ omawsl_first_run_choices() {
   omawsl_save_choice OMAWSL_CLOUD_CLIS "$OMAWSL_CLOUD_CLIS"
   omawsl_save_choice OMAWSL_STORAGE "$OMAWSL_STORAGE"
   omawsl_save_choice OMAWSL_FONT_MODE "$OMAWSL_FONT_MODE"
+  omawsl_save_choice OMAWSL_MULTIPLEXER "$OMAWSL_MULTIPLEXER"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

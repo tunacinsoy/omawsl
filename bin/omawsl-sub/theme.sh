@@ -7,21 +7,26 @@ OMAWSL_ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=windows-terminal.sh
 source "$SCRIPT_DIR/windows-terminal.sh"
+# shellcheck source=../../install/terminal/app-herdr.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-herdr.sh"
 
 # omawsl_theme_names
-# The 10 ported theme folder names, in Omakub's own picker order
-# (design spec §11).
+# omawsl's own theme set, alphabetical: Omakub's original ten (design spec
+# §11) plus Dracula, One Dark and Solarized (v1.1).
 omawsl_theme_names() {
   cat <<'EOF'
 catppuccin
+dracula
 everforest
 gruvbox
 kanagawa
 matte-black
 nord
+one-dark
 osaka-jade
 ristretto
 rose-pine
+solarized
 tokyo-night
 EOF
 }
@@ -50,8 +55,9 @@ omawsl_theme_folder_name() {
 # Maps omawsl's theme folder names to opencode's own built-in preset
 # names (opencode.ai/docs/themes/, ~/.config/opencode/tui.json's
 # "theme" key) where a direct match exists. Fails (empty stdout,
-# nonzero exit) for the 4 themes with no built-in opencode preset
-# (matte-black, osaka-jade, ristretto, rose-pine) - design spec §11
+# nonzero exit) for the 6 themes with no built-in opencode preset
+# (matte-black, osaka-jade, ristretto, rose-pine, and dracula/solarized -
+# opencode.ai/docs/themes lists one-dark but neither of those) - design spec §11
 # marks opencode theming "best-effort... skipped rather than forcing a
 # workaround" for exactly this kind of gap; opencode's separate
 # custom-theme JSON format for arbitrary colors is a different,
@@ -64,6 +70,7 @@ omawsl_theme_opencode_preset() {
     gruvbox) echo "gruvbox" ;;
     kanagawa) echo "kanagawa" ;;
     nord) echo "nord" ;;
+    one-dark) echo "one-dark" ;;
     *) return 1 ;;
   esac
 }
@@ -102,7 +109,9 @@ omawsl_theme_apply_opencode() {
 # Neovim was selected), VS Code/Cursor (via each theme's own vscode.sh,
 # which sources themes/set-vscode-theme.sh - Task 2), opencode (only
 # for the 6 themes with a built-in preset - see
-# omawsl_theme_apply_opencode above), and Windows Terminal (Task 6).
+# omawsl_theme_apply_opencode above), Herdr (its [theme] name, via
+# omawsl_herdr_apply_theme in install/terminal/app-herdr.sh - no-op
+# without a Herdr config), and Windows Terminal (Task 6).
 omawsl_theme_apply() {
   local name="$1"
   local theme_dir="$OMAWSL_ROOT_DIR/themes/$name"
@@ -137,6 +146,8 @@ omawsl_theme_apply() {
   source "$theme_dir/vscode.sh"
 
   omawsl_theme_apply_opencode "$name"
+
+  omawsl_herdr_apply_theme "$name"
 
   omawsl_theme_apply_windows_terminal "$theme_dir/windows-terminal-scheme.json"
 }

@@ -13,6 +13,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # explicit rather than relying on it arriving as a transitive dependency
 # of something else (confirmed present-but-unsourced on a real WSL2
 # instance before this was added) - configs/bashrc sources it.
+# `netcat-openbsd` is new in v1.1 - bin/omawsl-herdr-mode talks to Herdr's
+# socket API with `nc -U` for the one call Herdr's CLI doesn't wrap (focus a
+# pane by id).
 #
 # fastfetch and lazygit used to be in this same apt list, "verified"
 # against a real instance - but that instance was running Ubuntu 26.04
@@ -30,7 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # GitHub release, independent of which Ubuntu release is running.
 omawsl_install_terminal_apps() {
   sudo apt-get update -qq
-  sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop jq bash-completion
+  sudo apt-get install -y fzf ripgrep bat eza zoxide plocate apache2-utils fd-find gh btop jq bash-completion netcat-openbsd
 
   omawsl_install_lazydocker
   omawsl_install_zellij

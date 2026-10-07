@@ -91,3 +91,34 @@ setup() {
   run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
   [ "$output" = "" ]
 }
+
+@test "persists the multiplexer choice as a slug" {
+  gum_stub_respond "Personal / unrestricted"
+  gum_stub_respond "Docker Engine only, inside WSL (recommended)"
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond "Nerd Font (enhanced)"
+  gum_stub_respond "Herdr (preview, built for AI coding agents)"
+
+  omawsl_first_run_choices
+
+  [ "$OMAWSL_MULTIPLEXER" = "herdr" ]
+  run omawsl_load_choice OMAWSL_MULTIPLEXER
+  [ "$output" = "herdr" ]
+}
+
+@test "an unanswered multiplexer question means zellij" {
+  gum_stub_respond "Personal / unrestricted"
+  gum_stub_respond "Docker Engine only, inside WSL (recommended)"
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond "Nerd Font (enhanced)"
+
+  omawsl_first_run_choices
+
+  [ "$OMAWSL_MULTIPLEXER" = "zellij" ]
+}

@@ -577,6 +577,79 @@ EOF
   [ ! -f "$HOME/zellij_marker" ]
 }
 
+# --- Herdr as the chosen multiplexer (issue #10): OMAWSL_MULTIPLEXER in
+# choices.env picks it; unset keeps zellij, so pre-existing installs see
+# no change ---
+
+# Stubs both multiplexers, each writing which one started to the same
+# marker, and records OMAWSL_MULTIPLEXER=$1 in choices.env (nothing when $1
+# is empty).
+_multiplexer_home() {
+  unset ZELLIJ HERDR_ENV
+  export HOME="$BATS_TEST_TMPDIR/home_multiplexer"
+  mkdir -p "$HOME/.local/bin" "$HOME/.local/state/omawsl"
+  local m
+  for m in zellij herdr; do
+    printf '#!/usr/bin/env bash\necho %s > "$HOME/multiplexer_marker"\n' "$m" > "$HOME/.local/bin/$m"
+    chmod +x "$HOME/.local/bin/$m"
+  done
+  [[ -n "$1" ]] && printf 'OMAWSL_MULTIPLEXER="%s"\n' "$1" > "$HOME/.local/state/omawsl/choices.env"
+  export PATH="$HOME/.local/bin:$PATH"
+  bash "$REPO_ROOT/install/terminal/a-shell.sh"
+}
+
+@test "execs into zellij when no multiplexer was ever chosen" {
+  _multiplexer_home ""
+  run bash -i -c 'true'
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/multiplexer_marker")" == "zellij" ]]
+}
+
+@test "execs into herdr instead of zellij when OMAWSL_MULTIPLEXER is herdr" {
+  _multiplexer_home herdr
+  run bash -i -c 'true'
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/multiplexer_marker")" == "herdr" ]]
+}
+
+@test "falls back to zellij when herdr is chosen but not installed" {
+  _multiplexer_home herdr
+  rm "$HOME/.local/bin/herdr"
+  stub_hide_command herdr
+  export PATH="$HOME/.local/bin:$PATH"
+  run bash -i -c 'true'
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/multiplexer_marker")" == "zellij" ]]
+}
+
+@test "a herdr that fails on startup leaves a usable shell instead of closing the terminal" {
+  _multiplexer_home herdr
+  printf '#!/usr/bin/env bash\necho herdr > "$HOME/multiplexer_marker"\nexit 1\n' > "$HOME/.local/bin/herdr"
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/multiplexer_marker")" == "herdr" ]]
+  [[ "$output" == *"STILL_RUNNING"* ]]
+  [[ "$output" == *"omawsl multiplexer zellij"* ]]
+}
+
+@test "a herdr that exits cleanly closes the terminal like exec would" {
+  _multiplexer_home herdr
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"STILL_RUNNING"* ]]
+}
+
+@test "does not exec any multiplexer inside a herdr pane" {
+  # Herdr sets HERDR_ENV=1 in every pane process - without this guard a
+  # new herdr pane would exec zellij (or herdr) nested inside itself.
+  _multiplexer_home ""
+  export HERDR_ENV=1
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"STILL_RUNNING"* ]]
+  [ ! -f "$HOME/multiplexer_marker" ]
+}
+
 @test "does not attempt to exec into zellij when zellij is not on PATH" {
   # ZELLIJ must be genuinely unset here too, otherwise this would pass
   # trivially via the ZELLIJ guard rather than actually exercising the
