@@ -296,6 +296,17 @@ if [[ "$_omawsl_multiplexer" == zellij ]]; then
   exec zellij
 elif [[ "$_omawsl_multiplexer" == herdr ]]; then
   unset _omawsl_multiplexer
-  exec herdr
+  # Not exec'd, unlike zellij: Herdr is pre-1.0, and a client that dies on
+  # startup (a crash, a client/server mismatch right after an update) would
+  # otherwise close every new terminal instantly, leaving no shell to run
+  # `omawsl multiplexer zellij` from. A clean exit (detach/quit), or one
+  # after a real session, still closes the terminal exactly like exec;
+  # only a quick failure drops to a plain shell instead.
+  _omawsl_herdr_started=$SECONDS
+  if herdr || ((SECONDS - _omawsl_herdr_started >= 3)); then
+    exit 0
+  fi
+  unset _omawsl_herdr_started
+  echo "omawsl: Herdr failed to start - this is a plain shell. Switch back with: omawsl multiplexer zellij" >&2
 fi
 unset _omawsl_multiplexer

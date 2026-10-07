@@ -622,6 +622,23 @@ _multiplexer_home() {
   [[ "$(cat "$HOME/multiplexer_marker")" == "zellij" ]]
 }
 
+@test "a herdr that fails on startup leaves a usable shell instead of closing the terminal" {
+  _multiplexer_home herdr
+  printf '#!/usr/bin/env bash\necho herdr > "$HOME/multiplexer_marker"\nexit 1\n' > "$HOME/.local/bin/herdr"
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [[ "$(cat "$HOME/multiplexer_marker")" == "herdr" ]]
+  [[ "$output" == *"STILL_RUNNING"* ]]
+  [[ "$output" == *"omawsl multiplexer zellij"* ]]
+}
+
+@test "a herdr that exits cleanly closes the terminal like exec would" {
+  _multiplexer_home herdr
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"STILL_RUNNING"* ]]
+}
+
 @test "does not exec any multiplexer inside a herdr pane" {
   # Herdr sets HERDR_ENV=1 in every pane process - without this guard a
   # new herdr pane would exec zellij (or herdr) nested inside itself.
