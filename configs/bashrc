@@ -201,15 +201,27 @@ fi
 # skip its own subprocess spawn in this same condition - this outer
 # shell's prompt is discarded the instant exec replaces it, so evaluating
 # `starship init` for it would be a wasted fork.
-_omawsl_will_exec_zellij=0
-if [[ -z "${ZELLIJ:-}" ]] && command -v zellij &>/dev/null; then
-  _omawsl_will_exec_zellij=1
+#
+# Which multiplexer comes from OMAWSL_MULTIPLEXER in choices.env: "herdr"
+# (issue #10 - configs/herdr.toml ports zellij.kdl's keymap) or anything
+# else, including unset, means zellij - so every install that predates the
+# choice keeps exactly what it had. Both nesting guards apply whichever is
+# chosen ($HERDR_ENV=1 is Herdr's equivalent of $ZELLIJ), so a pane of one
+# never execs the other inside it. A chosen Herdr that isn't installed
+# falls back to zellij rather than a bare shell.
+_omawsl_multiplexer=""
+if [[ -z "${ZELLIJ:-}" && -z "${HERDR_ENV:-}" ]]; then
+  _omawsl_multiplexer="$(grep -m1 '^OMAWSL_MULTIPLEXER=' "${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env" 2>/dev/null | cut -d'"' -f2)"
+  if [[ "$_omawsl_multiplexer" != herdr ]] || ! command -v herdr &>/dev/null; then
+    _omawsl_multiplexer=zellij
+  fi
+  command -v "$_omawsl_multiplexer" &>/dev/null || _omawsl_multiplexer=""
 fi
 
 # Starship: starship's own README says to add its init line at the END of .bashrc,
 # after any other tool that also hooks PROMPT_COMMAND (zoxide/mise above) -
 # starship/starship#6093 documents hooks registered after starship's own
-# breaking the chain. Placed last (but still before the zellij exec guard
+# breaking the chain. Placed last (but still before the multiplexer exec
 # below, which replaces this shell process outright) so starship's
 # language-version modules read the already-updated PATH/env from those
 # tools' own hooks, not a stale value from before they ran.
@@ -227,7 +239,7 @@ if command -v starship &>/dev/null; then
   else
     unset STARSHIP_CONFIG
   fi
-  if [[ "$_omawsl_will_exec_zellij" -eq 0 ]]; then
+  if [[ -z "$_omawsl_multiplexer" ]]; then
     eval "$(starship init bash)"
   fi
 else
@@ -245,7 +257,7 @@ unset OMAWSL_FONT_MODE _omawsl_cascadia_mono
 
 # Must be the very last thing in this file: `exec` replaces the current
 # shell process, so nothing after this line would ever run.
-if [[ "$_omawsl_will_exec_zellij" -eq 1 ]]; then
+if [[ "$_omawsl_multiplexer" == zellij ]]; then
   # Re-pin pane_frame_style right before every zellij launch, not just once
   # in apps-terminal.sh's install/update path: zellij auto-regenerates
   # ~/.config/zellij/config.kdl (backing the old one up to config.kdl.bak)
@@ -280,7 +292,10 @@ if [[ "$_omawsl_will_exec_zellij" -eq 1 ]]; then
   # /tmp-based directory zellij already falls back to when
   # XDG_RUNTIME_DIR is unset, sidestepping the broken mount entirely.
   export ZELLIJ_SOCKET_DIR="/tmp/zellij-$(id -u)"
-  unset _omawsl_will_exec_zellij
+  unset _omawsl_multiplexer
   exec zellij
+elif [[ "$_omawsl_multiplexer" == herdr ]]; then
+  unset _omawsl_multiplexer
+  exec herdr
 fi
-unset _omawsl_will_exec_zellij
+unset _omawsl_multiplexer
