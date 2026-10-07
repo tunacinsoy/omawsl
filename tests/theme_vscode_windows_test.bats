@@ -109,3 +109,12 @@ EOF
   [ ! -d "$WINHOME/AppData/Roaming/Code" ]
   [ ! -d "$WINHOME/AppData/Roaming/Cursor" ]
 }
+
+@test "omawsl_theme_apply_vscode with an empty extension id sets the theme but installs nothing" {
+  code() { echo "code $*" >> "$STUB_LOG"; }
+  export -f code
+  omawsl_code_reachable() { return 0; }
+  run omawsl_theme_apply_vscode "Solarized Dark" ""
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"--install-extension"* ]]
+}

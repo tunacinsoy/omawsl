@@ -207,7 +207,8 @@ omawsl_theme_ensure_vscode_settings_exists() {
 # app-cursor.sh (Phase 4): Cursor has its own extension distribution
 # and commonly blocks Microsoft-published extensions from its
 # marketplace, so this only touches what's clearly specified (shared
-# settings keys).
+# settings keys). An empty <extension_id> means a theme VS Code ships
+# built in (e.g. Solarized Dark) - only settings.json is touched.
 omawsl_theme_apply_vscode() {
   local color_theme="$1" extension_id="$2"
 
@@ -225,7 +226,7 @@ omawsl_theme_apply_vscode() {
     omawsl_theme_set_vscode_settings "$cursor_settings" "$color_theme"
   fi
 
-  if omawsl_code_reachable; then
+  if [[ -n "$extension_id" ]] && omawsl_code_reachable; then
     # NODE_NO_WARNINGS=1: VS Code's `code` CLI is itself a Node.js binary
     # and emits a `[DEP0169] DeprecationWarning: url.parse()...` to
     # stderr on every fresh extension install - confirmed Microsoft's own

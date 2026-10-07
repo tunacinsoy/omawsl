@@ -1,0 +1,15 @@
+themes {
+    one-dark {
+        fg 171 178 191
+        bg 40 44 52
+        black 62 68 81
+        red 224 108 117
+        green 152 195 121
+        yellow 229 192 123
+        blue 97 175 239
+        magenta 198 120 221
+        cyan 86 182 194
+        white 220 223 228
+        orange 209 154 102
+    }
+}
