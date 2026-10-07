@@ -48,6 +48,9 @@ popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next 
   get back.
 - **`Alt +`** can't be bound in Herdr 0.9 - use `Alt =`, which grows the pane in zellij
   too.
+- **Tab mode's `h/j/k/l`** switch one tab and close the popup (zellij stays in tab mode) -
+  Herdr loses track of a popup that changes tabs while it's open. Repeat `Ctrl g t l`, or
+  use `Alt h/l`.
 - **Not available**: swap layouts (`Alt [ ]`), pane-frame toggle, tab sync, last-tab toggle.
 
 ## Themes

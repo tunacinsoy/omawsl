@@ -135,6 +135,17 @@ EOF
   [[ "$(stub_calls)" == *"herdr pane swap --pane w1:p1 --direction left"* ]]
 }
 
+@test "tab mode: hjkl switches tab and closes the popup" {
+  # Unlike zellij, not sticky: Herdr 0.9 keeps placing popups on the old
+  # tab once a running popup switches tabs, so later popups open where the
+  # user can't see them. Switching and exiting together avoids that.
+  export STUB_TABS="$TWO_TABS"
+  run bash -c "printf 'lx' | '$MODE' tab"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"herdr tab focus w1:t2"* ]]
+  [[ "$(stub_calls)" != *"tab close"* ]]
+}
+
 @test "rejects an unknown mode with usage and exit 2" {
   run "$MODE" not-a-mode
   [ "$status" -eq 2 ]

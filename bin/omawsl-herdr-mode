@@ -212,9 +212,12 @@ mode_tab() {
   draw TAB "←↓↑→/hjkl switch │ 1-9 go to │ n new │ x close │ r rename │ b break pane │ [ ] break left/right │ p m o modes"
   read_key || { mode=""; return; }
   local t
+  # Switching tabs always closes the popup, unlike zellij's sticky tab
+  # mode: once a still-running popup switches tabs, Herdr 0.9 keeps placing
+  # every later popup on the old tab, out of sight.
   case $key in
-    h | k | LEFT | UP) t=$(tab_offset -1); [[ -n $t ]] && herdr tab focus "$t" >/dev/null ;;
-    j | l | RIGHT | DOWN) t=$(tab_offset 1); [[ -n $t ]] && herdr tab focus "$t" >/dev/null ;;
+    h | k | LEFT | UP) t=$(tab_offset -1); [[ -n $t ]] && herdr tab focus "$t" >/dev/null; mode="" ;;
+    j | l | RIGHT | DOWN) t=$(tab_offset 1); [[ -n $t ]] && herdr tab focus "$t" >/dev/null; mode="" ;;
     [1-9])
       t=$(herdr tab list --workspace "$ws" | jq -r --argjson n "$key" '.result.tabs[] | select(.number == $n) | .tab_id')
       [[ -n $t ]] && herdr tab focus "$t" >/dev/null
