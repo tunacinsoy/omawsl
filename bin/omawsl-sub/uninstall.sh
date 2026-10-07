@@ -79,6 +79,11 @@ omawsl_uninstall_dispatch() {
       source "$OMAWSL_ROOT_DIR/uninstall/app-gh-copilot.sh"
       omawsl_uninstall_gh_copilot
       ;;
+    herdr)
+      # shellcheck source=/dev/null
+      source "$OMAWSL_ROOT_DIR/uninstall/app-herdr.sh"
+      omawsl_uninstall_herdr
+      ;;
     *)
       echo "omawsl: unknown item '$slug'" >&2
       echo "Run 'omawsl install' with no arguments to see the available categories." >&2

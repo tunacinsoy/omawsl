@@ -267,3 +267,24 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"Starship"* ]]
 }
+
+@test "omawsl_doctor reports zellij as the multiplexer by default" {
+  stub_command zellij
+  run omawsl_doctor
+  [[ "$output" == *"Terminal multiplexer:"* ]]
+  [[ "$output" == *"[OK]      Zellij"* ]]
+}
+
+@test "omawsl_doctor reports Herdr when chosen and installed" {
+  omawsl_save_choice OMAWSL_MULTIPLEXER herdr
+  stub_command herdr
+  run omawsl_doctor
+  [[ "$output" == *"[OK]      Herdr (preview)"* ]]
+}
+
+@test "omawsl_doctor reports PENDING when Herdr is chosen but missing" {
+  omawsl_save_choice OMAWSL_MULTIPLEXER herdr
+  stub_hide_command herdr
+  run omawsl_doctor
+  [[ "$output" == *"[PENDING] Herdr - run: omawsl multiplexer herdr"* ]]
+}

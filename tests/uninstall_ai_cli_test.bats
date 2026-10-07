@@ -11,6 +11,8 @@ setup() {
   source "$REPO_ROOT/uninstall/app-claude-cli.sh"
   source "$REPO_ROOT/uninstall/app-codex-cli.sh"
   source "$REPO_ROOT/uninstall/app-antigravity-cli.sh"
+  source "$REPO_ROOT/uninstall/app-herdr.sh"
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
 }
 
 @test "omawsl_uninstall_claude_cli removes the binary and its data dir" {
@@ -52,4 +54,34 @@ EOF
   run omawsl_uninstall_codex_cli
   [ "$status" -eq 0 ]
   [ ! -f "$HOME/.local/bin/codex" ]
+}
+
+@test "omawsl_uninstall_herdr removes the binary and its config dir" {
+  unset HERDR_ENV
+  stub_hide_command herdr
+  mkdir -p "$HOME/.local/bin" "$HOME/.config/herdr"
+  touch "$HOME/.local/bin/herdr"
+  run omawsl_uninstall_herdr
+  [ "$status" -eq 0 ]
+  [ ! -f "$HOME/.local/bin/herdr" ]
+  [ ! -d "$HOME/.config/herdr" ]
+}
+
+@test "omawsl_uninstall_herdr switches new terminals back to zellij" {
+  unset HERDR_ENV
+  stub_hide_command herdr
+  omawsl_save_choice OMAWSL_MULTIPLEXER herdr
+  run omawsl_uninstall_herdr
+  [ "$status" -eq 0 ]
+  [ "$(omawsl_load_choice OMAWSL_MULTIPLEXER)" = "zellij" ]
+}
+
+@test "omawsl_uninstall_herdr refuses inside Herdr instead of killing the session" {
+  export HERDR_ENV=1
+  mkdir -p "$HOME/.local/bin"
+  touch "$HOME/.local/bin/herdr"
+  run omawsl_uninstall_herdr
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"inside Herdr"* ]]
+  [ -f "$HOME/.local/bin/herdr" ]
 }
