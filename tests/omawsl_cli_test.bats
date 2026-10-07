@@ -239,3 +239,14 @@ setup() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"Usage: omawsl uninstall"* ]]
 }
+
+@test "bin/omawsl theme also switches Herdr's theme when a Herdr config exists" {
+  command -v jq &>/dev/null || skip "jq not installed on this test host"
+  mkdir -p "$HOME/.config/zellij" "$HOME/.config/herdr"
+  cp "$REPO_ROOT/configs/zellij.kdl" "$HOME/.config/zellij/config.kdl"
+  printf '[theme]\nname = "tokyo-night"\n' > "$HOME/.config/herdr/config.toml"
+  stub_hide_command herdr
+  run bash "$REPO_ROOT/bin/omawsl" theme rose-pine
+  [ "$status" -eq 0 ]
+  grep -qx 'name = "rose-pine-dawn"' "$HOME/.config/herdr/config.toml"
+}

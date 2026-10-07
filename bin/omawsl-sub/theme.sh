@@ -7,6 +7,8 @@ OMAWSL_ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=windows-terminal.sh
 source "$SCRIPT_DIR/windows-terminal.sh"
+# shellcheck source=../../install/terminal/app-herdr.sh
+source "$OMAWSL_ROOT_DIR/install/terminal/app-herdr.sh"
 
 # omawsl_theme_names
 # The 10 ported theme folder names, in Omakub's own picker order
@@ -102,7 +104,9 @@ omawsl_theme_apply_opencode() {
 # Neovim was selected), VS Code/Cursor (via each theme's own vscode.sh,
 # which sources themes/set-vscode-theme.sh - Task 2), opencode (only
 # for the 6 themes with a built-in preset - see
-# omawsl_theme_apply_opencode above), and Windows Terminal (Task 6).
+# omawsl_theme_apply_opencode above), Herdr (its [theme] name, via
+# omawsl_herdr_apply_theme in install/terminal/app-herdr.sh - no-op
+# without a Herdr config), and Windows Terminal (Task 6).
 omawsl_theme_apply() {
   local name="$1"
   local theme_dir="$OMAWSL_ROOT_DIR/themes/$name"
@@ -137,6 +141,8 @@ omawsl_theme_apply() {
   source "$theme_dir/vscode.sh"
 
   omawsl_theme_apply_opencode "$name"
+
+  omawsl_herdr_apply_theme "$name"
 
   omawsl_theme_apply_windows_terminal "$theme_dir/windows-terminal-scheme.json"
 }
