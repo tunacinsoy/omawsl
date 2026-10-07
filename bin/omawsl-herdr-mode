@@ -156,7 +156,9 @@ read_key() {
       '[A') k=UP ;; '[B') k=DOWN ;; '[C') k=RIGHT ;; '[D') k=LEFT ;; *) k=ESC ;;
     esac
   fi
-  [[ -z $k ]] && k=ENTER
+  # A real terminal sends Enter as CR; Herdr's popup pty doesn't map it to
+  # NL, so read hands it back as $'\r' rather than as an empty line.
+  [[ -z $k || $k == $'\r' ]] && k=ENTER
   key=$k
 }
 

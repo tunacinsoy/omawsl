@@ -66,6 +66,16 @@ EOF
   [[ "$(stub_calls)" != *"pane close"* ]]
 }
 
+@test "Enter sent as a carriage return (how real terminals send it) leaves a mode" {
+  export STUB_TABS='[{"tab_id":"w1:t1","number":1,"focused":true},{"tab_id":"w1:t2","number":2,"focused":false}]'
+  # l switches tab, then Enter must end the popup - the trailing x would
+  # otherwise close the tab.
+  run bash -c "printf 'l\rx' | '$MODE' tab"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"herdr tab focus w1:t2"* ]]
+  [[ "$(stub_calls)" != *"tab close"* ]]
+}
+
 @test "new-pane splits right in a wide pane and down in a tall one" {
   run "$MODE" new-pane
   [[ "$(stub_calls)" == *"pane split --pane w1:p1 --direction right --focus"* ]]
