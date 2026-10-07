@@ -1,0 +1,163 @@
+# omawsl's Herdr config - configs/zellij.kdl's keymap ported to Herdr
+# (issue #10), so switching multiplexers never means relearning keys.
+#
+# How the zellij layers map:
+#   zellij "locked" mode (the default - keys go to the pane)
+#       = Herdr's normal terminal mode. The direct Alt chords below are the
+#         same ones zellij.kdl shares between "normal" and "locked".
+#   Ctrl g (unlock to "normal")
+#       = Herdr's prefix.
+#   Ctrl g, then p/t/r/m/o (pane/tab/resize/move/session mode), then a key
+#       = a popup running bin/omawsl-herdr-mode, which reads that last key
+#         itself - Herdr rejects multi-key sequences like "prefix+p+n".
+#   Ctrl g, s (scroll mode)
+#       = Herdr's native copy mode: j/k, PageUp/PageDown and Ctrl b/Ctrl f
+#         behave the same; half-page is Ctrl u/Ctrl d instead of u/d and
+#         search is / instead of f.
+#
+# Herdr-only extras sit on prefix keys zellij.kdl leaves unbound in
+# "normal" mode, so nothing collides: q detach, w workspace picker, g goto
+# agent, comma settings, e edit scrollback, b sidebar, ? help.
+#
+# @OMAWSL_ROOT@ is replaced with the real omawsl checkout path when
+# install/terminal/app-herdr.sh copies this file to
+# ~/.config/herdr/config.toml - Herdr runs custom commands without
+# omawsl's PATH additions, so the helper needs an absolute path, and the
+# checkout isn't always at ~/.local/share/omawsl.
+
+[theme]
+name = "tokyo-night"
+
+[ui]
+# zellij's compact layout keeps its one bar at the bottom.
+tab_bar_position = "bottom"
+# zellij's NewTab doesn't ask for a name first.
+prompt_new_tab_name = false
+
+[keys]
+prefix = "ctrl+g"
+
+# --- Direct chords (zellij.kdl: shared_among "normal" "locked") ---------
+focus_pane_left = ""
+focus_pane_right = ""
+focus_pane_down = ["alt+j", "alt+down"]
+focus_pane_up = ["alt+k", "alt+up"]
+move_tab_previous = "alt+i"
+move_tab_next = "alt+o"
+
+# --- Herdr-only extras on otherwise-free prefix keys --------------------
+detach = "prefix+q"
+workspace_picker = "prefix+w"
+goto = "prefix+g"
+settings = "prefix+comma"
+edit_scrollback = "prefix+e"
+toggle_sidebar = "prefix+b"
+help = "prefix+?"
+copy_mode = "prefix+s"
+
+# --- Herdr defaults that would shadow a zellij mode letter or otherwise
+# --- teach a second way to do the same thing - all handled by the modes.
+new_tab = ""
+rename_tab = ""
+previous_tab = ""
+next_tab = ""
+close_tab = ""
+rename_pane = ""
+split_vertical = ""
+split_horizontal = ""
+close_pane = ""
+zoom = ""
+resize_mode = ""
+cycle_pane_next = ""
+cycle_pane_previous = ""
+open_notification_target = ""
+
+# --- Direct chords Herdr has no native action for ------------------------
+[[keys.command]]
+key = ["alt+h", "alt+left"]
+type = "shell"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode focus-or-tab left"
+description = "focus pane or tab left"
+
+[[keys.command]]
+key = ["alt+l", "alt+right"]
+type = "shell"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode focus-or-tab right"
+description = "focus pane or tab right"
+
+[[keys.command]]
+key = "alt+n"
+type = "shell"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode new-pane"
+description = "new pane"
+
+[[keys.command]]
+key = ["alt+plus", "alt+="]
+type = "shell"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode grow"
+description = "grow pane"
+
+[[keys.command]]
+key = "alt+minus"
+type = "shell"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode shrink"
+description = "shrink pane"
+
+# zellij's floating panes have no Herdr equivalent; a scratch shell popup
+# is the closest thing - exit it to get back.
+[[keys.command]]
+key = "alt+f"
+type = "popup"
+command = "exec \"${SHELL:-bash}\""
+description = "scratch shell"
+width = "80%"
+height = "80%"
+
+# --- Ctrl g, then a mode letter ------------------------------------------
+[[keys.command]]
+key = "prefix+p"
+type = "popup"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode pane"
+description = "pane mode"
+width = "100%"
+height = 5
+
+[[keys.command]]
+key = "prefix+t"
+type = "popup"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode tab"
+description = "tab mode"
+width = "100%"
+height = 5
+
+[[keys.command]]
+key = "prefix+r"
+type = "popup"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode resize"
+description = "resize mode"
+width = "100%"
+height = 5
+
+[[keys.command]]
+key = "prefix+m"
+type = "popup"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode move"
+description = "move mode"
+width = "100%"
+height = 5
+
+[[keys.command]]
+key = "prefix+o"
+type = "popup"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode session"
+description = "session mode"
+width = "100%"
+height = 5
+
+[[keys.command]]
+key = "prefix+ctrl+q"
+type = "popup"
+command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode quit"
+description = "quit"
+width = "100%"
+height = 5

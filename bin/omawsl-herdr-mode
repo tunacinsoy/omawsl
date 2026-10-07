@@ -1,0 +1,310 @@
+#!/usr/bin/env bash
+# omawsl-herdr-mode <mode|action> [direction]
+#
+# Herdr (issue #10) only has a single prefix layer - `prefix+key` - and
+# rejects multi-key sequences outright (`prefix+t+n` is "invalid
+# keybinding"), so configs/zellij.kdl's modal scheme - Ctrl g, then a mode
+# letter (p/t/r/m/o), then an action key - can't be expressed natively.
+# configs/herdr.toml instead binds each mode letter to a small Herdr popup
+# running this script, which draws the same hint line zellij's status bar
+# would, reads the next key itself, and drives Herdr through its CLI
+# socket API. Popups don't get HERDR_PANE_ID (they aren't panes), so the
+# target is re-read from `herdr pane list` before every action - sticky
+# modes (focus/resize/move) change it as they go.
+#
+# Also run as a type = "shell" command for the direct Alt chords whose
+# zellij action has no native Herdr equivalent: MoveFocusOrTab
+# (focus-or-tab), NewPane's auto-direction split (new-pane) and
+# Resize Increase/Decrease (grow/shrink).
+set -uo pipefail
+
+herdr() { command "${HERDR_BIN_PATH:-herdr}" "$@"; }
+
+pane="" tab="" ws=""
+refresh() {
+  read -r pane tab ws < <(herdr pane list |
+    jq -r '.result.panes[] | select(.focused) | "\(.pane_id) \(.tab_id) \(.workspace_id)"' | head -n1)
+  pane="${pane:-${HERDR_ACTIVE_PANE_ID:-}}"
+  tab="${tab:-${HERDR_ACTIVE_TAB_ID:-}}"
+  ws="${ws:-${HERDR_ACTIVE_WORKSPACE_ID:-}}"
+}
+
+# Raw socket call, one JSON request per line, for the API methods the CLI
+# doesn't wrap - `herdr pane focus` only takes a direction, but the
+# socket's pane.focus takes a pane id. Herdr hands custom commands
+# HERDR_SOCKET_PATH.
+focus_pane_id() {
+  jq -cn --arg p "$1" '{id: "omawsl", method: "pane.focus", params: {pane_id: $p}}' |
+    nc -U -q1 "${HERDR_SOCKET_PATH:?}" >/dev/null
+}
+
+neighbor() {
+  herdr pane neighbor --pane "$pane" --direction "$1" | jq -r '.result.neighbor.neighbor_pane_id // empty'
+}
+
+# Prints the tab $1 steps away from the current one, wrapping like
+# zellij's GoToNextTab/GoToPreviousTab - or, with $2 = nowrap, nothing past
+# either end. Nothing either way when there's only one tab.
+tab_offset() {
+  local -a ids
+  mapfile -t ids < <(herdr tab list --workspace "$ws" | jq -r '.result.tabs | sort_by(.number) | .[].tab_id')
+  local n=${#ids[@]} i
+  ((n > 1)) || return 0
+  for i in "${!ids[@]}"; do
+    if [[ ${ids[$i]} == "$tab" ]]; then
+      local j=$((i + $1))
+      if [[ ${2:-} == nowrap ]] && ((j < 0 || j >= n)); then return 0; fi
+      echo "${ids[$(((j + n) % n))]}"
+      return 0
+    fi
+  done
+}
+
+# Prints the pane $1 steps away from the current one in layout order -
+# zellij's SwitchFocus / MovePane / MovePaneBackwards ordering.
+pane_offset() {
+  local -a ids
+  mapfile -t ids < <(herdr pane layout --pane "$pane" | jq -r '.result.layout.panes[].pane_id')
+  local n=${#ids[@]} i
+  ((n > 1)) || return 0
+  for i in "${!ids[@]}"; do
+    if [[ ${ids[$i]} == "$pane" ]]; then
+      echo "${ids[$(((i + $1 + n) % n))]}"
+      return 0
+    fi
+  done
+}
+
+opposite() {
+  case $1 in left) echo right ;; right) echo left ;; up) echo down ;; down) echo up ;; esac
+}
+
+focus_or_tab() {
+  if [[ -n $(neighbor "$1") ]]; then
+    herdr pane focus --pane "$pane" --direction "$1" >/dev/null
+  else
+    local t
+    t=$(tab_offset "$([[ $1 == left ]] && echo -1 || echo 1)")
+    [[ -n $t ]] && herdr tab focus "$t" >/dev/null
+  fi
+}
+
+# zellij's NewPane with no direction splits whichever way leaves the
+# roomier panes - terminal cells are roughly twice as tall as wide.
+new_pane() {
+  local w h
+  read -r w h < <(herdr pane layout --pane "$pane" |
+    jq -r --arg p "$pane" '.result.layout.panes[] | select(.pane_id == $p) | "\(.rect.width) \(.rect.height)"')
+  local dir=down
+  ((${w:-0} > ${h:-0} * 2)) && dir=right
+  herdr pane split --pane "$pane" --direction "$dir" --focus >/dev/null
+}
+
+# Herdr's `pane resize --direction X` moves the divider toward X, which
+# grows the pane when it has a neighbor on that side - zellij's
+# "Increase X". "Decrease X" is pulling that same edge back in.
+resize_increase() {
+  [[ -n $(neighbor "$1") ]] && herdr pane resize --pane "$pane" --direction "$1" >/dev/null
+}
+resize_decrease() {
+  [[ -n $(neighbor "$1") ]] && herdr pane resize --pane "$pane" --direction "$(opposite "$1")" >/dev/null
+}
+# Bare "Increase"/"Decrease" (Alt +/-, resize-mode +/-/=): every side
+# that has a neighbor.
+resize_all() {
+  local d
+  for d in left right up down; do "resize_$1" "$d"; done
+}
+
+swap_dir() { herdr pane swap --pane "$pane" --direction "$1" >/dev/null; }
+swap_offset() {
+  local t
+  t=$(pane_offset "$1")
+  [[ -n $t ]] && herdr pane swap --source-pane "$pane" --target-pane "$t" >/dev/null
+}
+
+# zellij BreakPaneLeft/Right: into the neighboring tab, or a fresh one
+# when there's no tab on that side.
+break_pane() {
+  local t=""
+  [[ -n ${1:-} ]] && t=$(tab_offset "$1" nowrap)
+  if [[ -n $t ]]; then
+    herdr pane move "$pane" --tab "$t" --split right --focus >/dev/null
+  else
+    herdr pane move "$pane" --new-tab --focus >/dev/null
+  fi
+}
+
+# Called inside $(...), so the question itself goes to the tty directly.
+prompt() {
+  printf '\e[?25h\e[H\e[2J %s ' "$1" >/dev/tty
+  stty sane
+  local reply
+  IFS= read -r reply
+  printf '%s' "$reply"
+}
+
+# ---------------------------------------------------------------- popup UI
+
+key=""
+read_key() {
+  local k rest
+  IFS= read -rsn1 k || return 1
+  if [[ $k == $'\e' ]]; then
+    IFS= read -rsn2 -t 0.02 rest || true
+    case $rest in
+      '[A') k=UP ;; '[B') k=DOWN ;; '[C') k=RIGHT ;; '[D') k=LEFT ;; *) k=ESC ;;
+    esac
+  fi
+  [[ -z $k ]] && k=ENTER
+  key=$k
+}
+
+msg=""
+draw() {
+  local name=$1 hints=$2
+  printf '\e[?25l\e[H\e[2J \e[1;30;42m %s \e[0m  %s\n' "$name" "$hints"
+  printf ' \e[2mEsc/Enter/Ctrl g: back to typing'
+  [[ -n $msg ]] && printf '   \e[0;33m%s' "$msg"
+  printf '\e[0m'
+  msg=""
+}
+
+na() { msg="$1 has no Herdr equivalent"; }
+
+quit_session() {
+  local r
+  r=$(prompt "Quit Herdr? This stops every pane in the session [y/N]")
+  [[ $r == [yY]* ]] && herdr server stop >/dev/null
+}
+
+# Each mode function returns via `mode=<next>` (switch mode, zellij's shared
+# mode letters), `mode=""` (close the popup) or by leaving mode unchanged
+# (stay - zellij's sticky focus/resize/move keys).
+mode_pane() {
+  draw PANE "←↓↑→/hjkl focus │ n new │ d down │ r right │ x close │ f fullscreen │ c rename │ Tab next │ t m o modes"
+  read_key || { mode=""; return; }
+  case $key in
+    h | LEFT) herdr pane focus --pane "$pane" --direction left >/dev/null ;;
+    j | DOWN) herdr pane focus --pane "$pane" --direction down >/dev/null ;;
+    k | UP) herdr pane focus --pane "$pane" --direction up >/dev/null ;;
+    l | RIGHT) herdr pane focus --pane "$pane" --direction right >/dev/null ;;
+    $'\t') local t; t=$(pane_offset 1); [[ -n $t ]] && focus_pane_id "$t" ;;
+    n) new_pane; mode="" ;;
+    d) herdr pane split --pane "$pane" --direction down --focus >/dev/null; mode="" ;;
+    r) herdr pane split --pane "$pane" --direction right --focus >/dev/null; mode="" ;;
+    x) herdr pane close "$pane" >/dev/null; mode="" ;;
+    f) herdr pane zoom --pane "$pane" --toggle >/dev/null; mode="" ;;
+    c) local name; name=$(prompt "Pane name:"); [[ -n $name ]] && herdr pane rename "$pane" "$name" >/dev/null; mode="" ;;
+    e) na "Embed/float pane" ;;
+    w) na "Floating panes (use Alt f for a scratch popup)" ;;
+    z) na "Toggle pane frames" ;;
+    t) mode=tab ;; m) mode=move ;; o) mode=session ;;
+    s) msg="Scroll: use Ctrl g s from typing" ;;
+    $'\x11') quit_session; mode="" ;;
+    p | ESC | ENTER | $'\a') mode="" ;;
+  esac
+}
+
+mode_tab() {
+  draw TAB "←↓↑→/hjkl switch │ 1-9 go to │ n new │ x close │ r rename │ b break pane │ [ ] break left/right │ p m o modes"
+  read_key || { mode=""; return; }
+  local t
+  case $key in
+    h | k | LEFT | UP) t=$(tab_offset -1); [[ -n $t ]] && herdr tab focus "$t" >/dev/null ;;
+    j | l | RIGHT | DOWN) t=$(tab_offset 1); [[ -n $t ]] && herdr tab focus "$t" >/dev/null ;;
+    [1-9])
+      t=$(herdr tab list --workspace "$ws" | jq -r --argjson n "$key" '.result.tabs[] | select(.number == $n) | .tab_id')
+      [[ -n $t ]] && herdr tab focus "$t" >/dev/null
+      mode=""
+      ;;
+    n) herdr tab create --workspace "$ws" --focus >/dev/null; mode="" ;;
+    x) herdr tab close "$tab" >/dev/null; mode="" ;;
+    r) local name; name=$(prompt "Tab name:"); [[ -n $name ]] && herdr tab rename "$tab" "$name" >/dev/null; mode="" ;;
+    b) break_pane; mode="" ;;
+    '[') break_pane -1; mode="" ;;
+    ']') break_pane 1; mode="" ;;
+    s) na "Sync tab input" ;;
+    $'\t') na "Toggle last tab" ;;
+    p) mode=pane ;; m) mode=move ;; o) mode=session ;;
+    $'\x11') quit_session; mode="" ;;
+    t | ESC | ENTER | $'\a') mode="" ;;
+  esac
+}
+
+mode_resize() {
+  draw RESIZE "←↓↑→/hjkl increase │ HJKL decrease │ + = increase │ - decrease │ p t m o modes"
+  read_key || { mode=""; return; }
+  case $key in
+    h | LEFT) resize_increase left ;;
+    j | DOWN) resize_increase down ;;
+    k | UP) resize_increase up ;;
+    l | RIGHT) resize_increase right ;;
+    H) resize_decrease left ;;
+    J) resize_decrease down ;;
+    K) resize_decrease up ;;
+    L) resize_decrease right ;;
+    + | =) resize_all increase ;;
+    -) resize_all decrease ;;
+    p) mode=pane ;; t) mode=tab ;; m) mode=move ;; o) mode=session ;;
+    $'\x11') quit_session; mode="" ;;
+    r | ESC | ENTER | $'\a') mode="" ;;
+  esac
+}
+
+mode_move() {
+  draw MOVE "←↓↑→/hjkl move pane │ n/Tab next │ p previous │ t r o modes"
+  read_key || { mode=""; return; }
+  case $key in
+    h | LEFT) swap_dir left ;;
+    j | DOWN) swap_dir down ;;
+    k | UP) swap_dir up ;;
+    l | RIGHT) swap_dir right ;;
+    n | $'\t') swap_offset 1 ;;
+    p) swap_offset -1 ;;
+    t) mode=tab ;; r) mode=resize ;; o) mode=session ;;
+    $'\x11') quit_session; mode="" ;;
+    m | ESC | ENTER | $'\a') mode="" ;;
+  esac
+}
+
+# zellij's session mode opens built-in UI (detach, session manager,
+# configuration, plugin manager) - Herdr only exposes its equivalents as
+# native keybindings, not through the API, so this mode can only point
+# at them.
+mode_session() {
+  draw SESSION "detach → Ctrl g q │ sessions/workspaces → Ctrl g w │ goto agent → Ctrl g g │ settings → Ctrl g ,"
+  read_key || { mode=""; return; }
+  case $key in
+    d) msg="Herdr can't detach from here - press Ctrl g q" ;;
+    w) msg="Press Ctrl g w for the workspace picker" ;;
+    c) msg="Press Ctrl g , for settings" ;;
+    p) na "Plugin manager" ;;
+    t) mode=tab ;; m) mode=move ;; r) mode=resize ;;
+    $'\x11') quit_session; mode="" ;;
+    o | ESC | ENTER | $'\a') mode="" ;;
+  esac
+}
+
+# ---------------------------------------------------------------- dispatch
+
+refresh
+case ${1:-} in
+  focus-or-tab) focus_or_tab "${2:?direction}" ;;
+  new-pane) new_pane ;;
+  grow) resize_all increase ;;
+  shrink) resize_all decrease ;;
+  quit) quit_session ;;
+  pane | tab | resize | move | session)
+    stty -ixon 2>/dev/null # let Ctrl q reach us instead of XON
+    mode=$1
+    while [[ -n $mode ]]; do
+      "mode_$mode"
+      refresh
+    done
+    ;;
+  *)
+    echo "usage: omawsl-herdr-mode pane|tab|resize|move|session|quit|new-pane|grow|shrink|focus-or-tab <dir>" >&2
+    exit 2
+    ;;
+esac
