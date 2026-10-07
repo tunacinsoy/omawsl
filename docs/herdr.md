@@ -25,7 +25,7 @@ if you don't already have one) ports omawsl's zellij keymap:
 |---|---|
 | `Alt h/j/k/l`, `Alt ←↓↑→` | focus pane (h/l switch tab at the edge, like zellij) |
 | `Alt n` | new pane |
-| `Alt +` / `Alt =` / `Alt -` | grow / shrink pane |
+| `Alt =` / `Alt -` | grow / shrink pane |
 | `Alt i` / `Alt o` | move tab left / right |
 | `Ctrl g p` → `hjkl n d r x f c Tab` | pane mode |
 | `Ctrl g t` → `hjkl 1-9 n x r b [ ]` | tab mode |
@@ -46,6 +46,8 @@ popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next 
   edit scrollback is `Ctrl g e`.
 - **Floating panes**: none in Herdr. `Alt f` opens a scratch shell popup instead; exit it to
   get back.
+- **`Alt +`** can't be bound in Herdr 0.9 - use `Alt =`, which grows the pane in zellij
+  too.
 - **Not available**: swap layouts (`Alt [ ]`), pane-frame toggle, tab sync, last-tab toggle.
 
 ## Themes

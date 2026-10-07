@@ -28,3 +28,10 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   run env HERDR_CONFIG_PATH="$CONFIG" herdr config check
   [[ "$output" == "config: ok"* ]]
 }
+
+@test "binds no key spelling Herdr 0.9's client rejects" {
+  # "alt+plus" passes `herdr config check` but the client rewrites it to
+  # "alt++" and disables it; "+" can't be bound at all, so Alt = (zellij.kdl's
+  # own twin of Alt +) carries "grow" alone.
+  ! grep -vE '^[[:space:]]*#' "$CONFIG" | grep -qE '"[^"]*\+plus"|"[^"]*\+\+"'
+}

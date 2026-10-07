@@ -91,8 +91,11 @@ type = "shell"
 command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode new-pane"
 description = "new pane"
 
+# Only Alt =: Herdr 0.9 can't bind Alt + ("+" is its key separator, and
+# "alt+plus" passes `herdr config check` but the client disables it).
+# zellij.kdl binds Alt = to the same Resize Increase anyway.
 [[keys.command]]
-key = ["alt+plus", "alt+="]
+key = "alt+="
 type = "shell"
 command = "@OMAWSL_ROOT@/bin/omawsl-herdr-mode grow"
 description = "grow pane"
