@@ -212,3 +212,7 @@ setup() {
   [[ "$(stub_calls)" == *"sudo install -m 0755 /tmp/starship /usr/local/bin/starship"* ]]
   diff "$HOME/.config/starship-plain.toml" "$REPO_ROOT/configs/starship-plain.toml"
 }
+
+@test "installs netcat-openbsd for the Herdr mode helper's socket calls" {
+  grep -qE 'apt-get install -y .*netcat-openbsd' "$REPO_ROOT/install/terminal/apps-terminal.sh"
+}
