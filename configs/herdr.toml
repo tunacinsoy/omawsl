@@ -16,8 +16,9 @@
 #         search is / instead of f.
 #
 # Herdr-only extras sit on prefix keys zellij.kdl leaves unbound in
-# "normal" mode, so nothing collides: q detach, w workspace picker, g goto
-# agent, comma settings, e edit scrollback, b sidebar, ? help.
+# "normal" mode, so nothing collides: q detach, w workspace picker, [ ]
+# previous/next workspace, Shift 1-9 workspace by number, g goto agent,
+# comma settings, e edit scrollback, b sidebar, ? help.
 #
 # @OMAWSL_ROOT@ is replaced with the real omawsl checkout path when
 # install/terminal/app-herdr.sh copies this file to
@@ -54,6 +55,11 @@ edit_scrollback = "prefix+e"
 toggle_sidebar = "prefix+b"
 help = "prefix+?"
 copy_mode = "prefix+s"
+# Herdr leaves these unbound. Not prefix+shift+h/l: Herdr's own swap_pane
+# defaults sit there.
+previous_workspace = "prefix+["
+next_workspace = "prefix+]"
+switch_workspace = "prefix+shift+1..9"
 
 # --- Herdr defaults that would shadow a zellij mode letter or otherwise
 # --- teach a second way to do the same thing - all handled by the modes.
