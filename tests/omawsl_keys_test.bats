@@ -4,6 +4,7 @@ load 'helpers/stubs'
 
 setup() {
   stub_init
+  gum_stub_init
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   DOC="$REPO_ROOT/docs/keys.md"
   # Plain cat output, so tests can match the doc's text as written.
@@ -30,12 +31,29 @@ herdr_to_doc() {
     s/minus$/-/; s/comma$/,/; s/1\.\.9$/1-9/'
 }
 
-@test "omawsl keys prints every section" {
+@test "omawsl keys with no section asks which one, offering every section" {
+  gum_stub_respond "lazygit"
   run omawsl_keys_command
   [ "$status" -eq 0 ]
-  for s in "zellij" "Herdr" "Shell" "Claude Code" "Neovim" "lazygit" "lazydocker" "btop"; do
-    [[ "$output" == *"## "*"$s"* ]] || { echo "missing section: $s"; return 1; }
+  for s in "zellij / Herdr" "Shell" "Claude Code" "Neovim (nvim)" "lazygit" "lazydocker" "btop"; do
+    [[ "$(stub_calls)" == *"gum choose"*"$s"* ]] || { echo "not offered: $s"; return 1; }
   done
+  [[ "$output" == *"## lazygit"* ]]
+  [[ "$output" != *"## Shell"* ]]
+}
+
+@test "omawsl keys: picking a multi-word section shows just that section" {
+  gum_stub_respond "zellij / Herdr"
+  run omawsl_keys_command
+  [[ "$output" == *"### Herdr only"* ]]
+  [[ "$output" != *"## Shell"* ]]
+}
+
+@test "omawsl keys: cancelling the picker prints nothing" {
+  gum_stub_respond ""
+  run omawsl_keys_command
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
 }
 
 @test "omawsl keys <tool> prints only that tool's section" {

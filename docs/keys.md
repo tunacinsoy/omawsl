@@ -1,7 +1,7 @@
 # Keys
 
 Every key omawsl sets up, plus the ones worth knowing in the tools it installs. In a
-terminal: `omawsl keys` shows all of it, `omawsl keys <section>` just one - e.g.
+terminal: `omawsl keys` asks which section you want, or name it straight away - e.g.
 `omawsl keys herdr`, `omawsl keys nvim`, `omawsl keys lazygit`.
 
 For the tools omawsl only installs (Neovim, lazygit, lazydocker, btop), these are the

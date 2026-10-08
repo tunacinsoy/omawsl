@@ -17,21 +17,28 @@ omawsl_keys_show() {
 
 # omawsl_keys_command [section]
 # Entry point for `bin/omawsl keys [section]`: docs/keys.md is the one
-# cheatsheet, and this only shows it - all of it, or each "## " section
-# whose heading has [section] as a word ("herdr" and "zellij" both find
-# the shared multiplexer section, "nvim" finds "Neovim (nvim)").
+# cheatsheet, and this only shows it - each "## " section whose heading
+# has [section]'s words in a row ("herdr" and "zellij" both find the
+# shared multiplexer section, "nvim" finds "Neovim (nvim)"). With no
+# section, asks which one via gum rather than printing the whole sheet;
+# cancelling the picker shows nothing.
 omawsl_keys_command() {
   local doc="$OMAWSL_ROOT_DIR/docs/keys.md"
-  if [[ $# -eq 0 ]]; then
-    omawsl_keys_show <"$doc"
-    return 0
+  local want="${1:-}"
+  if [[ -z "$want" ]]; then
+    local -a sections
+    mapfile -t sections < <(sed -n 's/^## //p' "$doc")
+    want="$(gum choose --header "Which keys?" "${sections[@]}")" || want=""
+    [[ -n "$want" ]] || return 0
   fi
   local out
-  out="$(awk -v want="${1,,}" '
-    /^## / { h = tolower($0); gsub(/[^a-z0-9]+/, " ", h); show = index(" " h " ", " " want " ") > 0 }
+  out="$(awk -v want="$want" '
+    function words(s) { s = tolower(s); gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s); return " " s " " }
+    BEGIN { want = words(want) }
+    /^## / { show = index(words(substr($0, 4)), want) > 0 }
     show' "$doc")"
   if [[ -z "$out" ]]; then
-    echo "omawsl: unknown section '$1' - try one of:" >&2
+    echo "omawsl: unknown section '$want' - try one of:" >&2
     sed -n 's/^## /  /p' "$doc" >&2
     return 1
   fi

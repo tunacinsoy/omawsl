@@ -46,9 +46,9 @@ Commands:
   notifications [choice]    How Herdr tells you an agent finished or needs
                              input: both, sound, popup or off. With no
                              choice, choose interactively.
-  keys [section]            Cheatsheet of every key omawsl sets up or
-                             installs - zellij/Herdr, shell, Claude Code,
-                             nvim, lazygit, lazydocker, btop.
+  keys [section]            Key cheatsheet for one tool: herdr, zellij,
+                             shell, claude, nvim, lazygit, lazydocker or
+                             btop. With no section, choose interactively.
 EOF
 }
 

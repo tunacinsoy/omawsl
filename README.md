@@ -52,10 +52,9 @@ built for AI coding agents, set up with the same keybindings. Switch any time wi
 `omawsl multiplexer`; choose how Herdr tells you an agent is done (sound, Windows popup,
 both, or off) with `omawsl notifications`.
 
-Forgot a key? `omawsl keys` prints a cheatsheet of every key omawsl sets up - zellij/Herdr,
-the shell, Claude Code - plus the essentials of Neovim, lazygit, lazydocker and btop;
-`omawsl keys <section>` (e.g. `omawsl keys herdr`) shows just one. Same content:
-[`docs/keys.md`](docs/keys.md).
+Forgot a key? `omawsl keys` asks which tool, then shows its keys - zellij/Herdr, the shell,
+Claude Code, Neovim, lazygit, lazydocker or btop; `omawsl keys herdr` skips the question.
+Everything on one page: [`docs/keys.md`](docs/keys.md).
 
 omawsl ships its own theme set - Omakub's original ten (Catppuccin, Everforest, Gruvbox,
 Kanagawa, Matte Black, Nord, Osaka Jade, Ristretto, Rosé Pine, Tokyo Night) plus Dracula,
