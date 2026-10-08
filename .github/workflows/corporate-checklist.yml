@@ -1,0 +1,22 @@
+# Required by master's ruleset (see CONTRIBUTING.md): passes only when the
+# PR's "## Corporate machine" checklist is fully ticked for its head commit.
+# `edited` is what fires when a box is ticked in GitHub's web UI.
+name: corporate-checklist
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  corporate-checklist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the corporate machine checklist
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/check-corporate-checklist.sh

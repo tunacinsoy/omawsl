@@ -96,3 +96,29 @@ body() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"FAIL: 1 unticked"* ]]
 }
+
+@test "the PR template as-is fails the check: nothing ticked, no commit" {
+  run omawsl_check_corporate_checklist "$(cat "$REPO_ROOT/.github/pull_request_template.md")" "$HEAD"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"FAIL: 5 unticked"* ]]
+  [[ "$output" == *"FAIL: no 'Tested commit:' line"* ]]
+}
+
+@test "the PR template passes once every box is ticked and the commit filled in" {
+  local filled
+  filled="$(sed -e 's/- \[ \]/- [x]/' -e 's/^Tested commit: <sha>$/Tested commit: 0123456/' \
+    "$REPO_ROOT/.github/pull_request_template.md")"
+  run omawsl_check_corporate_checklist "$filled" "$HEAD"
+  [ "$status" -eq 0 ]
+}
+
+@test "the workflow passes the PR body via env, never inline in a run: line" {
+  local wf="$REPO_ROOT/.github/workflows/corporate-checklist.yml"
+  grep -q 'PR_BODY: ${{ github.event.pull_request.body }}' "$wf"
+  grep -q 'HEAD_SHA: ${{ github.event.pull_request.head.sha }}' "$wf"
+  ! grep -E '^[[:space:]]*run:.*\$\{\{' "$wf"
+}
+
+@test "the workflow re-runs when the PR description is edited (ticking a box)" {
+  grep -qE 'types: \[opened, edited, synchronize, reopened\]' "$REPO_ROOT/.github/workflows/corporate-checklist.yml"
+}
