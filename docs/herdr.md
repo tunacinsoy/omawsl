@@ -70,6 +70,16 @@ Good to know:
   "Windows PowerShell" are allowed in Settings > System > Notifications.
 - Only `[ui.sound] enabled` and `[ui.toast] delivery` in your Herdr config are changed.
 
+## Claude Code in Herdr
+
+- **What each agent is doing**: the sidebar (`Ctrl g b` to show or hide it) lists every
+  agent; under each Claude agent sits the short task summary zellij showed in the pane frame.
+- **Scrolling a Claude chat**: Claude Code draws its own screen, so Herdr's scroll mode
+  (`Ctrl g s`) doesn't reach the chat. Use Claude's keys instead - `PgUp` / `PgDn` scroll,
+  `Ctrl+End` jumps back to the latest message, and `Ctrl+o` opens the transcript: `j/k`
+  line by line, `{ }` jump between your prompts, `/` search, `Esc` back. `↑` stays prompt
+  history.
+
 ## What's different
 
 - **Session mode** (`Ctrl g o`) only points at Herdr's own keys: detach is `Ctrl g q`,

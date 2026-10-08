@@ -49,3 +49,11 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   # own twin of Alt +) carries "grow" alone.
   ! grep -vE '^[[:space:]]*#' "$CONFIG" | grep -qE '"[^"]*\+plus"|"[^"]*\+\+"'
 }
+
+@test "the sidebar shows what each Claude agent is working on" {
+  # Claude Code puts a short task summary in its terminal title - zellij
+  # showed it in the pane frame. Herdr's border label only says "claude",
+  # so the sidebar row carries the summary instead.
+  grep -qx '\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG"
+  grep -A1 '^\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG" | grep -qE '^claude = .*"terminal_title_stripped"'
+}

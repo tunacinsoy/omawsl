@@ -27,3 +27,10 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
   done
 }
+
+@test "docs/herdr.md explains scrolling Claude chats and the agent summary" {
+  local doc="$REPO_ROOT/docs/herdr.md"
+  for s in "PgUp" "Ctrl+End" "Ctrl+o" "sidebar"; do
+    grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
+  done
+}

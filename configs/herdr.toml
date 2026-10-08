@@ -35,6 +35,13 @@ tab_bar_position = "bottom"
 # zellij's NewTab doesn't ask for a name first.
 prompt_new_tab_name = false
 
+# zellij's pane frame showed the task summary Claude Code puts in its
+# terminal title. Herdr's border label only says "claude"
+# (show_agent_labels_on_pane_borders), so the sidebar carries the summary
+# on a second line under each Claude agent.
+[ui.sidebar.agents.rows_by_agent]
+claude = [["state_icon", "workspace", "tab"], ["terminal_title_stripped"]]
+
 [keys]
 prefix = "ctrl+g"
 
