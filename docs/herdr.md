@@ -74,6 +74,11 @@ Good to know:
 
 - **What each agent is doing**: the sidebar (`Ctrl g b` to show or hide it) lists every
   agent; under each Claude agent sits the short task summary zellij showed in the pane frame.
+- **Its symbol** says whether it needs you: **blocked** - asking a question or for
+  approval, answer it; **done** - finished and you haven't looked yet; **working** - still
+  running; **idle** - finished and seen. A blocked agent marks its tab and workspace blocked
+  too. Every state has its own shape as well as color (`status_indicators = "symbols"`).
+  `Ctrl g g`, then `b`, lists only the blocked ones.
 - **Scrolling a Claude chat**: Claude Code draws its own screen, so Herdr's scroll mode
   (`Ctrl g s`) doesn't reach the chat. Use Claude's keys instead - `PgUp` / `PgDn` scroll,
   `Ctrl+End` jumps back to the latest message, and `Ctrl+o` opens the transcript: `j/k`
