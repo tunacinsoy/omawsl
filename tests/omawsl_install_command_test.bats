@@ -15,7 +15,10 @@ setup() {
   stub_command sudo
   stub_command mise
   stub_command gem
-  stub_hide_command docker terraform az gcloud aws code cursor claude codex agy opencode
+  # cmd.exe hidden + fallback pointed nowhere: keeps this run off this
+  # machine's real Windows side (see omawsl_cli_test.bats's setup).
+  stub_hide_command docker terraform az gcloud aws code cursor claude codex agy opencode cmd.exe
+  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
 }
 
 @test "omawsl install language go - installs go directly and merges it into OMAWSL_LANGUAGES" {

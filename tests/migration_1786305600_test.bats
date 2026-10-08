@@ -10,7 +10,14 @@ setup() {
   stub_command sudo
   stub_command curl
   stub_command tar
-  stub_hide_command starship
+  # Keep the migration's active-theme re-apply off this machine's real
+  # Windows side: an unstubbed cmd.exe resolves the real %USERPROFILE%,
+  # so omawsl_theme_apply would rewrite the real Windows Terminal and native
+  # VS Code settings (and install real VS Code extensions) - running the
+  # suite used to leave the dev machine on whatever theme ran last. Same
+  # guard as app_vscode_test.bats.
+  stub_hide_command starship cmd.exe
+  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
 }
 
 @test "installs starship and the default plain config when starship isn't already present" {
