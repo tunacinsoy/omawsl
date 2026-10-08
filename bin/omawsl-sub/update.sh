@@ -19,7 +19,33 @@ source "$SCRIPT_DIR/orphan-tools.sh"
 # file directly inside the checkout) and refuses to pull over it rather
 # than letting `git pull` fail confusingly or silently discard those
 # edits. Same $OMAWSL_HOME default/override convention as boot.sh.
+#
+# --ref <branch> first switches the install onto that branch - fetched
+# from GitHub, so it must be pushed - and every later plain update keeps
+# following it. That's how a feat/fix branch gets tested on a real machine
+# before it's merged into master, which is what every user pulls; `--ref
+# master` goes back (docs/testing-changes.md). A branch that can't be
+# fetched changes nothing.
 omawsl_update() {
+  local ref=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --ref)
+        if [[ -z "${2:-}" ]]; then
+          echo "Usage: omawsl update [--ref <branch>]" >&2
+          return 1
+        fi
+        ref="$2"
+        shift 2
+        ;;
+      *)
+        echo "omawsl: unknown option '$1'" >&2
+        echo "Usage: omawsl update [--ref <branch>]" >&2
+        return 1
+        ;;
+    esac
+  done
+
   local home_dir="${OMAWSL_HOME:-$HOME/.local/share/omawsl}"
 
   if [[ ! -d "$home_dir/.git" ]]; then
@@ -31,6 +57,18 @@ omawsl_update() {
     echo "omawsl: $home_dir has local changes - refusing to 'git pull' over them." >&2
     echo "Commit, stash, or discard those changes yourself, then re-run 'omawsl update'." >&2
     return 1
+  fi
+
+  if [[ -n "$ref" ]]; then
+    echo "omawsl: switching to '$ref'..."
+    if ! git -C "$home_dir" fetch -q origin "$ref" 2>/dev/null; then
+      echo "omawsl: couldn't fetch '$ref' from GitHub - is it pushed? Nothing changed." >&2
+      return 1
+    fi
+    if ! git -C "$home_dir" checkout -q "$ref"; then
+      echo "omawsl: couldn't switch to '$ref'. Nothing changed." >&2
+      return 1
+    fi
   fi
 
   echo "omawsl: pulling latest..."
@@ -58,6 +96,11 @@ omawsl_update() {
   omawsl_orphan_tools_update
 
   echo "omawsl: languages/cloud tools -> mise upgrade, or 'omawsl install language <x>'. System packages -> sudo apt upgrade. Full breakdown: docs/updating.md."
+
+  local testing
+  if testing="$(omawsl_testing_branch "$home_dir")"; then
+    echo "omawsl: this machine is testing '$testing', not master - go back with: omawsl update --ref master"
+  fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

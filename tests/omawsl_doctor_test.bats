@@ -288,3 +288,22 @@ setup() {
   run omawsl_doctor
   [[ "$output" == *"[PENDING] Herdr - run: omawsl multiplexer herdr"* ]]
 }
+
+@test "omawsl_doctor notes when this machine is testing a branch instead of master" {
+  export OMAWSL_HOME="$BATS_TEST_TMPDIR/install"
+  git init -q -b master "$OMAWSL_HOME"
+  git -C "$OMAWSL_HOME" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  git -C "$OMAWSL_HOME" checkout -q -b feat/xyz
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[NOTE]    Testing branch 'feat/xyz' - go back: omawsl update --ref master"* ]]
+}
+
+@test "omawsl_doctor says nothing about branches on master" {
+  export OMAWSL_HOME="$BATS_TEST_TMPDIR/install"
+  git init -q -b master "$OMAWSL_HOME"
+  git -C "$OMAWSL_HOME" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Testing branch"* ]]
+}
