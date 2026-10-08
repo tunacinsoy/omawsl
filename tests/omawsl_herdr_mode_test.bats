@@ -125,8 +125,21 @@ EOF
   [[ "$(stub_calls)" == *"herdr pane resize --pane w1:p1 --direction left"* ]]
 }
 
-@test "resize mode: does nothing toward a side with no neighbor" {
+@test "resize mode: l with no right neighbor still moves the border right" {
+  # The right-hand pane: Herdr moves its left border instead.
+  export STUB_NEIGHBOR_left=w1:p0
+  run bash -c "printf 'lr' | '$MODE' resize"
+  [[ "$(stub_calls)" == *"herdr pane resize --pane w1:p1 --direction right"* ]]
+}
+
+@test "resize mode: h with no left neighbor still moves the border left" {
+  export STUB_NEIGHBOR_right=w1:p2
   run bash -c "printf 'hr' | '$MODE' resize"
+  [[ "$(stub_calls)" == *"herdr pane resize --pane w1:p1 --direction left"* ]]
+}
+
+@test "resize mode: HJKL do nothing toward a side with no neighbor" {
+  run bash -c "printf 'HJKLr' | '$MODE' resize"
   [[ "$(stub_calls)" != *"pane resize"* ]]
 }
 

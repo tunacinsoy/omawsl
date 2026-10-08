@@ -109,6 +109,10 @@ resize_increase() {
 resize_decrease() {
   [[ -n $(neighbor "$1") ]] && herdr pane resize --pane "$pane" --direction "$(opposite "$1")" >/dev/null
 }
+# Resize mode's hjkl: Increase X, except at the screen edge, where there's
+# nothing to grow into - Herdr then moves the pane's other border toward X,
+# so the key still moves a border the way it points.
+resize_toward() { herdr pane resize --pane "$pane" --direction "$1" >/dev/null; }
 # Bare "Increase"/"Decrease" (Alt +/-, resize-mode +/-/=): every side
 # that has a neighbor.
 resize_all() {
@@ -241,10 +245,10 @@ mode_resize() {
   draw RESIZE "←↓↑→/hjkl increase │ HJKL decrease │ + = increase │ - decrease │ p t m o modes"
   read_key || { mode=""; return; }
   case $key in
-    h | LEFT) resize_increase left ;;
-    j | DOWN) resize_increase down ;;
-    k | UP) resize_increase up ;;
-    l | RIGHT) resize_increase right ;;
+    h | LEFT) resize_toward left ;;
+    j | DOWN) resize_toward down ;;
+    k | UP) resize_toward up ;;
+    l | RIGHT) resize_toward right ;;
     H) resize_decrease left ;;
     J) resize_decrease down ;;
     K) resize_decrease up ;;
