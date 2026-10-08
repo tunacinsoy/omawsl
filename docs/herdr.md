@@ -32,6 +32,9 @@ if you don't already have one) ports omawsl's zellij keymap:
 | `Ctrl g r` → `hjkl HJKL + - =` | resize mode |
 | `Ctrl g m` → `hjkl n p Tab` | move mode |
 | `Ctrl g Ctrl q` | quit (asks first) |
+| `Ctrl g w` | workspace picker (`↑↓`, `Enter`) |
+| `Ctrl g [` / `Ctrl g ]` | previous / next workspace |
+| `Ctrl g Shift 1-9` | jump to workspace 1-9 |
 
 Herdr itself only supports one key after its prefix, so the mode keys run through a small
 popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next key -

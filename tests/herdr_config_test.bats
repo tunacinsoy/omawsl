@@ -23,6 +23,13 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   done
 }
 
+@test "workspaces switch from the prefix, clear of Herdr's swap_pane defaults" {
+  grep -qx 'previous_workspace = "prefix+\["' "$CONFIG"
+  grep -qx 'next_workspace = "prefix+\]"' "$CONFIG"
+  grep -qx 'switch_workspace = "prefix+shift+1..9"' "$CONFIG"
+  ! grep -qE '^(previous|next)_workspace = "prefix\+shift\+[hjkl]"' "$CONFIG"
+}
+
 @test "herdr config check accepts configs/herdr.toml" {
   command -v herdr &>/dev/null || skip "herdr not installed on this test host"
   run env HERDR_CONFIG_PATH="$CONFIG" herdr config check
