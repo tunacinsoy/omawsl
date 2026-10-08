@@ -122,3 +122,38 @@ setup() {
 
   [ "$OMAWSL_MULTIPLEXER" = "zellij" ]
 }
+
+@test "asks for Herdr notifications only when Herdr is picked, and saves the slug" {
+  gum_stub_respond "Personal / unrestricted"
+  gum_stub_respond "Docker Engine only, inside WSL (recommended)"
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond "Nerd Font (enhanced)"
+  gum_stub_respond "Herdr (preview, built for AI coding agents)"
+  gum_stub_respond "Sound + Windows popup"
+
+  omawsl_first_run_choices
+
+  [ "$OMAWSL_HERDR_NOTIFICATIONS" = "both" ]
+  run omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS
+  [ "$output" = "both" ]
+}
+
+@test "zellij users aren't asked about Herdr notifications" {
+  gum_stub_respond "Personal / unrestricted"
+  gum_stub_respond "Docker Engine only, inside WSL (recommended)"
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond ""
+  gum_stub_respond "Nerd Font (enhanced)"
+  gum_stub_respond "Zellij (default)"
+
+  omawsl_first_run_choices
+
+  [ "$(grep -c '^gum ' "$STUB_LOG")" -eq 8 ]
+  run omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS
+  [ "$output" = "" ]
+}

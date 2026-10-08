@@ -39,6 +39,9 @@ omawsl_multiplexer_set() {
   esac
   omawsl_save_choice OMAWSL_MULTIPLEXER "$slug"
   echo "omawsl: new terminals will open $slug - open a new terminal to switch."
+  if [[ "$slug" == herdr && -z "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" ]]; then
+    echo "omawsl: choose how Herdr tells you an agent is done with: omawsl notifications"
+  fi
 }
 
 # omawsl_multiplexer_command [slug]

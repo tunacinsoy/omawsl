@@ -20,3 +20,10 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
   done
 }
+
+@test "docs/herdr.md documents omawsl notifications and its limits" {
+  local doc="$REPO_ROOT/docs/herdr.md"
+  for s in "omawsl notifications" "pulseaudio-utils" "notify-send" "WSLg" "not** looking at"; do
+    grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
+  done
+}

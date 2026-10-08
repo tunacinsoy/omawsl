@@ -40,6 +40,35 @@ Herdr itself only supports one key after its prefix, so the mode keys run throug
 popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next key -
 `Esc`, `Enter` or `Ctrl g` leave it, just like zellij.
 
+## Notifications
+
+Herdr can tell you when an agent in another tab or workspace finishes or needs input. Out of
+the box it can't reach Windows from WSL, so omawsl asks how you want it (on first run, when
+you pick Herdr) and lets you change it any time:
+
+    omawsl notifications           # choose interactively
+    omawsl notifications both      # sound + Windows popup
+    omawsl notifications sound     # sound only
+    omawsl notifications popup     # Windows popup only
+    omawsl notifications off
+
+- **Sound** installs `pulseaudio-utils`. Herdr plays its sounds with `paplay`, which reaches
+  your Windows speakers through WSLg.
+- **Popup** links `bin/omawsl-notify-send` in as `~/.local/bin/notify-send` (an existing
+  `notify-send` there is left alone) and sets Herdr's `[ui.toast] delivery = "system"`. It
+  shows a normal Windows notification via PowerShell. The popup is silent - pick `both` for
+  a sound too.
+
+Good to know:
+
+- Herdr only notifies for agents in a tab you're **not** looking at - even when Windows
+  Terminal itself is minimised.
+- Both need WSLg (Windows 11, or Windows 10 with WSL from the Microsoft Store). Without it,
+  omawsl warns and nothing plays or pops up.
+- No popups at all? Check Windows' Do Not Disturb / Focus, and that notifications from
+  "Windows PowerShell" are allowed in Settings > System > Notifications.
+- Only `[ui.sound] enabled` and `[ui.toast] delivery` in your Herdr config are changed.
+
 ## What's different
 
 - **Session mode** (`Ctrl g o`) only points at Herdr's own keys: detach is `Ctrl g q`,

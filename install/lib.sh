@@ -313,3 +313,24 @@ omawsl_multiplexer_slug() {
     *) echo "zellij" ;;
   esac
 }
+
+# Herdr agent notifications - the picker labels, shared by
+# install/first-run-choices.sh and `omawsl notifications` for the same
+# reason as the multiplexer labels above. choices.env stores the slug.
+OMAWSL_HERDR_NOTIFY_LABEL_BOTH="Sound + Windows popup"
+OMAWSL_HERDR_NOTIFY_LABEL_SOUND="Sound only"
+OMAWSL_HERDR_NOTIFY_LABEL_POPUP="Windows popup only"
+OMAWSL_HERDR_NOTIFY_LABEL_OFF="Off"
+
+# omawsl_herdr_notifications_slug <label_or_slug>
+# both/sound/popup/off for a label or slug; empty for anything else,
+# including a cancelled picker - unlike the multiplexer there's no default
+# to fall back to, an unanswered question just leaves Herdr's own settings.
+omawsl_herdr_notifications_slug() {
+  case "$1" in
+    "$OMAWSL_HERDR_NOTIFY_LABEL_BOTH"|both) echo "both" ;;
+    "$OMAWSL_HERDR_NOTIFY_LABEL_SOUND"|sound) echo "sound" ;;
+    "$OMAWSL_HERDR_NOTIFY_LABEL_POPUP"|popup) echo "popup" ;;
+    "$OMAWSL_HERDR_NOTIFY_LABEL_OFF"|off) echo "off" ;;
+  esac
+}

@@ -119,3 +119,102 @@ setup() {
   [[ "$output" == *"new terminals will open zellij"* ]]
   [ ! -f "$HOME/.config/herdr/config.toml" ]
 }
+
+@test "omawsl_toml_set replaces a key inside its table only" {
+  local f="$BATS_TEST_TMPDIR/c.toml"
+  printf '[ui.toast.clipboard]\nenabled = true\n[ui.sound]\nenabled = true\npath = "x.mp3"\n' > "$f"
+  omawsl_toml_set "$f" ui.sound enabled false
+  [ "$(cat "$f")" = $'[ui.toast.clipboard]\nenabled = true\n[ui.sound]\nenabled = false\npath = "x.mp3"' ]
+}
+
+@test "omawsl_toml_set adds a missing key to the end of its table" {
+  local f="$BATS_TEST_TMPDIR/c.toml"
+  printf '[ui.toast]\ndelay_seconds = 1\n\n[keys]\nprefix = "ctrl+g"\n' > "$f"
+  omawsl_toml_set "$f" ui.toast delivery '"system"'
+  [ "$(cat "$f")" = $'[ui.toast]\ndelay_seconds = 1\n\ndelivery = "system"\n[keys]\nprefix = "ctrl+g"' ]
+}
+
+@test "omawsl_toml_set appends a missing table, and is idempotent" {
+  local f="$BATS_TEST_TMPDIR/c.toml"
+  printf '[keys]\nprefix = "ctrl+g"\n' > "$f"
+  omawsl_toml_set "$f" ui.toast delivery '"system"'
+  omawsl_toml_set "$f" ui.toast delivery '"system"'
+  [ "$(cat "$f")" = $'[keys]\nprefix = "ctrl+g"\n\n[ui.toast]\ndelivery = "system"' ]
+}
+
+@test "omawsl_herdr_apply_notifications maps each choice to sound + delivery and reloads herdr" {
+  mkdir -p "$HOME/.config/herdr"
+  local f="$HOME/.config/herdr/config.toml"
+  printf '[keys]\nprefix = "ctrl+g"\n' > "$f"
+  stub_command herdr
+  local pair
+  for pair in both:true:system sound:true:off popup:false:system off:false:off; do
+    IFS=: read -r slug sound delivery <<< "$pair"
+    omawsl_herdr_apply_notifications "$slug"
+    grep -qx "enabled = $sound" "$f" || { echo "$slug: sound"; cat "$f"; return 1; }
+    grep -qx "delivery = \"$delivery\"" "$f" || { echo "$slug: delivery"; cat "$f"; return 1; }
+  done
+  [ "$(grep -c '^\[ui.sound\]' "$f")" -eq 1 ]
+  [ "$(grep -c '^\[ui.toast\]' "$f")" -eq 1 ]
+  [[ "$(stub_calls)" == *"herdr server reload-config"* ]]
+}
+
+@test "omawsl_herdr_apply_notifications is a no-op when there's no Herdr config" {
+  run omawsl_herdr_apply_notifications both
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/.config/herdr" ]
+}
+
+@test "notifications setup installs pulseaudio-utils for sound when paplay is missing" {
+  stub_hide_command paplay herdr
+  sudo() {
+    echo "sudo $*" >> "$STUB_LOG"
+    mkdir -p "$HOME/.local/bin"
+    printf '#!/usr/bin/env bash\n' > "$HOME/.local/bin/paplay"
+    chmod +x "$HOME/.local/bin/paplay"
+  }
+  export -f sudo
+  export PATH="$HOME/.local/bin:$PATH"
+  run omawsl_herdr_setup_notifications sound
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y pulseaudio-utils"* ]]
+  [ ! -e "$HOME/.local/bin/notify-send" ]
+}
+
+@test "notifications setup fails when paplay can't be installed" {
+  stub_hide_command paplay herdr
+  stub_command sudo 100
+  run omawsl_herdr_setup_notifications both
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"pulseaudio-utils"* ]]
+}
+
+@test "notifications setup links notify-send for popups and unlinks it for sound-only" {
+  stub_command paplay
+  stub_hide_command herdr
+  omawsl_herdr_setup_notifications popup
+  [ "$(readlink "$HOME/.local/bin/notify-send")" = "$REPO_ROOT/bin/omawsl-notify-send" ]
+  omawsl_herdr_setup_notifications sound
+  [ ! -e "$HOME/.local/bin/notify-send" ]
+}
+
+@test "notifications setup never replaces someone else's notify-send" {
+  stub_hide_command herdr
+  mkdir -p "$HOME/.local/bin"
+  echo mine > "$HOME/.local/bin/notify-send"
+  run omawsl_herdr_setup_notifications popup
+  [ "$status" -eq 0 ]
+  [ "$(cat "$HOME/.local/bin/notify-send")" = "mine" ]
+  omawsl_herdr_setup_notifications off
+  [ "$(cat "$HOME/.local/bin/notify-send")" = "mine" ]
+}
+
+@test "config deploy applies a notifications choice saved before Herdr was set up" {
+  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
+  omawsl_save_choice OMAWSL_HERDR_NOTIFICATIONS popup
+  stub_hide_command herdr
+  run omawsl_install_herdr_config
+  [ "$status" -eq 0 ]
+  grep -qx 'delivery = "system"' "$HOME/.config/herdr/config.toml"
+  [ -L "$HOME/.local/bin/notify-send" ]
+}

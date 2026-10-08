@@ -236,6 +236,7 @@ setup() {
   [[ "$output" == *"uninstall"* ]]
   [[ "$output" == *"doctor"* ]]
   [[ "$output" == *"multiplexer"* ]]
+  [[ "$output" == *"notifications"* ]]
 }
 
 @test "bin/omawsl doctor runs end to end with no selections made" {

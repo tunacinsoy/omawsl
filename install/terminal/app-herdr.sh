@@ -53,6 +53,112 @@ omawsl_herdr_apply_theme() {
   fi
 }
 
+# omawsl_toml_set <file> <table> <key> <value>
+# Sets one `key = value` line inside `[table]`, leaving every other line of
+# the file alone: replaces the key's line if the table has one, adds it at
+# the end of the table if not, and appends the whole table at the end of
+# the file if it isn't there at all. <value> is written verbatim, so
+# strings need their own quotes. Only understands standard `[table]`
+# headers, not dotted keys or inline tables - fine for the two Herdr
+# settings omawsl owns.
+omawsl_toml_set() {
+  local file="$1" table="$2" key="$3" value="$4"
+  local tmp
+  tmp="$(mktemp)"
+  awk -v header="[$table]" -v key="$key" -v line="$key = $value" '
+    function emit() { print line; done = 1 }
+    $0 == header { in_table = 1; seen = 1; print; next }
+    in_table && /^[[:space:]]*\[/ { if (!done) emit(); in_table = 0 }
+    in_table && $0 ~ "^[[:space:]]*" key "[[:space:]]*=" { if (!done) emit(); next }
+    { print }
+    END {
+      if (in_table && !done) emit()
+      if (!seen) { print ""; print header; emit() }
+    }
+  ' "$file" > "$tmp"
+  cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# omawsl_herdr_apply_notifications <both|sound|popup|off>
+# Rewrites only the two Herdr settings behind `omawsl notifications` -
+# `[ui.sound] enabled` and `[ui.toast] delivery` - and reloads a running
+# Herdr, same shape as omawsl_herdr_apply_theme. "system" delivery is what
+# runs notify-send (bin/omawsl-notify-send, once linked in). No-op without
+# a Herdr config.
+omawsl_herdr_apply_notifications() {
+  local config_file="$HOME/.config/herdr/config.toml"
+  [[ -f "$config_file" ]] || return 0
+  local sound=false delivery='"off"'
+  case "$1" in
+    both) sound=true; delivery='"system"' ;;
+    sound) sound=true ;;
+    popup) delivery='"system"' ;;
+  esac
+  omawsl_toml_set "$config_file" ui.sound enabled "$sound"
+  omawsl_toml_set "$config_file" ui.toast delivery "$delivery"
+  if command -v herdr &>/dev/null; then
+    herdr server reload-config >/dev/null 2>&1 || true
+  fi
+}
+
+# omawsl_herdr_link_notify_send
+# Puts bin/omawsl-notify-send on PATH as notify-send, unless something
+# else already sits at ~/.local/bin/notify-send - that one stays.
+omawsl_herdr_link_notify_send() {
+  local link="$HOME/.local/bin/notify-send"
+  local target="$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-notify-send"
+  if [[ -e "$link" || -L "$link" ]] && [[ "$(readlink "$link")" != "$target" ]]; then
+    echo "omawsl: $link already exists and isn't omawsl's - leaving it, so Windows popups may not appear." >&2
+    return 0
+  fi
+  mkdir -p "$(dirname "$link")"
+  ln -sfn "$target" "$link"
+}
+
+# omawsl_herdr_unlink_notify_send
+# Removes ~/.local/bin/notify-send only when it's omawsl's own link.
+omawsl_herdr_unlink_notify_send() {
+  local link="$HOME/.local/bin/notify-send"
+  if [[ -L "$link" && "$(readlink "$link")" == "$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-notify-send" ]]; then
+    rm -f "$link"
+  fi
+}
+
+# omawsl_herdr_setup_notifications <both|sound|popup|off>
+# Everything one notifications choice needs. Sound: Herdr plays its mp3s
+# through paplay (pulseaudio-utils), which reaches Windows' speakers via
+# WSLg's PulseAudio server; nothing else Herdr looks for is installed by
+# default. Popup: the notify-send link. Then the config lines. Fails only
+# when paplay can't be installed, so callers can keep the previous choice.
+# Missing WSLg only warns - the choice still applies once it's there.
+omawsl_herdr_setup_notifications() {
+  local slug="$1"
+  case "$slug" in
+    both|sound)
+      if ! command -v paplay &>/dev/null; then
+        sudo apt-get install -y pulseaudio-utils || true
+        hash -r
+        if ! command -v paplay &>/dev/null; then
+          echo "omawsl: couldn't install pulseaudio-utils (paplay) - Herdr can't play sounds without it." >&2
+          return 1
+        fi
+      fi
+      [[ -n "${PULSE_SERVER:-}" ]] ||
+        echo "omawsl: no WSLg audio here (PULSE_SERVER is unset) - Herdr's sounds won't be heard until WSLg is available." >&2
+      ;;
+  esac
+  case "$slug" in
+    both|popup)
+      omawsl_herdr_link_notify_send
+      [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] ||
+        echo "omawsl: no WSLg display here (DISPLAY is unset) - Herdr only sends popups when WSLg is available." >&2
+      ;;
+    *) omawsl_herdr_unlink_notify_send ;;
+  esac
+  omawsl_herdr_apply_notifications "$slug"
+}
+
 # omawsl_zellij_current_theme
 # The omawsl theme currently applied, read back from zellij's config -
 # `omawsl theme` rewrites its `theme "..."` line on every run, so it's the
@@ -68,7 +174,10 @@ omawsl_zellij_current_theme() {
 # path. Copy-if-absent like omawsl_install_zellij_config - a user's own
 # Herdr config is never touched. A freshly deployed config then adopts
 # whatever omawsl theme is already applied, so switching to Herdr months
-# after picking a theme doesn't revert Herdr's chrome to tokyo-night.
+# after picking a theme doesn't revert Herdr's chrome to tokyo-night. Same
+# for a notifications choice saved before Herdr's config existed (the
+# first-run question) - a setup failure there only warns, it never stops
+# the install.
 omawsl_install_herdr_config() {
   local config_file="$HOME/.config/herdr/config.toml"
   [[ -f "$config_file" ]] && return 0
@@ -78,6 +187,12 @@ omawsl_install_herdr_config() {
   theme="$(omawsl_zellij_current_theme)"
   if [[ -n "$theme" ]]; then
     omawsl_herdr_apply_theme "$theme"
+  fi
+  local notifications
+  notifications="$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)"
+  if [[ -n "$notifications" ]]; then
+    omawsl_herdr_setup_notifications "$notifications" ||
+      echo "omawsl: Herdr notifications not fully set up - retry with: omawsl notifications $notifications" >&2
   fi
 }
 

@@ -18,7 +18,8 @@ any one of them. Instead it follows one rule, everywhere:
   points `$INPUTRC` at omawsl's own copy when the user has no `~/.inputrc`
   of their own.
 - `~/.config/herdr/config.toml` is only created if absent (when you choose Herdr). After
-  that, `omawsl theme` rewrites only its `[theme] name = "..."` line.
+  that, `omawsl theme` rewrites only its `[theme] name = "..."` line, and
+  `omawsl notifications` only its `[ui.sound] enabled` and `[ui.toast] delivery` lines.
 - `/etc/wsl.conf`'s `[boot] systemd=true` line (needed for Docker Engine
   mode) is appended only if not already present, tolerant of whitespace
   variants - a no-op if a corp manual (or you, by hand) already set it.

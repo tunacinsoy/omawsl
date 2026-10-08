@@ -20,6 +20,8 @@ source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/install.sh"
 source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/doctor.sh"
 # shellcheck source=omawsl-sub/multiplexer.sh
 source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/multiplexer.sh"
+# shellcheck source=omawsl-sub/notifications.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/notifications.sh"
 
 omawsl_usage() {
   cat <<'EOF'
@@ -39,6 +41,9 @@ Commands:
   multiplexer [name]        Choose what new terminals open: zellij
                              (default) or herdr. With no name, choose
                              interactively.
+  notifications [choice]    How Herdr tells you an agent finished or needs
+                             input: both, sound, popup or off. With no
+                             choice, choose interactively.
 EOF
 }
 
@@ -69,6 +74,10 @@ omawsl_main() {
     multiplexer)
       shift
       omawsl_multiplexer_command "$@"
+      ;;
+    notifications)
+      shift
+      omawsl_notifications_command "$@"
       ;;
     ""|-h|--help)
       omawsl_usage

@@ -21,6 +21,10 @@ omawsl_uninstall_herdr() {
     herdr server stop >/dev/null 2>&1 || true
   fi
   rm -f "$HOME/.local/bin/herdr"
+  # `omawsl notifications popup`'s notify-send link - only if it's omawsl's.
+  if [[ "$(readlink "$HOME/.local/bin/notify-send" 2>/dev/null)" == */bin/omawsl-notify-send ]]; then
+    rm -f "$HOME/.local/bin/notify-send"
+  fi
   rm -rf "$HOME/.config/herdr"
   if [[ "$(omawsl_load_choice OMAWSL_MULTIPLEXER)" == herdr ]]; then
     omawsl_save_choice OMAWSL_MULTIPLEXER zellij
