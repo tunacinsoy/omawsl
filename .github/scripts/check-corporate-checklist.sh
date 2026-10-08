@@ -38,8 +38,11 @@ omawsl_check_corporate_checklist() {
   fi
 
   local unticked ticked tested failed=0
-  unticked="$(grep -cE '^[[:space:]]*[-*] \[ \]' <<< "$section" || true)"
-  ticked="$(grep -cE '^[[:space:]]*[-*] \[[xX]\]' <<< "$section" || true)"
+  # Any list marker GitHub renders as a checkbox: -, * or +, or a number
+  # with . or ) - feature items are often written as a numbered list.
+  local item='^[[:space:]]*([-*+]|[0-9]+[.)])[[:space:]]+'
+  unticked="$(grep -cE "${item}\\[ \\]" <<< "$section" || true)"
+  ticked="$(grep -cE "${item}\\[[xX]\\]" <<< "$section" || true)"
   tested="$(grep -m1 -oE '^Tested commit:[[:space:]]*`?[0-9a-fA-F]{7,40}`?[[:space:]]*$' <<< "$section" \
     | grep -oE '[0-9a-fA-F]{7,40}' || true)"
   tested="${tested,,}"
@@ -50,6 +53,10 @@ omawsl_check_corporate_checklist() {
   fi
   if [[ "$ticked" -eq 0 ]]; then
     echo "FAIL: no ticked items in '## Corporate machine' - every PR has at least the template's baseline items."
+    failed=1
+  fi
+  if grep -q '<branch>' <<< "$section"; then
+    echo "FAIL: '<branch>' placeholder still in '## Corporate machine' - replace it with this PR's branch."
     failed=1
   fi
   if [[ -z "$tested" ]]; then

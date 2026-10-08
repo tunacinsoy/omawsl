@@ -102,11 +102,12 @@ body() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"FAIL: 5 unticked"* ]]
   [[ "$output" == *"FAIL: no 'Tested commit:' line"* ]]
+  [[ "$output" == *"FAIL: '<branch>' placeholder"* ]]
 }
 
 @test "the PR template passes once every box is ticked and the commit filled in" {
   local filled
-  filled="$(sed -e 's/- \[ \]/- [x]/' -e 's/^Tested commit: <sha>$/Tested commit: 0123456/' \
+  filled="$(sed -e 's/- \[ \]/- [x]/' -e 's/<branch>/feat\/x/g' -e 's/^Tested commit: `<sha>`$/Tested commit: `0123456`/' \
     "$REPO_ROOT/.github/pull_request_template.md")"
   run omawsl_check_corporate_checklist "$filled" "$HEAD"
   [ "$status" -eq 0 ]
@@ -121,4 +122,27 @@ body() {
 
 @test "the workflow re-runs when the PR description is edited (ticking a box)" {
   grep -qE 'types: \[opened, edited, synchronize, reopened\]' "$REPO_ROOT/.github/workflows/corporate-checklist.yml"
+}
+
+@test "counts unticked boxes written as numbered, + or double-spaced list items" {
+  run omawsl_check_corporate_checklist "$(body '- [x] a' '1. [ ] numbered' '+ [ ] plus' '-  [ ] spaced' '2) [x] paren' 'Tested commit: 0123456')" "$HEAD"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"FAIL: 3 unticked"* ]]
+}
+
+@test "counts ticked numbered items" {
+  run omawsl_check_corporate_checklist "$(body '1. [x] a' '2) [X] b' 'Tested commit: 0123456')" "$HEAD"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"OK: 2 corporate item(s)"* ]]
+}
+
+@test "fails while the template's <branch> placeholder is left in the section" {
+  run omawsl_check_corporate_checklist "$(body '- [x] **Do:** `omawsl update --ref <branch>`' 'Tested commit: 0123456')" "$HEAD"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"FAIL: '<branch>' placeholder"* ]]
+}
+
+@test "the PR template keeps its placeholders in backticks so GitHub doesn't strip them" {
+  local tpl="$REPO_ROOT/.github/pull_request_template.md"
+  ! grep -vE '^\* |^Replace |^Before switching|^<!--|^-->' "$tpl" | sed 's/`[^`]*`//g' | grep -q '<branch>\|<sha>'
 }

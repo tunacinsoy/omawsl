@@ -20,9 +20,9 @@ Before switching back, fill in Tested commit with: git -C ~/.local/share/omawsl 
 -->
 
 - [ ] Read every item below first. If anything looks unsafe for this machine, stop and comment on this PR instead.
-- [ ] **Do:** `omawsl update --ref <branch>` · **Expect:** "switching to '<branch>'", no errors · **Undo:** the last item
+- [ ] **Do:** `omawsl update --ref <branch>` · **Expect:** `switching to '<branch>'`, no errors · **Undo:** the last item
 - [ ] **Do:** open a new terminal · **Expect:** it starts as before: prompt and multiplexer · **Undo:** nothing to undo
 - [ ] **Do:** `omawsl doctor` · **Expect:** no new [PENDING] lines or errors compared to master · **Undo:** nothing to undo
 - [ ] **Do:** `omawsl update --ref master`, then open a new terminal · **Expect:** it starts as before · **Undo:** nothing to undo
 
-Tested commit: <sha>
+Tested commit: `<sha>`
