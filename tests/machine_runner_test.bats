@@ -22,11 +22,21 @@ make_repo() {
   git init -q --bare "$origin"
   git init -q -b main "$repo"
   echo hi > "$repo/README.md"
-  git -C "$repo" add README.md
+  mkdir -p "$repo/bin"
+  echo 'echo "sandbox copy of omawsl $*"' > "$repo/bin/omawsl"
+  git -C "$repo" add README.md bin/omawsl
   git -C "$repo" -c user.name=t -c user.email=t@t commit -q -m init
   git -C "$repo" remote add origin "$origin"
   git -C "$repo" push -q origin main
   export OMAWSL_MACHINE_REPO_ROOT="$repo"
+}
+
+# commit_file <path> <content> - adds a committed file to the make_repo repo.
+commit_file() {
+  mkdir -p "$(dirname "$OMAWSL_MACHINE_REPO_ROOT/$1")"
+  printf '%s\n' "$2" > "$OMAWSL_MACHINE_REPO_ROOT/$1"
+  git -C "$OMAWSL_MACHINE_REPO_ROOT" add "$1"
+  git -C "$OMAWSL_MACHINE_REPO_ROOT" -c user.name=t -c user.email=t@t commit -q -m "add $1"
 }
 
 # check_file <name> <bats test body> - one machine check for the runner to run.
@@ -87,7 +97,7 @@ check_file() {
   echo dirty > "$OMAWSL_MACHINE_REPO_ROOT/uncommitted.txt"
   mkdir -p "$OMAWSL_STATE_DIR"; echo 'OMAWSL_MULTIPLEXER="herdr"' > "$OMAWSL_STATE_DIR/choices.env"
   local sb="$BATS_TEST_TMPDIR/sb"
-  omawsl_machine_make_sandbox "$sb"
+  omawsl_machine_make_sandbox "$sb" "$(git -C "$OMAWSL_MACHINE_REPO_ROOT" rev-parse HEAD)"
   [ -f "$sb/omawsl/README.md" ]
   [ ! -e "$sb/omawsl/uncommitted.txt" ]
   grep -q herdr "$sb/home/.local/state/omawsl/choices.env"
@@ -164,4 +174,60 @@ check_file() {
   run omawsl_machine_main --bogus
   [ "$status" -eq 2 ]
   [[ "$output" == *"Usage: tests/machine/run [--no-report]"* ]]
+}
+
+@test "fingerprint ignores dotfiles omawsl doesn't manage, like Claude Code's ~/.claude.json" {
+  echo a > "$HOME/.claude.json"; echo a > "$HOME/.bash_history"
+  local before; before="$(omawsl_machine_fingerprint)"
+  echo ab > "$HOME/.claude.json"; echo ab > "$HOME/.bash_history"
+  [ "$(omawsl_machine_fingerprint)" = "$before" ]
+}
+
+@test "fingerprint follows a symlinked ~/.bashrc to the real file" {
+  mkdir -p "$BATS_TEST_TMPDIR/dotfiles"
+  echo a > "$BATS_TEST_TMPDIR/dotfiles/bashrc"
+  ln -s "$BATS_TEST_TMPDIR/dotfiles/bashrc" "$HOME/.bashrc"
+  local before; before="$(omawsl_machine_fingerprint)"
+  echo ab > "$BATS_TEST_TMPDIR/dotfiles/bashrc"
+  [ "$(omawsl_machine_fingerprint)" != "$before" ]
+}
+
+@test "sandbox archives the given commit, not whatever HEAD has moved to since" {
+  make_repo
+  local sha; sha="$(git -C "$OMAWSL_MACHINE_REPO_ROOT" rev-parse HEAD)"
+  commit_file README.md moved-on
+  local sb="$BATS_TEST_TMPDIR/sb"
+  omawsl_machine_make_sandbox "$sb" "$sha"
+  [ "$(cat "$sb/omawsl/README.md")" = hi ]
+}
+
+@test "checks don't inherit the live Herdr or zellij session, or XDG dirs" {
+  make_repo
+  export HERDR_ENV=1 HERDR_SOCKET_PATH=/live.sock HERDR_PANE_ID=p1 ZELLIJ=0 ZELLIJ_SESSION_NAME=s
+  export XDG_CONFIG_HOME=/real/config XDG_DATA_HOME=/real/data XDG_STATE_HOME=/real/state XDG_CACHE_HOME=/real/cache
+  check_file isolated '
+  [ -z "${HERDR_ENV:-}${HERDR_SOCKET_PATH:-}${HERDR_PANE_ID:-}" ]
+  [ -z "${ZELLIJ:-}${ZELLIJ_SESSION_NAME:-}" ]
+  [ -z "${XDG_CONFIG_HOME:-}${XDG_DATA_HOME:-}${XDG_STATE_HOME:-}${XDG_CACHE_HOME:-}" ]'
+  run omawsl_machine_main --no-report
+  [ "$status" -eq 0 ]
+}
+
+@test "omawsl on the checks' PATH runs the sandboxed copy, not the real install" {
+  make_repo
+  check_file own_omawsl '[ "$(omawsl doctor)" = "sandbox copy of omawsl doctor" ]'
+  run omawsl_machine_main --no-report
+  [ "$status" -eq 0 ]
+}
+
+@test "by default it runs the checks committed at HEAD, from the sandbox copy" {
+  make_repo
+  unset OMAWSL_MACHINE_CHECKS_DIR
+  commit_file tests/machine/where.bats '@test "runs from the sandbox" {
+  [[ "$BATS_TEST_FILENAME" == "$OMAWSL_MACHINE_ROOT"/* ]]
+}'
+  git -C "$OMAWSL_MACHINE_REPO_ROOT" push -q origin main
+  run omawsl_machine_main
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"description=1 machine checks passed"* ]]
 }
