@@ -52,8 +52,9 @@ you pick Herdr) and lets you change it any time:
     omawsl notifications popup     # Windows popup only
     omawsl notifications off
 
-- **Sound** installs `pulseaudio-utils`. Herdr plays its sounds with `paplay`, which reaches
-  your Windows speakers through WSLg.
+- **Sound** installs `pulseaudio-utils` - the one step that asks for your sudo password, once
+  per machine. Herdr plays its sounds with `paplay`, which reaches your Windows speakers
+  through WSLg.
 - **Popup** links `bin/omawsl-notify-send` in as `~/.local/bin/notify-send` (an existing
   `notify-send` there is left alone) and sets Herdr's `[ui.toast] delivery = "system"`. It
   shows a normal Windows notification via PowerShell. The popup is silent - pick `both` for
