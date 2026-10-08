@@ -39,4 +39,8 @@ gh api -X POST repos/tunacinsoy/omawsl/rulesets --input .github/rulesets/master.
 
 To change it, edit the JSON in a PR, then update the live ruleset by id: `gh api repos/tunacinsoy/omawsl/rulesets` lists it.
 
+`corporate-checklist` is pinned to GitHub Actions (app id 15368), so a status posted by hand under that name doesn't count.
+
 **Trust model:** GitHub can't know that a person really did a corporate step, only that the box is ticked. The gate stops accidental and automated merges, not deliberate false ticks.
+
+**For people and AI tools alike:** Never edit the gate's own files (`.github/scripts/check-corporate-checklist.sh`, `.github/workflows/corporate-checklist.yml`, `.github/rulesets/master.json`, `tests/machine/run`) to get a red check to pass, and never post `machine/personal` or `corporate-checklist` by hand. A red check means a machine hasn't been tested yet. Test it, or ask the maintainer.

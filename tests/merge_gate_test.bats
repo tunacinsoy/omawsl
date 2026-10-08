@@ -36,3 +36,11 @@ setup() {
   grep -q '## Corporate machine' "$doc"
   grep -q 'gh api -X POST repos/tunacinsoy/omawsl/rulesets --input .github/rulesets/master.json' "$doc"
 }
+
+@test "only GitHub Actions can satisfy corporate-checklist, so it can't be posted by hand" {
+  [ "$(jq '.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[] | select(.context == "corporate-checklist") | .integration_id' "$RULESET")" = 15368 ]
+}
+
+@test "CONTRIBUTING.md forbids editing the gate or posting its checks by hand" {
+  grep -q "Never edit the gate's own files" "$REPO_ROOT/CONTRIBUTING.md"
+}
