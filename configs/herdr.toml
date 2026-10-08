@@ -17,7 +17,7 @@
 #
 # Herdr-only extras sit on prefix keys zellij.kdl leaves unbound in
 # "normal" mode, so nothing collides: q detach, w workspace picker, [ ]
-# previous/next workspace, Shift 1-9 workspace by number, g goto agent,
+# previous/next workspace, 1-9 workspace by number, g goto agent,
 # comma settings, e edit scrollback, b sidebar, ? help.
 #
 # @OMAWSL_ROOT@ is replaced with the real omawsl checkout path when
@@ -56,14 +56,17 @@ toggle_sidebar = "prefix+b"
 help = "prefix+?"
 copy_mode = "prefix+s"
 # Herdr leaves these unbound. Not prefix+shift+h/l: Herdr's own swap_pane
-# defaults sit there.
+# defaults sit there. Not prefix+shift+1..9: Herdr reads the shifted
+# character as a US layout, so Shift 2 (' on Turkish Q, " on UK/German)
+# does nothing. Plain digits are layout-proof; tabs keep Ctrl g t 1-9.
 previous_workspace = "prefix+["
 next_workspace = "prefix+]"
-switch_workspace = "prefix+shift+1..9"
+switch_workspace = "prefix+1..9"
 
 # --- Herdr defaults that would shadow a zellij mode letter or otherwise
 # --- teach a second way to do the same thing - all handled by the modes.
 new_tab = ""
+switch_tab = ""
 rename_tab = ""
 previous_tab = ""
 next_tab = ""
