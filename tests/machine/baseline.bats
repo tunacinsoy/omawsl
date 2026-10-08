@@ -24,7 +24,9 @@ setup() {
 }
 
 @test "omawsl doctor runs to completion against this machine's real choices" {
-  run "$OMAWSL_MACHINE_ROOT/bin/omawsl" doctor
+  # Invoked the way the installed ~/.local/bin/omawsl wrapper does
+  # (`exec bash .../bin/omawsl`) - bin/omawsl itself isn't executable.
+  run bash "$OMAWSL_MACHINE_ROOT/bin/omawsl" doctor
   [ "$status" -eq 0 ]
   [[ "$output" == *"omawsl doctor - checking"* ]]
   [[ "$output" == *"Terminal multiplexer:"* ]]
