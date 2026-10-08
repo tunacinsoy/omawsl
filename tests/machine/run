@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# tests/machine/run [--no-report]
+# Runs every real-machine check in tests/machine/*.bats against this
+# checkout's HEAD. Unlike tests/*.bats, which fake the system, these use
+# the machine's real tools and network - inside a sandbox that keeps them
+# from changing anything: a temporary copy of HEAD (the real install is
+# never switched), a throwaway HOME, a sudo that always fails, no Windows
+# side, and a before/after fingerprint of the real config that fails the
+# run on any difference. When everything passes, it marks HEAD
+# `machine/personal` on GitHub - one of the two checks master's ruleset
+# requires (see CONTRIBUTING.md). --no-report runs without marking.
+
+OMAWSL_MACHINE_REPO_ROOT="${OMAWSL_MACHINE_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+OMAWSL_MACHINE_STATUS_CONTEXT="machine/personal"
+_omawsl_machine_sandbox=""
+
+# omawsl_machine_fingerprint
+# One "path size mtime" line per file a check could plausibly touch on the
+# real machine, sorted: HOME's top-level dotfiles, ~/.config, ~/.local/bin,
+# the real install (minus .git, which git itself rewrites), and the
+# Windows Terminal / VS Code settings omawsl themes. Read-only - nothing is
+# opened, only stat-ed. Missing dirs are skipped, not errors.
+omawsl_machine_fingerprint() {
+  local win_users="${OMAWSL_MACHINE_WINDOWS_USERS:-/mnt/c/Users}" f
+  {
+    find "$HOME" -maxdepth 1 -type f -name '.*' -printf '%p %s %T@\n' 2>/dev/null || true
+    find "$HOME/.config" "$HOME/.local/bin" "$HOME/.local/share/omawsl" \
+      -name .git -prune -o -type f -printf '%p %s %T@\n' 2>/dev/null || true
+    for f in "$win_users"/*/AppData/Local/Packages/Microsoft.WindowsTerminal_*/LocalState/settings.json \
+             "$win_users"/*/AppData/Roaming/Code/User/settings.json; do
+      if [[ -f "$f" ]]; then find "$f" -maxdepth 0 -printf '%p %s %T@\n'; fi
+    done
+  } | sort
+}
+
+# omawsl_machine_sandbox_path <stub_dir>
+# This PATH with <stub_dir> first and every /mnt/* entry dropped - those
+# are WSL's Windows interop dirs (cmd.exe, powershell.exe, VS Code's
+# `code` shim), the way a check could reach the real Windows side.
+omawsl_machine_sandbox_path() {
+  local out="$1" entry
+  local IFS=:
+  for entry in $PATH; do
+    [[ "$entry" == /mnt/* ]] && continue
+    out+=":$entry"
+  done
+  echo "$out"
+}
+
+# omawsl_machine_make_sandbox <dir>
+# <dir>/omawsl: HEAD's committed files only (git archive), so the run
+# describes exactly one commit. <dir>/home: the throwaway HOME, seeded
+# with a copy of the real choices.env so checks see this machine's real
+# choices. <dir>/bin: a sudo that refuses, first on the checks' PATH.
+omawsl_machine_make_sandbox() {
+  local dir="$1"
+  mkdir -p "$dir/omawsl" "$dir/home/.local/state/omawsl" "$dir/bin"
+  git -C "$OMAWSL_MACHINE_REPO_ROOT" archive HEAD | tar -x -C "$dir/omawsl"
+  local real_choices="${OMAWSL_STATE_DIR:-$HOME/.local/state/omawsl}/choices.env"
+  if [[ -f "$real_choices" ]]; then
+    cp "$real_choices" "$dir/home/.local/state/omawsl/choices.env"
+  fi
+  cat > "$dir/bin/sudo" <<'EOF'
+#!/usr/bin/env bash
+echo "machine check tried to run 'sudo $*' - not allowed: checks must not change the system." >&2
+exit 1
+EOF
+  chmod +x "$dir/bin/sudo"
+}
+
+# omawsl_machine_preflight <report>
+# Refuses to start when the result couldn't honestly describe one
+# published commit: uncommitted changes, or (when reporting) a HEAD
+# GitHub doesn't have yet.
+omawsl_machine_preflight() {
+  local report="$1" root="$OMAWSL_MACHINE_REPO_ROOT"
+  if ! command -v bats &>/dev/null; then
+    echo "machine checks: bats isn't installed - see tests/ for how the suite is run." >&2
+    return 1
+  fi
+  if [[ -n "$(git -C "$root" status --porcelain)" ]]; then
+    echo "machine checks: uncommitted changes in $root - commit or stash them first, so the result describes exactly one commit." >&2
+    return 1
+  fi
+  [[ "$report" -eq 1 ]] || return 0
+  git -C "$root" fetch -q origin
+  if [[ -z "$(git -C "$root" branch -r --contains HEAD)" ]]; then
+    echo "machine checks: HEAD isn't pushed - push it first (GitHub can only mark commits it has)." >&2
+    return 1
+  fi
+}
+
+# omawsl_machine_run_checks <sandbox_dir> <checks_dir>
+omawsl_machine_run_checks() {
+  local dir="$1" checks_dir="$2"
+  HOME="$dir/home" \
+    OMAWSL_HOME="$dir/omawsl" \
+    OMAWSL_MACHINE_ROOT="$dir/omawsl" \
+    OMAWSL_STATE_DIR="$dir/home/.local/state/omawsl" \
+    OMAWSL_CMD_EXE_FALLBACK="$dir/no-such-cmd.exe" \
+    PATH="$(omawsl_machine_sandbox_path "$dir/bin")" \
+    bats "$checks_dir"
+}
+
+# omawsl_machine_report <sha> <count>
+# gh fills {owner}/{repo} from the checkout's own remote.
+omawsl_machine_report() {
+  (cd "$OMAWSL_MACHINE_REPO_ROOT" && gh api -X POST "repos/{owner}/{repo}/statuses/$1" \
+    -f state=success -f context="$OMAWSL_MACHINE_STATUS_CONTEXT" \
+    -f description="$2 machine checks passed" >/dev/null)
+}
+
+omawsl_machine_main() {
+  local report=1
+  case "${1:-}" in
+    "") ;;
+    --no-report) report=0 ;;
+    *) echo "Usage: tests/machine/run [--no-report]" >&2; return 2 ;;
+  esac
+
+  omawsl_machine_preflight "$report" || return 1
+
+  local checks_dir="${OMAWSL_MACHINE_CHECKS_DIR:-$OMAWSL_MACHINE_REPO_ROOT/tests/machine}"
+  local sha before after checks_ok=1
+  sha="$(git -C "$OMAWSL_MACHINE_REPO_ROOT" rev-parse HEAD)"
+  _omawsl_machine_sandbox="$(mktemp -d "${TMPDIR:-/tmp}/omawsl-machine.XXXXXX")"
+  trap 'rm -rf "$_omawsl_machine_sandbox"' EXIT
+
+  before="$(omawsl_machine_fingerprint)"
+  omawsl_machine_make_sandbox "$_omawsl_machine_sandbox"
+  omawsl_machine_run_checks "$_omawsl_machine_sandbox" "$checks_dir" || checks_ok=0
+  after="$(omawsl_machine_fingerprint)"
+
+  if [[ "$before" != "$after" ]]; then
+    echo "machine checks: FAIL - the real machine changed during the run (something outside the sandbox may also have written these; re-run to tell):" >&2
+    diff <(echo "$before") <(echo "$after") | grep '^[<>]' >&2 || true
+    echo "Nothing reported to GitHub." >&2
+    return 1
+  fi
+  if [[ "$checks_ok" -eq 0 ]]; then
+    echo "machine checks: FAIL - see the failing checks above. Nothing reported to GitHub." >&2
+    return 1
+  fi
+  if [[ "$report" -eq 0 ]]; then
+    echo "machine checks: all passed (--no-report: nothing sent to GitHub)."
+    return 0
+  fi
+
+  local count; count="$(bats --count "$checks_dir")"
+  omawsl_machine_report "$sha" "$count"
+  echo "machine checks: all $count passed - marked $sha as $OMAWSL_MACHINE_STATUS_CONTEXT on GitHub."
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  omawsl_machine_main "$@"
+fi
