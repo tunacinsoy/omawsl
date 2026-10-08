@@ -34,7 +34,7 @@ if you don't already have one) ports omawsl's zellij keymap:
 | `Ctrl g Ctrl q` | quit (asks first) |
 | `Ctrl g w` | workspace picker (`↑↓`, `Enter`) |
 | `Ctrl g [` / `Ctrl g ]` | previous / next workspace |
-| `Ctrl g Shift 1-9` | jump to workspace 1-9 |
+| `Ctrl g 1-9` | jump to workspace 1-9 (tabs are `Ctrl g t 1-9`) |
 
 Herdr itself only supports one key after its prefix, so the mode keys run through a small
 popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next key -
@@ -51,6 +51,8 @@ popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next 
   get back.
 - **`Alt +`** can't be bound in Herdr 0.9 - use `Alt =`, which grows the pane in zellij
   too.
+- **Herdr dialogs**: cancelling one with `Esc` (e.g. `Ctrl g Shift d`'s "Close workspace?")
+  lands in Herdr's NAVIGATE mode, which swallows what you type - press `Esc` again.
 - **Tab mode's `h/j/k/l`** switch one tab and close the popup (zellij stays in tab mode) -
   Herdr loses track of a popup that changes tabs while it's open. Repeat `Ctrl g t l`, or
   use `Alt h/l`.

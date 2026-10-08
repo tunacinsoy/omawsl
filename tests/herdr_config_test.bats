@@ -26,8 +26,15 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
 @test "workspaces switch from the prefix, clear of Herdr's swap_pane defaults" {
   grep -qx 'previous_workspace = "prefix+\["' "$CONFIG"
   grep -qx 'next_workspace = "prefix+\]"' "$CONFIG"
-  grep -qx 'switch_workspace = "prefix+shift+1..9"' "$CONFIG"
   ! grep -qE '^(previous|next)_workspace = "prefix\+shift\+[hjkl]"' "$CONFIG"
+}
+
+@test "workspace numbers use plain digits, which work on any keyboard layout" {
+  # Herdr matches prefix+shift+N against the US-layout character, so Shift 2
+  # is dead on Turkish Q (') or UK/German ("). Herdr's own prefix+1..9 for
+  # tabs is turned off - tabs keep zellij's Ctrl g t 1-9.
+  grep -qx 'switch_workspace = "prefix+1..9"' "$CONFIG"
+  grep -qx 'switch_tab = ""' "$CONFIG"
 }
 
 @test "herdr config check accepts configs/herdr.toml" {
