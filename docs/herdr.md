@@ -19,22 +19,9 @@ The terminal you run it in doesn't change - open a new one. If Herdr can't be do
 ## Same keys as zellij
 
 omawsl's Herdr config (`configs/herdr.toml`, deployed to `~/.config/herdr/config.toml` only
-if you don't already have one) ports omawsl's zellij keymap:
-
-| You press | Does |
-|---|---|
-| `Alt h/j/k/l`, `Alt ←↓↑→` | focus pane (h/l switch tab at the edge, like zellij) |
-| `Alt n` | new pane |
-| `Alt =` / `Alt -` | grow / shrink pane |
-| `Alt i` / `Alt o` | move tab left / right |
-| `Ctrl g p` → `hjkl n d r x f c Tab` | pane mode |
-| `Ctrl g t` → `hjkl 1-9 n x r b [ ]` | tab mode |
-| `Ctrl g r` → `hjkl HJKL + - =` | resize mode |
-| `Ctrl g m` → `hjkl n p Tab` | move mode |
-| `Ctrl g Ctrl q` | quit (asks first) |
-| `Ctrl g w` | workspace picker (`↑↓`, `Enter`) |
-| `Ctrl g [` / `Ctrl g ]` | previous / next workspace |
-| `Ctrl g 1-9` | jump to workspace 1-9 (tabs are `Ctrl g t 1-9`) |
+if you don't already have one) ports omawsl's zellij keymap: the same `Alt` chords, and the same `Ctrl g` modes (`p` pane, `t` tab, `r` resize, `m` move),
+plus Herdr-only keys like `Ctrl g g` to jump to any agent and `Ctrl g w` for workspaces. The
+full list: `omawsl keys herdr`, or [`docs/keys.md`](keys.md).
 
 Herdr itself only supports one key after its prefix, so the mode keys run through a small
 popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next key -
