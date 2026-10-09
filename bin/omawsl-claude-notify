@@ -48,6 +48,19 @@ session_title() {
     jq -rs '(map(.customTitle // empty) | last) // (map(.aiTitle // empty) | last) // empty' 2>/dev/null
 }
 
+# pending_tool - name of the newest tool call in the transcript that has
+# no result yet (what a permission prompt is about). Empty when unknown.
+pending_tool() {
+  local transcript
+  transcript="$(field .transcript_path)"
+  [[ -f "$transcript" ]] || return 0
+  tail -n 400 "$transcript" | jq -Rrn '
+    [inputs | fromjson? | .message.content? | arrays | .[] | objects] as $blocks
+    | [$blocks[] | select(.type == "tool_result") | .tool_use_id] as $done
+    | [$blocks[] | select(.type == "tool_use") | select(.id as $id | $done | index($id) | not)]
+    | last | .name // empty' 2>/dev/null
+}
+
 case "$event" in
   stop)
     # A subagent finishing, or the main agent pausing while background
@@ -65,8 +78,11 @@ case "$event" in
       *) exit 0 ;;
     esac
     body="$(field .message)"
-    # The ask hook already announced it, with the question itself.
+    # An open question also sends a plain "Claude needs your permission"
+    # prompt a few seconds later - the ask hook already announced it, with
+    # the question itself.
     [[ "$body" != *AskUserQuestion* ]] || exit 0
+    [[ "$(pending_tool)" != AskUserQuestion ]] || exit 0
     kind=request
     ;;
   ask)
