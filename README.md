@@ -49,8 +49,8 @@ Nothing in any picker is pre-selected - what you get is exactly what you choose,
 
 New terminals open zellij by default, or [Herdr](docs/herdr.md) (preview) - a multiplexer
 built for AI coding agents, set up with the same keybindings. Switch any time with
-`omawsl multiplexer`; choose how Herdr tells you an agent is done (sound, Windows popup,
-both, or off) with `omawsl notifications`.
+`omawsl multiplexer`; choose how you're told a Claude Code session in Herdr is done or needs
+you (sound, Windows popup, both, or off) with `omawsl notifications`.
 
 Forgot a key? `omawsl keys` asks which tool, then shows its keys - zellij/Herdr, the shell,
 Claude Code, Neovim, lazygit, lazydocker or btop; `omawsl keys herdr` skips the question.

@@ -20,6 +20,12 @@ any one of them. Instead it follows one rule, everywhere:
 - `~/.config/herdr/config.toml` is only created if absent (when you choose Herdr). After
   that, `omawsl theme` rewrites only its `[theme] name = "..."` line, and
   `omawsl notifications` only its `[ui.sound] enabled` and `[ui.toast] delivery` lines.
+- `~/.claude/settings.json` (Claude Code's) has no drop-in directory, so `omawsl
+  notifications` adds one hook entry each for Stop, Notification and
+  PreToolUse(AskUserQuestion), pointing at `bin/omawsl-claude-notify`, only if that event has
+  none of omawsl's yet. `off` and uninstalling Herdr remove exactly those entries. Everything
+  else in the file, including your own hooks, is left alone, and a file that isn't valid JSON
+  is never rewritten.
 - `/etc/wsl.conf`'s `[boot] systemd=true` line (needed for Docker Engine
   mode) is appended only if not already present, tolerant of whitespace
   variants - a no-op if a corp manual (or you, by hand) already set it.

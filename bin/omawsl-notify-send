@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
-# A notify-send stand-in that shows a Windows notification. Herdr's
-# `[ui.toast] delivery = "system"` runs `notify-send --app-name Herdr --
-# <title> [body]` on Linux, but WSL has no notification daemon that reaches
-# Windows - so `omawsl notifications popup` links this script in as
-# ~/.local/bin/notify-send.
+# A notify-send-style Windows popup: `omawsl-notify-send [options] --
+# <title> [body]`. bin/omawsl-claude-notify calls it for `omawsl
+# notifications`' popups; WSL has no notification daemon that reaches
+# Windows, so this goes through PowerShell.
 #
 # Title and body reach PowerShell through WSLENV-shared environment
 # variables and are XML-escaped there, never spliced into the script text,
 # so quotes or markup in an agent's message can't break out. The script
 # itself goes in as -EncodedCommand for the same reason. The popup is
-# silent: sound is its own choice (Herdr's sounds through paplay), so
+# silent: sound is its own choice (paplay, from omawsl-claude-notify), so
 # "both" doesn't play two sounds. PowerShell takes about a second to start,
-# and Herdr waits for notify-send to exit, so this returns right away and
+# and the hook waits for it to exit, so this returns right away and
 # lets PowerShell finish in the background.
 set -euo pipefail
 

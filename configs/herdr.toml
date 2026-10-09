@@ -34,6 +34,9 @@ name = "tokyo-night"
 tab_bar_position = "bottom"
 # zellij's NewTab doesn't ask for a name first.
 prompt_new_tab_name = false
+# Herdr's default dots tell agent states apart by color alone; symbols
+# give blocked / working / done / idle each a shape too.
+status_indicators = "symbols"
 
 # zellij's pane frame showed the task summary Claude Code puts in its
 # terminal title. Herdr's border label only says "claude"

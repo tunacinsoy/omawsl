@@ -57,3 +57,9 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   grep -qx '\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG"
   grep -A1 '^\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG" | grep -qE '^claude = .*"terminal_title_stripped"'
 }
+
+@test "agent states show as distinct symbols, not just colored dots" {
+  # Dots only differ by color; symbols tell blocked / working / done /
+  # idle apart by shape too.
+  grep -A10 '^\[ui\]' "$CONFIG" | grep -qx 'status_indicators = "symbols"'
+}
