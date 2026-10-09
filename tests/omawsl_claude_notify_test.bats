@@ -91,6 +91,23 @@ no_alert() {
   no_alert
 }
 
+@test "the permission prompt Claude sends for an open question is left to the ask hook" {
+  local t="$BATS_TEST_TMPDIR/t.jsonl"
+  printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"q1","name":"AskUserQuestion","input":{}}]}}' > "$t"
+  hook notify "{\"cwd\":\"$PROJECT\",\"transcript_path\":\"$t\",\"notification_type\":\"permission_prompt\",\"message\":\"Claude needs your permission\"}"
+  no_alert
+}
+
+@test "a permission prompt after an answered question still alerts" {
+  local t="$BATS_TEST_TMPDIR/t.jsonl"
+  printf '%s\n' \
+    '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"q1","name":"AskUserQuestion","input":{}}]}}' \
+    '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"q1","content":"ok"}]}}' \
+    '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"b1","name":"Bash","input":{}}]}}' > "$t"
+  hook notify "{\"cwd\":\"$PROJECT\",\"transcript_path\":\"$t\",\"notification_type\":\"permission_prompt\",\"message\":\"Claude needs your permission\"}"
+  [ "$(cat "$POPUPS")" = "myproj — needs you|Claude needs your permission" ]
+}
+
 @test "a question shows the question text" {
   hook ask "{\"cwd\":\"$PROJECT\",\"tool_input\":{\"questions\":[{\"question\":\"Which one?\",\"options\":[]}]}}"
   [ "$(cat "$POPUPS")" = "myproj — needs you|Which one?" ]
