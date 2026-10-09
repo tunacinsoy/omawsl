@@ -218,3 +218,83 @@ setup() {
   grep -qx 'delivery = "system"' "$HOME/.config/herdr/config.toml"
   [ -L "$HOME/.local/bin/notify-send" ]
 }
+
+@test "claude hooks install adds stop, notify and ask hooks once" {
+  mkdir -p "$HOME/.claude"
+  echo '{"model":"opus"}' > "$HOME/.claude/settings.json"
+  omawsl_claude_hooks_install
+  omawsl_claude_hooks_install
+  local f="$HOME/.claude/settings.json" cmd="\"$REPO_ROOT/bin/omawsl-claude-notify\""
+  [ "$(jq -r .model "$f")" = opus ]
+  [ "$(jq -r '.hooks.Stop[0].hooks[0].command' "$f")" = "$cmd stop" ]
+  [ "$(jq -r '.hooks.Notification[0].hooks[0].command' "$f")" = "$cmd notify" ]
+  [ "$(jq -r '.hooks.PreToolUse[0].hooks[0].command' "$f")" = "$cmd ask" ]
+  [ "$(jq -r '.hooks.PreToolUse[0].matcher' "$f")" = AskUserQuestion ]
+  [ "$(jq -r '.hooks.Stop[0].hooks[0].async' "$f")" = true ]
+  [ "$(jq '[.hooks[][].hooks[]] | length' "$f")" -eq 3 ]
+}
+
+@test "claude hooks install keeps the user's own hooks on the same events" {
+  mkdir -p "$HOME/.claude"
+  cat > "$HOME/.claude/settings.json" <<'EOF'
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"python3 mine.py stop"}]}],
+"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"guard.sh"}]}]}}
+EOF
+  omawsl_claude_hooks_install
+  local f="$HOME/.claude/settings.json"
+  [ "$(jq -r '.hooks.Stop[0].hooks[0].command' "$f")" = "python3 mine.py stop" ]
+  [ "$(jq -r '.hooks.Stop | length' "$f")" -eq 2 ]
+  [ "$(jq -r '.hooks.PreToolUse[0].matcher' "$f")" = Bash ]
+  [ "$(jq -r '.hooks.PreToolUse | length' "$f")" -eq 2 ]
+}
+
+@test "claude hooks install creates settings.json when Claude Code has a config dir" {
+  mkdir -p "$HOME/.claude"
+  omawsl_claude_hooks_install
+  [ "$(jq '[.hooks[][].hooks[]] | length' "$HOME/.claude/settings.json")" -eq 3 ]
+}
+
+@test "claude hooks install does nothing when Claude Code was never run" {
+  run omawsl_claude_hooks_install
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/.claude" ]
+}
+
+@test "claude hooks install leaves an invalid settings.json alone and says so" {
+  mkdir -p "$HOME/.claude"
+  printf '{"model": "opus",\n' > "$HOME/.claude/settings.json"
+  run omawsl_claude_hooks_install
+  [ "$status" -eq 0 ]
+  [ "$(cat "$HOME/.claude/settings.json")" = '{"model": "opus",' ]
+  [[ "$output" == *"settings.json"* ]]
+}
+
+@test "claude hooks remove takes out only omawsl's hooks" {
+  mkdir -p "$HOME/.claude"
+  cat > "$HOME/.claude/settings.json" <<'EOF'
+{"model":"opus","hooks":{"Stop":[{"hooks":[{"type":"command","command":"python3 mine.py stop"}]}]}}
+EOF
+  omawsl_claude_hooks_install
+  omawsl_claude_hooks_remove
+  local f="$HOME/.claude/settings.json"
+  [ "$(jq -c . "$f")" = '{"model":"opus","hooks":{"Stop":[{"hooks":[{"type":"command","command":"python3 mine.py stop"}]}]}}' ]
+}
+
+@test "claude hooks remove leaves a file without omawsl's hooks byte-for-byte alone" {
+  mkdir -p "$HOME/.claude"
+  printf '{ "model":   "opus" }\n' > "$HOME/.claude/settings.json"
+  run omawsl_claude_hooks_remove
+  [ "$status" -eq 0 ]
+  [ "$(cat "$HOME/.claude/settings.json")" = '{ "model":   "opus" }' ]
+  rm "$HOME/.claude/settings.json"
+  run omawsl_claude_hooks_remove
+  [ "$status" -eq 0 ]
+}
+
+@test "claude hooks remove leaves an invalid settings.json alone" {
+  mkdir -p "$HOME/.claude"
+  printf 'bin/omawsl-claude-notify {' > "$HOME/.claude/settings.json"
+  run omawsl_claude_hooks_remove
+  [ "$status" -eq 0 ]
+  [ "$(cat "$HOME/.claude/settings.json")" = 'bin/omawsl-claude-notify {' ]
+}

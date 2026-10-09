@@ -125,6 +125,75 @@ omawsl_herdr_unlink_notify_send() {
   fi
 }
 
+# Marks omawsl's own entries in ~/.claude/settings.json.
+OMAWSL_CLAUDE_HOOK_MARK="bin/omawsl-claude-notify"
+
+# omawsl_claude_hooks_install
+# Points Claude Code's Stop, Notification and PreToolUse(AskUserQuestion)
+# hooks at bin/omawsl-claude-notify, which raises the alerts behind
+# `omawsl notifications`. settings.json has no drop-in directory, so this
+# is the smallest content-checked addition (docs/config-safety.md): one
+# entry per event, added only if that event has none of ours yet, nothing
+# else changed. No ~/.claude yet means Claude Code never ran - skipped;
+# the next `omawsl notifications` adds them. Invalid JSON is never
+# rewritten, only reported.
+omawsl_claude_hooks_install() {
+  local dir="$HOME/.claude"
+  local file="$dir/settings.json"
+  [[ -d "$dir" ]] || return 0
+  command -v jq &>/dev/null || return 0
+  [[ -f "$file" ]] || echo '{}' > "$file"
+  if ! jq -e 'type == "object"' "$file" >/dev/null 2>&1; then
+    echo "omawsl: $file isn't valid JSON - leaving it alone, so Claude Code won't notify you. Fix it, then run: omawsl notifications" >&2
+    return 0
+  fi
+  local tmp
+  tmp="$(mktemp)"
+  jq --arg cmd "\"$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-claude-notify\"" --arg mark "$OMAWSL_CLAUDE_HOOK_MARK" '
+    def add($event; $matcher; $arg):
+      if any(.hooks[$event][]?.hooks[]?; (.command // "") | contains($mark)) then .
+      else .hooks[$event] += [
+        (if $matcher then {matcher: $matcher} else {} end)
+        + {hooks: [{type: "command", command: ($cmd + " " + $arg), async: true, timeout: 10}]}
+      ]
+      end;
+    .hooks //= {}
+    | add("Stop"; null; "stop")
+    | add("Notification"; null; "notify")
+    | add("PreToolUse"; "AskUserQuestion"; "ask")
+  ' "$file" > "$tmp" && cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# omawsl_claude_hooks_remove
+# Takes out exactly the entries omawsl_claude_hooks_install added, plus
+# any matcher group or event left empty by that. A file without them (or
+# that isn't valid JSON) is left byte-for-byte alone.
+omawsl_claude_hooks_remove() {
+  local file="$HOME/.claude/settings.json"
+  [[ -f "$file" ]] || return 0
+  grep -qF "$OMAWSL_CLAUDE_HOOK_MARK" "$file" || return 0
+  command -v jq &>/dev/null || return 0
+  jq -e 'type == "object"' "$file" >/dev/null 2>&1 || return 0
+  local tmp
+  tmp="$(mktemp)"
+  jq --arg mark "$OMAWSL_CLAUDE_HOOK_MARK" '
+    if (.hooks | type) != "object" then . else
+      .hooks |= with_entries(
+        .value |= (if type == "array" then
+          map(if (.hooks | type) == "array"
+              then .hooks |= map(select((.command // "") | contains($mark) | not))
+              else . end)
+          | map(select((.hooks | type) != "array" or (.hooks | length) > 0))
+        else . end)
+      )
+      | .hooks |= with_entries(select(.value != []))
+      | if .hooks == {} then del(.hooks) else . end
+    end
+  ' "$file" > "$tmp" && cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
 # omawsl_herdr_setup_notifications <both|sound|popup|off>
 # Everything one notifications choice needs. Sound: Herdr plays its mp3s
 # through paplay (pulseaudio-utils), which reaches Windows' speakers via
