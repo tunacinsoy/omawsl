@@ -257,10 +257,33 @@ EOF
   [ "$(jq '[.hooks[][].hooks[]] | length' "$HOME/.claude/settings.json")" -eq 3 ]
 }
 
-@test "claude hooks install does nothing when Claude Code was never run" {
+@test "claude hooks install says so when Claude Code was never run" {
   run omawsl_claude_hooks_install
   [ "$status" -eq 0 ]
   [ ! -e "$HOME/.claude" ]
+  [[ "$output" == *"omawsl notifications"* ]]
+}
+
+@test "claude hooks install says so when jq is missing" {
+  mkdir -p "$HOME/.claude"
+  stub_hide_command jq
+  run omawsl_claude_hooks_install
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/.claude/settings.json" ]
+  [[ "$output" == *"jq"* ]]
+}
+
+@test "claude hooks install repoints hooks left by another omawsl checkout" {
+  mkdir -p "$HOME/.claude"
+  cat > "$HOME/.claude/settings.json" <<'JSON'
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"mine.sh"}]},{"hooks":[{"type":"command","command":"\"/gone/bin/omawsl-claude-notify\" stop","async":true,"timeout":10}]}]}}
+JSON
+  omawsl_claude_hooks_install
+  local f="$HOME/.claude/settings.json"
+  [ "$(jq -r '.hooks.Stop[0].hooks[0].command' "$f")" = mine.sh ]
+  [ "$(jq -r '.hooks.Stop[1].hooks[0].command' "$f")" = "\"$REPO_ROOT/bin/omawsl-claude-notify\" stop" ]
+  [ "$(jq '[.hooks[][].hooks[]] | length' "$f")" -eq 4 ]
+  ! grep -qF /gone/ "$f"
 }
 
 @test "claude hooks install leaves an invalid settings.json alone and says so" {

@@ -118,14 +118,22 @@ OMAWSL_CLAUDE_HOOK_MARK="bin/omawsl-claude-notify"
 # `omawsl notifications`. settings.json has no drop-in directory, so this
 # is the smallest content-checked addition (docs/config-safety.md): one
 # entry per event, added only if that event has none of ours yet, nothing
-# else changed. No ~/.claude yet means Claude Code never ran - skipped;
-# the next `omawsl notifications` adds them. Invalid JSON is never
-# rewritten, only reported.
+# else changed - except that entries pointing at another omawsl checkout
+# (moved, or a dev worktree) are repointed at this one. No ~/.claude yet
+# means Claude Code never ran, and no jq means no safe edit - both only
+# say so, since Herdr's own alerts are off either way. Invalid JSON is
+# never rewritten, only reported.
 omawsl_claude_hooks_install() {
   local dir="$HOME/.claude"
   local file="$dir/settings.json"
-  [[ -d "$dir" ]] || return 0
-  command -v jq &>/dev/null || return 0
+  if [[ ! -d "$dir" ]]; then
+    echo "omawsl: Claude Code hasn't run yet, so it can't notify you - start it once, then run: omawsl notifications" >&2
+    return 0
+  fi
+  if ! command -v jq &>/dev/null; then
+    echo "omawsl: jq is missing, so Claude Code can't be set up to notify you - install it (sudo apt-get install jq), then run: omawsl notifications" >&2
+    return 0
+  fi
   [[ -f "$file" ]] || echo '{}' > "$file"
   if ! jq -e 'type == "object"' "$file" >/dev/null 2>&1; then
     echo "omawsl: $file isn't valid JSON - leaving it alone, so Claude Code won't notify you. Fix it, then run: omawsl notifications" >&2
@@ -141,7 +149,16 @@ omawsl_claude_hooks_install() {
         + {hooks: [{type: "command", command: ($cmd + " " + $arg), async: true, timeout: 10}]}
       ]
       end;
+    def ours: (.command // "") | contains($mark);
+    def current: (.command // "") | startswith($cmd + " ");
     .hooks //= {}
+    | .hooks |= with_entries(
+        if (.value | type) == "array" then
+          .value |= map(
+            if (.hooks | type) == "array" and any(.hooks[]; ours and (current | not))
+            then (.hooks |= map(select(ours and (current | not) | not))) | select((.hooks | length) > 0)
+            else . end)
+        else . end)
     | add("Stop"; null; "stop")
     | add("Notification"; null; "notify")
     | add("PreToolUse"; "AskUserQuestion"; "ask")

@@ -22,6 +22,7 @@ event="${1:-}"
 input="$(cat)"
 [[ "${HERDR_ENV:-}" == 1 ]] || exit 0
 command -v jq &>/dev/null || exit 0
+jq -e 'type == "object"' <<< "$input" >/dev/null 2>&1 || exit 0
 
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 # shellcheck source=../install/lib.sh

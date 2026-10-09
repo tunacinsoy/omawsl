@@ -139,4 +139,10 @@ no_alert() {
   no_alert
   hook bogus "{\"cwd\":\"$PROJECT\"}"
   no_alert
+  hook ask "not json"
+  no_alert
+  hook ask ""
+  no_alert
+  hook ask "[1,2]"
+  no_alert
 }
