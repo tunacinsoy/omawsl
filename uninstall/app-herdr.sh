@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../install/lib.sh
 source "$SCRIPT_DIR/../install/lib.sh"
+# shellcheck source=../install/terminal/app-herdr.sh
+source "$SCRIPT_DIR/../install/terminal/app-herdr.sh"
 
 # omawsl_uninstall_herdr
 # Inverse of install/terminal/app-herdr.sh. Herdr's installer places the
@@ -21,10 +23,12 @@ omawsl_uninstall_herdr() {
     herdr server stop >/dev/null 2>&1 || true
   fi
   rm -f "$HOME/.local/bin/herdr"
-  # `omawsl notifications popup`'s notify-send link - only if it's omawsl's.
+  # Older omawsl's notify-send link - only if it's omawsl's.
   if [[ "$(readlink "$HOME/.local/bin/notify-send" 2>/dev/null)" == */bin/omawsl-notify-send ]]; then
     rm -f "$HOME/.local/bin/notify-send"
   fi
+  # `omawsl notifications`' Claude Code hooks - the user's own hooks stay.
+  omawsl_claude_hooks_remove
   rm -rf "$HOME/.config/herdr"
   if [[ "$(omawsl_load_choice OMAWSL_MULTIPLEXER)" == herdr ]]; then
     omawsl_save_choice OMAWSL_MULTIPLEXER zellij

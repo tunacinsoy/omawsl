@@ -142,25 +142,22 @@ setup() {
   [ "$(cat "$f")" = $'[keys]\nprefix = "ctrl+g"\n\n[ui.toast]\ndelivery = "system"' ]
 }
 
-@test "omawsl_herdr_apply_notifications maps each choice to sound + delivery and reloads herdr" {
+@test "omawsl_herdr_apply_notifications turns Herdr's own alerts off and reloads herdr" {
   mkdir -p "$HOME/.config/herdr"
   local f="$HOME/.config/herdr/config.toml"
-  printf '[keys]\nprefix = "ctrl+g"\n' > "$f"
+  printf '[keys]\nprefix = "ctrl+g"\n[ui.sound]\nenabled = true\n[ui.toast]\ndelivery = "system"\n' > "$f"
   stub_command herdr
-  local pair
-  for pair in both:true:system sound:true:off popup:false:system off:false:off; do
-    IFS=: read -r slug sound delivery <<< "$pair"
-    omawsl_herdr_apply_notifications "$slug"
-    grep -qx "enabled = $sound" "$f" || { echo "$slug: sound"; cat "$f"; return 1; }
-    grep -qx "delivery = \"$delivery\"" "$f" || { echo "$slug: delivery"; cat "$f"; return 1; }
-  done
+  omawsl_herdr_apply_notifications
+  omawsl_herdr_apply_notifications
+  grep -qx 'enabled = false' "$f"
+  grep -qx 'delivery = "off"' "$f"
   [ "$(grep -c '^\[ui.sound\]' "$f")" -eq 1 ]
   [ "$(grep -c '^\[ui.toast\]' "$f")" -eq 1 ]
   [[ "$(stub_calls)" == *"herdr server reload-config"* ]]
 }
 
 @test "omawsl_herdr_apply_notifications is a no-op when there's no Herdr config" {
-  run omawsl_herdr_apply_notifications both
+  run omawsl_herdr_apply_notifications
   [ "$status" -eq 0 ]
   [ ! -e "$HOME/.config/herdr" ]
 }
@@ -189,23 +186,28 @@ setup() {
   [[ "$output" == *"pulseaudio-utils"* ]]
 }
 
-@test "notifications setup links notify-send for popups and unlinks it for sound-only" {
+@test "notifications setup adds the Claude hooks for an alert choice and removes them for off" {
   stub_command paplay
   stub_hide_command herdr
-  omawsl_herdr_setup_notifications popup
-  [ "$(readlink "$HOME/.local/bin/notify-send")" = "$REPO_ROOT/bin/omawsl-notify-send" ]
-  omawsl_herdr_setup_notifications sound
-  [ ! -e "$HOME/.local/bin/notify-send" ]
+  mkdir -p "$HOME/.claude"
+  local slug
+  for slug in both sound popup; do
+    omawsl_herdr_setup_notifications "$slug"
+    grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json" || { echo "$slug"; return 1; }
+  done
+  omawsl_herdr_setup_notifications off
+  ! grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json"
 }
 
-@test "notifications setup never replaces someone else's notify-send" {
+@test "notifications setup removes omawsl's old notify-send link but never someone else's" {
+  stub_command paplay
   stub_hide_command herdr
   mkdir -p "$HOME/.local/bin"
+  ln -s "$REPO_ROOT/bin/omawsl-notify-send" "$HOME/.local/bin/notify-send"
+  omawsl_herdr_setup_notifications both
+  [ ! -e "$HOME/.local/bin/notify-send" ]
   echo mine > "$HOME/.local/bin/notify-send"
-  run omawsl_herdr_setup_notifications popup
-  [ "$status" -eq 0 ]
-  [ "$(cat "$HOME/.local/bin/notify-send")" = "mine" ]
-  omawsl_herdr_setup_notifications off
+  omawsl_herdr_setup_notifications popup
   [ "$(cat "$HOME/.local/bin/notify-send")" = "mine" ]
 }
 
@@ -213,10 +215,11 @@ setup() {
   export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
   omawsl_save_choice OMAWSL_HERDR_NOTIFICATIONS popup
   stub_hide_command herdr
+  mkdir -p "$HOME/.claude"
   run omawsl_install_herdr_config
   [ "$status" -eq 0 ]
-  grep -qx 'delivery = "system"' "$HOME/.config/herdr/config.toml"
-  [ -L "$HOME/.local/bin/notify-send" ]
+  grep -qx 'delivery = "off"' "$HOME/.config/herdr/config.toml"
+  grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json"
 }
 
 @test "claude hooks install adds stop, notify and ask hooks once" {

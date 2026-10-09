@@ -80,44 +80,28 @@ omawsl_toml_set() {
   rm -f "$tmp"
 }
 
-# omawsl_herdr_apply_notifications <both|sound|popup|off>
-# Rewrites only the two Herdr settings behind `omawsl notifications` -
-# `[ui.sound] enabled` and `[ui.toast] delivery` - and reloads a running
-# Herdr, same shape as omawsl_herdr_apply_theme. "system" delivery is what
-# runs notify-send (bin/omawsl-notify-send, once linked in). No-op without
-# a Herdr config.
+# omawsl_herdr_apply_notifications
+# Turns Herdr's own alerts off - `[ui.sound] enabled = false` and
+# `[ui.toast] delivery = "off"`, the only two Herdr settings `omawsl
+# notifications` touches - and reloads a running Herdr, same shape as
+# omawsl_herdr_apply_theme. Herdr calls every Claude turn end "done", even
+# while background work still runs, so the alerts come from
+# bin/omawsl-claude-notify instead, whatever the choice. No-op without a
+# Herdr config.
 omawsl_herdr_apply_notifications() {
   local config_file="$HOME/.config/herdr/config.toml"
   [[ -f "$config_file" ]] || return 0
-  local sound=false delivery='"off"'
-  case "$1" in
-    both) sound=true; delivery='"system"' ;;
-    sound) sound=true ;;
-    popup) delivery='"system"' ;;
-  esac
-  omawsl_toml_set "$config_file" ui.sound enabled "$sound"
-  omawsl_toml_set "$config_file" ui.toast delivery "$delivery"
+  omawsl_toml_set "$config_file" ui.sound enabled false
+  omawsl_toml_set "$config_file" ui.toast delivery '"off"'
   if command -v herdr &>/dev/null; then
     herdr server reload-config >/dev/null 2>&1 || true
   fi
 }
 
-# omawsl_herdr_link_notify_send
-# Puts bin/omawsl-notify-send on PATH as notify-send, unless something
-# else already sits at ~/.local/bin/notify-send - that one stays.
-omawsl_herdr_link_notify_send() {
-  local link="$HOME/.local/bin/notify-send"
-  local target="$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-notify-send"
-  if [[ -e "$link" || -L "$link" ]] && [[ "$(readlink "$link")" != "$target" ]]; then
-    echo "omawsl: $link already exists and isn't omawsl's - leaving it, so Windows popups may not appear." >&2
-    return 0
-  fi
-  mkdir -p "$(dirname "$link")"
-  ln -sfn "$target" "$link"
-}
-
 # omawsl_herdr_unlink_notify_send
-# Removes ~/.local/bin/notify-send only when it's omawsl's own link.
+# Removes ~/.local/bin/notify-send only when it's omawsl's own link -
+# older omawsl linked it in for Herdr's popups; bin/omawsl-claude-notify
+# now calls bin/omawsl-notify-send directly.
 omawsl_herdr_unlink_notify_send() {
   local link="$HOME/.local/bin/notify-send"
   if [[ -L "$link" && "$(readlink "$link")" == "$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-notify-send" ]]; then
@@ -195,12 +179,13 @@ omawsl_claude_hooks_remove() {
 }
 
 # omawsl_herdr_setup_notifications <both|sound|popup|off>
-# Everything one notifications choice needs. Sound: Herdr plays its mp3s
-# through paplay (pulseaudio-utils), which reaches Windows' speakers via
-# WSLg's PulseAudio server; nothing else Herdr looks for is installed by
-# default. Popup: the notify-send link. Then the config lines. Fails only
-# when paplay can't be installed, so callers can keep the previous choice.
-# Missing WSLg only warns - the choice still applies once it's there.
+# Everything one notifications choice needs. Sound: paplay
+# (pulseaudio-utils), which reaches Windows' speakers via WSLg's
+# PulseAudio server. Any alert choice: the Claude Code hooks that raise
+# them; off removes those. Herdr's own alerts are always switched off.
+# Fails only when paplay can't be installed, so callers can keep the
+# previous choice. Missing WSLg only warns - the choice still applies once
+# it's there.
 omawsl_herdr_setup_notifications() {
   local slug="$1"
   case "$slug" in
@@ -209,23 +194,20 @@ omawsl_herdr_setup_notifications() {
         sudo apt-get install -y pulseaudio-utils || true
         hash -r
         if ! command -v paplay &>/dev/null; then
-          echo "omawsl: couldn't install pulseaudio-utils (paplay) - Herdr can't play sounds without it." >&2
+          echo "omawsl: couldn't install pulseaudio-utils (paplay) - Claude Code can't play sounds without it." >&2
           return 1
         fi
       fi
       [[ -n "${PULSE_SERVER:-}" ]] ||
-        echo "omawsl: no WSLg audio here (PULSE_SERVER is unset) - Herdr's sounds won't be heard until WSLg is available." >&2
+        echo "omawsl: no WSLg audio here (PULSE_SERVER is unset) - sounds won't be heard until WSLg is available." >&2
       ;;
   esac
+  omawsl_herdr_unlink_notify_send
   case "$slug" in
-    both|popup)
-      omawsl_herdr_link_notify_send
-      [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] ||
-        echo "omawsl: no WSLg display here (DISPLAY is unset) - Herdr only sends popups when WSLg is available." >&2
-      ;;
-    *) omawsl_herdr_unlink_notify_send ;;
+    off) omawsl_claude_hooks_remove ;;
+    *) omawsl_claude_hooks_install ;;
   esac
-  omawsl_herdr_apply_notifications "$slug"
+  omawsl_herdr_apply_notifications
 }
 
 # omawsl_zellij_current_theme

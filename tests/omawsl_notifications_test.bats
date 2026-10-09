@@ -24,14 +24,14 @@ setup() {
 }
 
 @test "with a Herdr config, sets it up and saves the choice" {
-  mkdir -p "$HOME/.config/herdr"
+  mkdir -p "$HOME/.config/herdr" "$HOME/.claude"
   printf '[keys]\nprefix = "ctrl+g"\n' > "$HOME/.config/herdr/config.toml"
   run omawsl_notifications_command both
   [ "$status" -eq 0 ]
   [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "both" ]
-  grep -qx 'delivery = "system"' "$HOME/.config/herdr/config.toml"
-  grep -qx 'enabled = true' "$HOME/.config/herdr/config.toml"
-  [ -L "$HOME/.local/bin/notify-send" ]
+  grep -qx 'delivery = "off"' "$HOME/.config/herdr/config.toml"
+  grep -qx 'enabled = false' "$HOME/.config/herdr/config.toml"
+  grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json"
 }
 
 @test "a failed setup keeps the previous choice" {
