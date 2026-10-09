@@ -49,8 +49,8 @@ Nothing in any picker is pre-selected - what you get is exactly what you choose,
 
 New terminals open zellij by default, or [Herdr](docs/herdr.md) (preview) - a multiplexer
 built for AI coding agents, set up with the same keybindings. Switch any time with
-`omawsl multiplexer`; choose how Herdr tells you an agent is done (sound, Windows popup,
-both, or off) with `omawsl notifications`.
+`omawsl multiplexer`; choose how you're told a Claude Code session in Herdr is done or needs
+you (sound, Windows popup, both, or off) with `omawsl notifications`.
 
 omawsl ships its own theme set - Omakub's original ten (Catppuccin, Everforest, Gruvbox,
 Kanagawa, Matte Black, Nord, Osaka Jade, Ristretto, Rosé Pine, Tokyo Night) plus Dracula,

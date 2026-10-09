@@ -42,9 +42,9 @@ popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next 
 
 ## Notifications
 
-Herdr can tell you when an agent in another tab or workspace finishes or needs input. Out of
-the box it can't reach Windows from WSL, so omawsl asks how you want it (on first run, when
-you pick Herdr) and lets you change it any time:
+omawsl can tell you when a Claude Code session in Herdr is **done** - nothing left running,
+your turn - or **needs you** (a permission prompt or a question). It asks how on first run,
+when you pick Herdr, and you can change it any time:
 
     omawsl notifications           # choose interactively
     omawsl notifications both      # sound + Windows popup
@@ -52,23 +52,37 @@ you pick Herdr) and lets you change it any time:
     omawsl notifications popup     # Windows popup only
     omawsl notifications off
 
+"Done" means the whole session is idle: no subagent, background shell, monitor or scheduled
+wakeup still running. A turn that ends with "I'll wait for the subagent" doesn't alert you.
+
+How it works:
+
+- The alerts come from Claude Code's own hooks, not from Herdr. Herdr decides "done" by
+  watching the screen, so it alerts every time Claude ends a turn to wait for background work
+  (herdrdev/herdr#5004, and #1217 - background shells and monitors read as idle by design).
+  omawsl therefore turns Herdr's own sound and popups off (`[ui.sound] enabled = false`,
+  `[ui.toast] delivery = "off"`) for every choice.
+- omawsl adds three hooks for `bin/omawsl-claude-notify` (Stop, Notification, and
+  PreToolUse for AskUserQuestion) to `~/.claude/settings.json`. Your own hooks there are left
+  alone; `omawsl notifications off` and uninstalling Herdr remove only omawsl's.
 - **Sound** installs `pulseaudio-utils` - the one step that asks for your sudo password, once
-  per machine. Herdr plays its sounds with `paplay`, which reaches your Windows speakers
-  through WSLg.
-- **Popup** links `bin/omawsl-notify-send` in as `~/.local/bin/notify-send` (an existing
-  `notify-send` there is left alone) and sets Herdr's `[ui.toast] delivery = "system"`. It
-  shows a normal Windows notification via PowerShell. The popup is silent - pick `both` for
-  a sound too.
+  per machine - and plays Windows' own notification sounds with `paplay`, through WSLg.
+- **Popup** shows a normal Windows notification via PowerShell. The popup is silent - pick
+  `both` for a sound too.
 
 Good to know:
 
-- Herdr only notifies for agents in a tab you're **not** looking at - even when Windows
-  Terminal itself is minimised.
-- Both need WSLg (Windows 11, or Windows 10 with WSL from the Microsoft Store). Without it,
-  omawsl warns and nothing plays or pops up.
-- No popups at all? Check Windows' Do Not Disturb / Focus, and that notifications from
-  "Windows PowerShell" are allowed in Settings > System > Notifications.
-- Only `[ui.sound] enabled` and `[ui.toast] delivery` in your Herdr config are changed.
+- **Claude Code only.** Other agents in Herdr (Codex, Copilot, Antigravity) don't get alerts.
+- You're alerted for every session, including the one you're looking at.
+- Sound needs WSLg (Windows 11, or Windows 10 with WSL from the Microsoft Store).
+- Hear the sound but no popup appears (it's only in the notification centre)? A full-screen
+  app - Windows Terminal with F11, for example - switches Windows to Do Not Disturb. Turn that
+  off in Settings > System > Notifications > Turn on do not disturb automatically > "When
+  using an app in full-screen mode".
+- No popups at all? Check that notifications from "Windows PowerShell" are allowed in
+  Settings > System > Notifications.
+- Claude Code installed but never started yet? Run `omawsl notifications` again after its
+  first start - the hooks need its `~/.claude` folder.
 
 ## Claude Code in Herdr
 
