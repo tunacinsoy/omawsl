@@ -58,6 +58,13 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   grep -A1 '^\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG" | grep -qE '^claude = .*"terminal_title_stripped"'
 }
 
+@test "the sidebar shows the note set with Ctrl g p c under each Claude agent" {
+  # Ctrl g p c names the pane; the "pane" token is that name, on its own
+  # line above Claude's own title.
+  grep -A1 '^\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG" |
+    grep -qF 'claude = [["state_icon", "workspace", "tab"], ["pane"], ["terminal_title_stripped"]]'
+}
+
 @test "agent states show as distinct symbols, not just colored dots" {
   # Dots only differ by color; symbols tell blocked / working / done /
   # idle apart by shape too.

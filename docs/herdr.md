@@ -87,7 +87,12 @@ Good to know:
 ## Claude Code in Herdr
 
 - **What each agent is doing**: the sidebar (`Ctrl g b` to show or hide it) lists every
-  agent; under each Claude agent sits the short task summary zellij showed in the pane frame.
+  agent; under each Claude agent sits your note, then the short task summary zellij showed
+  in the pane frame.
+- **Agent notes**: Claude names a session from its first prompt, so the summary can be
+  vague. Press `Ctrl g p c` in the agent's pane to write a short note - what it's for,
+  what you're waiting on. It starts from the current note so you can edit it; clear it
+  and press Enter to remove it.
 - **Its symbol** says whether it needs you: **blocked** - asking a question or for
   approval, answer it; **done** - finished and you haven't looked yet; **working** - still
   running; **idle** - finished and seen. A blocked agent marks its tab and workspace blocked
