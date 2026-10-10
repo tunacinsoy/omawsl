@@ -23,6 +23,20 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   done
 }
 
+@test "workspaces switch from the prefix, clear of Herdr's swap_pane defaults" {
+  grep -qx 'previous_workspace = "prefix+\["' "$CONFIG"
+  grep -qx 'next_workspace = "prefix+\]"' "$CONFIG"
+  ! grep -qE '^(previous|next)_workspace = "prefix\+shift\+[hjkl]"' "$CONFIG"
+}
+
+@test "workspace numbers use plain digits, which work on any keyboard layout" {
+  # Herdr matches prefix+shift+N against the US-layout character, so Shift 2
+  # is dead on Turkish Q (') or UK/German ("). Herdr's own prefix+1..9 for
+  # tabs is turned off - tabs keep zellij's Ctrl g t 1-9.
+  grep -qx 'switch_workspace = "prefix+1..9"' "$CONFIG"
+  grep -qx 'switch_tab = ""' "$CONFIG"
+}
+
 @test "herdr config check accepts configs/herdr.toml" {
   command -v herdr &>/dev/null || skip "herdr not installed on this test host"
   run env HERDR_CONFIG_PATH="$CONFIG" herdr config check
@@ -34,4 +48,25 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   # "alt++" and disables it; "+" can't be bound at all, so Alt = (zellij.kdl's
   # own twin of Alt +) carries "grow" alone.
   ! grep -vE '^[[:space:]]*#' "$CONFIG" | grep -qE '"[^"]*\+plus"|"[^"]*\+\+"'
+}
+
+@test "the sidebar shows what each Claude agent is working on" {
+  # Claude Code puts a short task summary in its terminal title - zellij
+  # showed it in the pane frame. Herdr's border label only says "claude",
+  # so the sidebar row carries the summary instead.
+  grep -qx '\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG"
+  grep -A1 '^\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG" | grep -qE '^claude = .*"terminal_title_stripped"'
+}
+
+@test "the sidebar shows the note set with Ctrl g p c under each Claude agent" {
+  # Ctrl g p c names the pane; the "pane" token is that name, on its own
+  # line above Claude's own title.
+  grep -A1 '^\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG" |
+    grep -qF 'claude = [["state_icon", "workspace", "tab"], ["pane"], ["terminal_title_stripped"]]'
+}
+
+@test "agent states show as distinct symbols, not just colored dots" {
+  # Dots only differ by color; symbols tell blocked / working / done /
+  # idle apart by shape too.
+  grep -A10 '^\[ui\]' "$CONFIG" | grep -qx 'status_indicators = "symbols"'
 }

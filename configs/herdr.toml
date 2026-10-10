@@ -16,8 +16,9 @@
 #         search is / instead of f.
 #
 # Herdr-only extras sit on prefix keys zellij.kdl leaves unbound in
-# "normal" mode, so nothing collides: q detach, w workspace picker, g goto
-# agent, comma settings, e edit scrollback, b sidebar, ? help.
+# "normal" mode, so nothing collides: q detach, w workspace picker, [ ]
+# previous/next workspace, 1-9 workspace by number, g goto agent,
+# comma settings, e edit scrollback, b sidebar, ? help.
 #
 # @OMAWSL_ROOT@ is replaced with the real omawsl checkout path when
 # install/terminal/app-herdr.sh copies this file to
@@ -33,6 +34,18 @@ name = "tokyo-night"
 tab_bar_position = "bottom"
 # zellij's NewTab doesn't ask for a name first.
 prompt_new_tab_name = false
+# Herdr's default dots tell agent states apart by color alone; symbols
+# give blocked / working / done / idle each a shape too.
+status_indicators = "symbols"
+
+# Under each Claude agent the sidebar shows the note set with Ctrl g p c
+# (the pane's name, "pane"), then the task summary Claude Code puts in its
+# terminal title - zellij showed that summary in the pane frame, but
+# Herdr's border label only says "claude" (show_agent_labels_on_pane_borders).
+# Claude names the session from its first prompt, so the note is what
+# says what an agent is for.
+[ui.sidebar.agents.rows_by_agent]
+claude = [["state_icon", "workspace", "tab"], ["pane"], ["terminal_title_stripped"]]
 
 [keys]
 prefix = "ctrl+g"
@@ -54,10 +67,18 @@ edit_scrollback = "prefix+e"
 toggle_sidebar = "prefix+b"
 help = "prefix+?"
 copy_mode = "prefix+s"
+# Herdr leaves these unbound. Not prefix+shift+h/l: Herdr's own swap_pane
+# defaults sit there. Not prefix+shift+1..9: Herdr reads the shifted
+# character as a US layout, so Shift 2 (' on Turkish Q, " on UK/German)
+# does nothing. Plain digits are layout-proof; tabs keep Ctrl g t 1-9.
+previous_workspace = "prefix+["
+next_workspace = "prefix+]"
+switch_workspace = "prefix+1..9"
 
 # --- Herdr defaults that would shadow a zellij mode letter or otherwise
 # --- teach a second way to do the same thing - all handled by the modes.
 new_tab = ""
+switch_tab = ""
 rename_tab = ""
 previous_tab = ""
 next_tab = ""

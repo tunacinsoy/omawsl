@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# Claude Code hook behind `omawsl notifications`: a Windows popup and/or a
+# sound when a Claude Code session inside Herdr is done or needs you.
+#
+# Why not Herdr's own alerts: Herdr reads "done" off the screen, so every
+# turn that ends to wait - for a background subagent, shell, monitor or
+# scheduled wakeup - counts as finished (herdrdev/herdr#5004, an open bug,
+# and #1217, idle by design). Claude's Stop hook says whether anything is
+# still running, so this alerts only when nothing is. If Herdr ever gets
+# this right, go back to its alerts: have omawsl_herdr_setup_notifications
+# call omawsl_claude_hooks_remove and stop forcing Herdr's alerts off.
+#
+#   omawsl-claude-notify stop|notify|ask   (hook JSON on stdin)
+#
+# Installed into ~/.claude/settings.json by omawsl_claude_hooks_install.
+# Reads the saved choice on every run, so `omawsl notifications` only has
+# to add or remove the hooks. Always exits 0 - a hook must never get in
+# Claude's way.
+set -uo pipefail
+
+event="${1:-}"
+input="$(cat)"
+[[ "${HERDR_ENV:-}" == 1 ]] || exit 0
+command -v jq &>/dev/null || exit 0
+jq -e 'type == "object"' <<< "$input" >/dev/null 2>&1 || exit 0
+
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../install/lib.sh
+source "$ROOT/install/lib.sh"
+choice="$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)"
+case "$choice" in
+  both|sound|popup) ;;
+  *) exit 0 ;;
+esac
+
+# field <jq path> - one string from the hook JSON, empty when missing.
+field() {
+  jq -r "$1 // empty" <<< "$input" 2>/dev/null
+}
+
+# session_title - the session's /rename name, else Claude's own title for
+# it, read from the transcript. Empty when neither exists.
+session_title() {
+  local transcript
+  transcript="$(field .transcript_path)"
+  [[ -f "$transcript" ]] || return 0
+  grep -E '"(customTitle|aiTitle)"' "$transcript" 2>/dev/null |
+    jq -rs '(map(.customTitle // empty) | last) // (map(.aiTitle // empty) | last) // empty' 2>/dev/null
+}
+
+# pending_tool - name of the newest tool call in the transcript that has
+# no result yet (what a permission prompt is about). Empty when unknown.
+pending_tool() {
+  local transcript
+  transcript="$(field .transcript_path)"
+  [[ -f "$transcript" ]] || return 0
+  tail -n 400 "$transcript" | jq -Rrn '
+    [inputs | fromjson? | .message.content? | arrays | .[] | objects] as $blocks
+    | [$blocks[] | select(.type == "tool_result") | .tool_use_id] as $done
+    | [$blocks[] | select(.type == "tool_use") | select(.id as $id | $done | index($id) | not)]
+    | last | .name // empty' 2>/dev/null
+}
+
+case "$event" in
+  stop)
+    # A subagent finishing, or the main agent pausing while background
+    # work runs, is not the user's turn yet.
+    [[ -z "$(field .agent_id)" ]] || exit 0
+    running="$(jq -r '((.background_tasks // []) | length) + ((.session_crons // []) | length)' <<< "$input" 2>/dev/null)"
+    [[ "$running" == 0 ]] || exit 0
+    kind=done
+    body="$(session_title)"
+    body="${body:-Finished}"
+    ;;
+  notify)
+    case "$(field .notification_type)" in
+      permission_prompt|agent_needs_input|worker_permission_prompt|elicitation_dialog|elicitation_url_dialog) ;;
+      *) exit 0 ;;
+    esac
+    body="$(field .message)"
+    # An open question also sends a plain "Claude needs your permission"
+    # prompt a few seconds later - the ask hook already announced it, with
+    # the question itself.
+    [[ "$body" != *AskUserQuestion* ]] || exit 0
+    [[ "$(pending_tool)" != AskUserQuestion ]] || exit 0
+    kind=request
+    ;;
+  ask)
+    kind=request
+    body="$(field '.tool_input.questions[0].question')"
+    ;;
+  *) exit 0 ;;
+esac
+
+cwd="$(field .cwd)"
+title="${cwd%/}"
+title="${title##*/}"
+title="${title:-Claude Code}"
+if [[ -n "$cwd" ]]; then
+  branch="$(git -C "$cwd" branch --show-current 2>/dev/null)"
+  [[ -z "$branch" ]] || title+=" · $branch"
+fi
+if [[ "$kind" == done ]]; then
+  title+=" — done"
+  sound_file="Windows Notify System Generic.wav"
+else
+  title+=" — needs you"
+  sound_file="Windows Proximity Notification.wav"
+fi
+body="${body:0:200}"
+
+if [[ "$choice" != sound ]]; then
+  "${OMAWSL_NOTIFY_SEND:-$ROOT/bin/omawsl-notify-send}" -- "$title" "$body" >/dev/null 2>&1 || true
+fi
+if [[ "$choice" != popup ]]; then
+  paplay "${OMAWSL_NOTIFY_SOUND_DIR:-/mnt/c/Windows/Media}/$sound_file" >/dev/null 2>&1 || true
+fi
+exit 0

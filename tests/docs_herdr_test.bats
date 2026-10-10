@@ -20,3 +20,24 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
     grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
   done
 }
+
+@test "docs/herdr.md documents omawsl notifications and its limits" {
+  local doc="$REPO_ROOT/docs/herdr.md"
+  for s in "omawsl notifications" "pulseaudio-utils" "WSLg" "Claude Code only" "~/.claude/settings.json" "herdrdev/herdr#5004" "do not disturb automatically"; do
+    grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
+  done
+}
+
+@test "docs/herdr.md explains scrolling Claude chats and the agent summary" {
+  local doc="$REPO_ROOT/docs/herdr.md"
+  for s in "PgUp" "Ctrl+End" "Ctrl+o" "sidebar"; do
+    grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
+  done
+}
+
+@test "docs/herdr.md explains agent notes" {
+  local doc="$REPO_ROOT/docs/herdr.md"
+  for s in "Ctrl g p c" "note"; do
+    grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
+  done
+}

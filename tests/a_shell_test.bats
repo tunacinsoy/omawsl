@@ -24,6 +24,10 @@ setup() {
   # regardless of whether the host shell running this suite already has
   # its own INPUTRC exported.
   unset INPUTRC
+  # Same for HERDR_ENV: Herdr sets it in every pane, and configs/bashrc
+  # starts no multiplexer when it's set - so run from inside Herdr, the
+  # zellij exec tests would fail. Tests that need it export it themselves.
+  unset HERDR_ENV
 }
 
 @test "adds a marker-guarded source line to ~/.bashrc, does not copy configs/bashrc's content in" {

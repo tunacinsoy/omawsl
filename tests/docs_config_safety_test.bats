@@ -16,3 +16,8 @@ DOC="$REPO_ROOT/docs/config-safety.md"
     grep -qF "$path" "$DOC" || { echo "missing never-touch entry: $path"; return 1; }
   done
 }
+
+@test "docs/config-safety.md says what omawsl adds to Claude Code's settings" {
+  grep -qF '~/.claude/settings.json' "$DOC"
+  grep -qF 'bin/omawsl-claude-notify' "$DOC"
+}
