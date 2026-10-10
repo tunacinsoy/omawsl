@@ -19,7 +19,7 @@ terminals open (`omawsl multiplexer`). Typing goes to the pane until you press `
 | `Alt =` / `Alt -` | grow / shrink the pane |
 | `Alt i` / `Alt o` | move the tab left / right |
 | `Alt f` | zellij: floating panes - Herdr: a scratch shell popup (exit it to get back) |
-| `Ctrl g p` | pane mode - `hjkl` focus, `n` new, `d` split down, `r` split right, `x` close, `f` fullscreen, `c` rename, `Tab` next |
+| `Ctrl g p` | pane mode - `hjkl` focus, `n` new, `d` split down, `r` split right, `x` close, `f` fullscreen, `c` rename (Herdr: the note under the agent in the sidebar), `Tab` next |
 | `Ctrl g t` | tab mode - `hjkl` switch, `1-9` go to, `n` new, `x` close, `r` rename, `b` break pane out, `[` `]` break pane left / right |
 | `Ctrl g r` | resize mode - `hjkl` move the border that way, `HJKL` shrink, `+` `-` grow / shrink |
 | `Ctrl g m` | move mode - `hjkl` swap with the pane that way, `n`/`Tab` next, `p` previous |
