@@ -22,6 +22,8 @@ source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/doctor.sh"
 source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/multiplexer.sh"
 # shellcheck source=omawsl-sub/notifications.sh
 source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/notifications.sh"
+# shellcheck source=omawsl-sub/keys.sh
+source "$OMAWSL_ROOT_DIR/bin/omawsl-sub/keys.sh"
 
 omawsl_usage() {
   cat <<'EOF'
@@ -44,6 +46,9 @@ Commands:
   notifications [choice]    How Herdr tells you an agent finished or needs
                              input: both, sound, popup or off. With no
                              choice, choose interactively.
+  keys [section]            Key cheatsheet for one tool: herdr, zellij,
+                             shell, claude, nvim, lazygit, lazydocker or
+                             btop. With no section, choose interactively.
 EOF
 }
 
@@ -78,6 +83,10 @@ omawsl_main() {
     notifications)
       shift
       omawsl_notifications_command "$@"
+      ;;
+    keys)
+      shift
+      omawsl_keys_command "$@"
       ;;
     ""|-h|--help)
       omawsl_usage

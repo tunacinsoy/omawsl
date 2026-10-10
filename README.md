@@ -52,6 +52,10 @@ built for AI coding agents, set up with the same keybindings. Switch any time wi
 `omawsl multiplexer`; choose how you're told a Claude Code session in Herdr is done or needs
 you (sound, Windows popup, both, or off) with `omawsl notifications`.
 
+Forgot a key? `omawsl keys` asks which tool, then shows its keys - zellij/Herdr, the shell,
+Claude Code, Neovim, lazygit, lazydocker or btop; `omawsl keys herdr` skips the question.
+Everything on one page: [`docs/keys.md`](docs/keys.md).
+
 omawsl ships its own theme set - Omakub's original ten (Catppuccin, Everforest, Gruvbox,
 Kanagawa, Matte Black, Nord, Osaka Jade, Ristretto, Rosé Pine, Tokyo Night) plus Dracula,
 One Dark and Solarized - via `bin/omawsl theme <name>`, applied consistently across zellij,
@@ -90,5 +94,5 @@ Not every gap here is an oversight - some are deliberate:
 ## Status
 
 omawsl's full CLI is now shipped: `bin/omawsl theme`, `update`, `migrate`,
-`install`, `uninstall`, `doctor`, `multiplexer`, and `notifications`. Run `bin/omawsl` with no arguments for
+`install`, `uninstall`, `doctor`, `multiplexer`, `notifications`, and `keys`. Run `bin/omawsl` with no arguments for
 the full command list.
