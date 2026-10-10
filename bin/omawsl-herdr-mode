@@ -139,13 +139,28 @@ break_pane() {
   fi
 }
 
-# Called inside $(...), so the question itself goes to the tty directly.
+# prompt <question> [text to start from] - the reply is edited in place, so
+# a pre-filled answer can be changed instead of retyped. Called inside
+# $(...), so the question itself goes to the tty directly.
 prompt() {
   printf '\e[?25h\e[H\e[2J %s ' "$1" >/dev/tty
   stty sane
   local reply
-  IFS= read -r reply
+  IFS= read -r -e -i "${2:-}" reply
   printf '%s' "$reply"
+}
+
+# Ctrl g p c - the pane's name doubles as a note, shown under the agent in
+# the sidebar (configs/herdr.toml). Empty clears it.
+note_pane() {
+  local note
+  note=$(herdr pane get "$pane" | jq -r '.result.pane.label // empty')
+  note=$(prompt "Pane note (empty clears):" "$note")
+  if [[ -n $note ]]; then
+    herdr pane rename "$pane" "$note" >/dev/null
+  else
+    herdr pane rename "$pane" --clear >/dev/null
+  fi
 }
 
 # ---------------------------------------------------------------- popup UI
@@ -188,7 +203,7 @@ quit_session() {
 # mode letters), `mode=""` (close the popup) or by leaving mode unchanged
 # (stay - zellij's sticky focus/resize/move keys).
 mode_pane() {
-  draw PANE "←↓↑→/hjkl focus │ n new │ d down │ r right │ x close │ f fullscreen │ c rename │ Tab next │ t m o modes"
+  draw PANE "←↓↑→/hjkl focus │ n new │ d down │ r right │ x close │ f fullscreen │ c note │ Tab next │ t m o modes"
   read_key || { mode=""; return; }
   case $key in
     h | LEFT) herdr pane focus --pane "$pane" --direction left >/dev/null ;;
@@ -201,7 +216,7 @@ mode_pane() {
     r) herdr pane split --pane "$pane" --direction right --focus >/dev/null; mode="" ;;
     x) herdr pane close "$pane" >/dev/null; mode="" ;;
     f) herdr pane zoom --pane "$pane" --toggle >/dev/null; mode="" ;;
-    c) local name; name=$(prompt "Pane name:"); [[ -n $name ]] && herdr pane rename "$pane" "$name" >/dev/null; mode="" ;;
+    c) note_pane; mode="" ;;
     e) na "Embed/float pane" ;;
     w) na "Floating panes (use Alt f for a scratch popup)" ;;
     z) na "Toggle pane frames" ;;
