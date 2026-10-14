@@ -11,6 +11,7 @@ setup() {
   source "$REPO_ROOT/install/lib.sh"
   omawsl_save_choice OMAWSL_HERDR_NOTIFICATIONS both
   export HERDR_ENV=1
+  unset HERDR_PANE_ID
   POPUPS="$BATS_TEST_TMPDIR/popups"
   export OMAWSL_NOTIFY_SEND="$BATS_TEST_TMPDIR/notify-send"
   printf '#!/usr/bin/env bash\nprintf "%%s|%%s\\n" "$2" "$3" >> %q\n' "$POPUPS" > "$OMAWSL_NOTIFY_SEND"
@@ -19,6 +20,14 @@ setup() {
   stub_command paplay
   PROJECT="$BATS_TEST_TMPDIR/myproj"
   mkdir -p "$PROJECT"
+}
+
+# in_herdr_pane <pane json> - run as if inside Herdr pane w1:p1 of
+# workspace "magdalani", with <pane json> as the pane `herdr pane get` returns.
+in_herdr_pane() {
+  export HERDR_PANE_ID=w1:p1
+  stub_command_output_for herdr "pane get w1:p1" "{\"result\":{\"pane\":$1}}"
+  stub_command_output_for herdr "workspace get w1" '{"result":{"workspace":{"label":"magdalani"}}}'
 }
 
 hook() {
@@ -34,30 +43,36 @@ no_alert() {
 @test "stop with nothing running: done popup and done sound" {
   hook stop "{\"cwd\":\"$PROJECT\"}"
   [ "$status" -eq 0 ]
-  [ "$(cat "$POPUPS")" = "myproj — done|Finished" ]
+  [ "$(cat "$POPUPS")" = "Claude Code — done|myproj" ]
   [ "$(stub_calls)" = "paplay /sounds/Windows Notify System Generic.wav" ]
 }
 
 @test "stop with empty background_tasks and session_crons still alerts" {
   hook stop "{\"cwd\":\"$PROJECT\",\"background_tasks\":[],\"session_crons\":[]}"
-  [ "$(cat "$POPUPS")" = "myproj — done|Finished" ]
+  [ "$(cat "$POPUPS")" = "Claude Code — done|myproj" ]
 }
 
-@test "stop body is the session title from the transcript, custom title first" {
+@test "in a Herdr pane the title is the agent's note and the body its workspace" {
+  in_herdr_pane '{"label":"Admin redesign","terminal_title_stripped":"Resume previous session","workspace_id":"w1"}'
+  hook stop "{\"cwd\":\"$PROJECT\"}"
+  [ "$(cat "$POPUPS")" = "Admin redesign — done|magdalani" ]
+}
+
+@test "in a Herdr pane without a note the title is the agent's sidebar title" {
+  in_herdr_pane '{"label":null,"terminal_title_stripped":"Night mode for public page","workspace_id":"w1"}'
+  hook stop "{\"cwd\":\"$PROJECT\"}"
+  [ "$(cat "$POPUPS")" = "Night mode for public page — done|magdalani" ]
+}
+
+@test "without a Herdr name the title is the session title, custom title first" {
   local t="$BATS_TEST_TMPDIR/t.jsonl"
   printf '%s\n' '{"type":"ai-title","aiTitle":"Auto name"}' '{"type":"user","message":{}}' > "$t"
   hook stop "{\"cwd\":\"$PROJECT\",\"transcript_path\":\"$t\"}"
-  [ "$(cat "$POPUPS")" = "myproj — done|Auto name" ]
+  [ "$(cat "$POPUPS")" = "Auto name — done|myproj" ]
   rm -f "$POPUPS"
   printf '%s\n' '{"type":"custom-title","customTitle":"My name"}' >> "$t"
   hook stop "{\"cwd\":\"$PROJECT\",\"transcript_path\":\"$t\"}"
-  [ "$(cat "$POPUPS")" = "myproj — done|My name" ]
-}
-
-@test "title includes the git branch" {
-  git init -q -b feat/x "$PROJECT"
-  hook stop "{\"cwd\":\"$PROJECT\"}"
-  [ "$(cat "$POPUPS")" = "myproj · feat/x — done|Finished" ]
+  [ "$(cat "$POPUPS")" = "My name — done|myproj" ]
 }
 
 @test "a subagent's stop doesn't alert" {
@@ -77,7 +92,7 @@ no_alert() {
 
 @test "a permission prompt: needs-you popup and request sound" {
   hook notify "{\"cwd\":\"$PROJECT\",\"notification_type\":\"permission_prompt\",\"message\":\"Claude needs your permission to use Bash\"}"
-  [ "$(cat "$POPUPS")" = "myproj — needs you|Claude needs your permission to use Bash" ]
+  [ "$(cat "$POPUPS")" = "Claude Code — needs you|Claude needs your permission to use Bash" ]
   [ "$(stub_calls)" = "paplay /sounds/Windows Proximity Notification.wav" ]
 }
 
@@ -105,12 +120,12 @@ no_alert() {
     '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"q1","content":"ok"}]}}' \
     '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"b1","name":"Bash","input":{}}]}}' > "$t"
   hook notify "{\"cwd\":\"$PROJECT\",\"transcript_path\":\"$t\",\"notification_type\":\"permission_prompt\",\"message\":\"Claude needs your permission\"}"
-  [ "$(cat "$POPUPS")" = "myproj — needs you|Claude needs your permission" ]
+  [ "$(cat "$POPUPS")" = "Claude Code — needs you|Claude needs your permission" ]
 }
 
 @test "a question shows the question text" {
   hook ask "{\"cwd\":\"$PROJECT\",\"tool_input\":{\"questions\":[{\"question\":\"Which one?\",\"options\":[]}]}}"
-  [ "$(cat "$POPUPS")" = "myproj — needs you|Which one?" ]
+  [ "$(cat "$POPUPS")" = "Claude Code — needs you|Which one?" ]
 }
 
 @test "long bodies are clipped to 200 characters" {
@@ -136,7 +151,7 @@ no_alert() {
 @test "popup choice shows only the popup" {
   omawsl_save_choice OMAWSL_HERDR_NOTIFICATIONS popup
   hook stop "{\"cwd\":\"$PROJECT\"}"
-  [ "$(cat "$POPUPS")" = "myproj — done|Finished" ]
+  [ "$(cat "$POPUPS")" = "Claude Code — done|myproj" ]
   [ -z "$(stub_calls)" ]
 }
 

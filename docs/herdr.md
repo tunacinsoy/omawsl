@@ -68,7 +68,8 @@ How it works:
 - **Sound** installs `pulseaudio-utils` - the one step that asks for your sudo password, once
   per machine - and plays Windows' own notification sounds with `paplay`, through WSLg.
 - **Popup** shows a normal Windows notification via PowerShell. The popup is silent - pick
-  `both` for a sound too.
+  `both` for a sound too. It names the agent the way the sidebar does - your note
+  (`Ctrl g p c`) if it has one, else its title - so you know which pane to go to.
 
 Good to know:
 
