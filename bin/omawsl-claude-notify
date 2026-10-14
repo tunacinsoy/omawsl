@@ -48,6 +48,22 @@ session_title() {
     jq -rs '(map(.customTitle // empty) | last) // (map(.aiTitle // empty) | last) // empty' 2>/dev/null
 }
 
+# herdr_name - the agent's name as Herdr's sidebar shows it: the pane's
+# note (Ctrl g p c), else its title. Empty outside a Herdr pane.
+herdr_name() {
+  [[ -n "$pane" ]] || return 0
+  jq -r '[.label, .terminal_title_stripped] | map(select(. != null and . != "")) | first // empty' <<< "$pane" 2>/dev/null
+}
+
+# herdr_workspace - the name of the Herdr workspace the agent runs in.
+# Empty outside a Herdr pane.
+herdr_workspace() {
+  local id
+  id="$(jq -r '.workspace_id // empty' <<< "$pane" 2>/dev/null)"
+  [[ -n "$id" ]] || return 0
+  herdr workspace get "$id" 2>/dev/null | jq -r '.result.workspace.label // empty' 2>/dev/null
+}
+
 # pending_tool - name of the newest tool call in the transcript that has
 # no result yet (what a permission prompt is about). Empty when unknown.
 pending_tool() {
@@ -69,8 +85,6 @@ case "$event" in
     running="$(jq -r '((.background_tasks // []) | length) + ((.session_crons // []) | length)' <<< "$input" 2>/dev/null)"
     [[ "$running" == 0 ]] || exit 0
     kind=done
-    body="$(session_title)"
-    body="${body:-Finished}"
     ;;
   notify)
     case "$(field .notification_type)" in
@@ -92,15 +106,22 @@ case "$event" in
   *) exit 0 ;;
 esac
 
-cwd="$(field .cwd)"
-title="${cwd%/}"
-title="${title##*/}"
-title="${title:-Claude Code}"
-if [[ -n "$cwd" ]]; then
-  branch="$(git -C "$cwd" branch --show-current 2>/dev/null)"
-  [[ -z "$branch" ]] || title+=" · $branch"
+# Name the agent the way Herdr's sidebar does, so you know which one to go to.
+pane=""
+if [[ -n "${HERDR_PANE_ID:-}" ]]; then
+  pane="$(herdr pane get "$HERDR_PANE_ID" 2>/dev/null | jq -c '.result.pane // empty' 2>/dev/null)"
 fi
+title="$(herdr_name)"
+[[ -n "$title" ]] || title="$(session_title)"
+title="${title:-Claude Code}"
 if [[ "$kind" == done ]]; then
+  body="$(herdr_workspace)"
+  if [[ -z "$body" ]]; then
+    body="$(field .cwd)"
+    body="${body%/}"
+    body="${body##*/}"
+    body="${body:-Finished}"
+  fi
   title+=" — done"
   sound_file="Windows Notify System Generic.wav"
 else
