@@ -314,6 +314,22 @@ omawsl_multiplexer_slug() {
   esac
 }
 
+# omawsl_bashrc_zellij_autostart_line [bashrc_file]
+# Line number of the first uncommented `zellij setup --generate-auto-start`
+# line in ~/.bashrc; fails when there's none. That line (from zellij's own
+# docs or an older setup, never written by omawsl) starts zellij whenever
+# $ZELLIJ is unset - before omawsl's block can open Herdr, and again inside
+# every Herdr pane. omawsl never edits lines it doesn't own
+# (docs/config-safety.md), so callers only point at it.
+omawsl_bashrc_zellij_autostart_line() {
+  local bashrc_file="${1:-$HOME/.bashrc}"
+  [[ -f "$bashrc_file" ]] || return 1
+  local n
+  n="$(grep -nE '^[^#]*zellij setup --generate-auto-start' "$bashrc_file" | head -n1 | cut -d: -f1)"
+  [[ -n "$n" ]] || return 1
+  echo "$n"
+}
+
 # Herdr agent notifications - the picker labels, shared by
 # install/first-run-choices.sh and `omawsl notifications` for the same
 # reason as the multiplexer labels above. choices.env stores the slug.
@@ -333,4 +349,17 @@ omawsl_herdr_notifications_slug() {
     "$OMAWSL_HERDR_NOTIFY_LABEL_POPUP"|popup) echo "popup" ;;
     "$OMAWSL_HERDR_NOTIFY_LABEL_OFF"|off) echo "off" ;;
   esac
+}
+
+# omawsl_testing_branch [checkout_dir]
+# The branch an install is on when that isn't master - i.e. a machine
+# testing a feature/fix branch via `omawsl update --ref` before it's
+# merged (docs/testing-changes.md). Prints nothing (and fails) on master,
+# or when there's no git checkout at all.
+omawsl_testing_branch() {
+  local dir="${1:-${OMAWSL_HOME:-$HOME/.local/share/omawsl}}"
+  local branch
+  branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 1
+  [[ -n "$branch" && "$branch" != master ]] || return 1
+  echo "$branch"
 }

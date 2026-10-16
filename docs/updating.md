@@ -8,6 +8,9 @@ omawsl installs is updated the same way. Five groups, five answers:
 Run `omawsl update`. This is always the first thing it does: `git pull` inside your omawsl
 checkout, then pending migrations.
 
+Working on omawsl itself? `omawsl update --ref <branch>` switches a machine to a branch to
+test it before merging - see [`testing-changes.md`](testing-changes.md).
+
 ## Language runtimes
 
 Ruby, Node.js, Go, PHP, Python, Elixir, Rust, Java - all managed by [mise](https://mise.jdx.dev).

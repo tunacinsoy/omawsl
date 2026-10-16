@@ -288,3 +288,48 @@ setup() {
   run omawsl_doctor
   [[ "$output" == *"[PENDING] Herdr - run: omawsl multiplexer herdr"* ]]
 }
+
+@test "omawsl_doctor flags a ~/.bashrc line that starts zellij for a Herdr user" {
+  omawsl_save_choice OMAWSL_MULTIPLEXER herdr
+  stub_command herdr
+  printf '%s\n' 'export EDITOR=nvim' 'eval "$(zellij setup --generate-auto-start bash)"' '# >>> omawsl >>>' > "$HOME/.bashrc"
+  run omawsl_doctor
+  [[ "$output" == *"[PENDING] ~/.bashrc:2 starts zellij by itself - delete that line so new terminals open Herdr"* ]]
+  [[ "$output" != *"[OK]      Herdr"* ]]
+}
+
+@test "omawsl_doctor ignores a zellij auto-start line for a zellij user" {
+  stub_command zellij
+  printf '%s\n' 'eval "$(zellij setup --generate-auto-start bash)"' > "$HOME/.bashrc"
+  run omawsl_doctor
+  [[ "$output" == *"[OK]      Zellij"* ]]
+  [[ "$output" != *"starts zellij by itself"* ]]
+}
+
+@test "omawsl_doctor ignores a commented-out zellij auto-start line" {
+  omawsl_save_choice OMAWSL_MULTIPLEXER herdr
+  stub_command herdr
+  printf '%s\n' '  # eval "$(zellij setup --generate-auto-start bash)"' > "$HOME/.bashrc"
+  run omawsl_doctor
+  [[ "$output" == *"[OK]      Herdr (preview)"* ]]
+  [[ "$output" != *"starts zellij by itself"* ]]
+}
+
+@test "omawsl_doctor notes when this machine is testing a branch instead of master" {
+  export OMAWSL_HOME="$BATS_TEST_TMPDIR/install"
+  git init -q -b master "$OMAWSL_HOME"
+  git -C "$OMAWSL_HOME" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  git -C "$OMAWSL_HOME" checkout -q -b feat/xyz
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[NOTE]    Testing branch 'feat/xyz' - go back: omawsl update --ref master"* ]]
+}
+
+@test "omawsl_doctor says nothing about branches on master" {
+  export OMAWSL_HOME="$BATS_TEST_TMPDIR/install"
+  git init -q -b master "$OMAWSL_HOME"
+  git -C "$OMAWSL_HOME" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Testing branch"* ]]
+}

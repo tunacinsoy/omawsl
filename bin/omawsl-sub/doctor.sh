@@ -197,13 +197,19 @@ omawsl_doctor_report_category() {
 # Which multiplexer new terminals open (OMAWSL_MULTIPLEXER, zellij when
 # unset) and whether it's actually there. A chosen-but-missing Herdr isn't
 # broken - configs/bashrc falls back to zellij - but it's not what the
-# user picked, so it's PENDING.
+# user picked, so it's PENDING. So is a ~/.bashrc line of the user's own
+# that starts zellij before omawsl's block gets the chance.
 omawsl_doctor_report_multiplexer() {
   if [[ "$(omawsl_load_choice OMAWSL_MULTIPLEXER)" == herdr ]]; then
-    if command -v herdr &>/dev/null; then
-      echo "  [OK]      Herdr (preview)"
-    else
+    local autostart_line
+    autostart_line="$(omawsl_bashrc_zellij_autostart_line)" || autostart_line=""
+    if ! command -v herdr &>/dev/null; then
       echo "  [PENDING] Herdr - run: omawsl multiplexer herdr (new terminals open zellij until then)"
+    elif [[ -z "$autostart_line" ]]; then
+      echo "  [OK]      Herdr (preview)"
+    fi
+    if [[ -n "$autostart_line" ]]; then
+      echo "  [PENDING] ~/.bashrc:$autostart_line starts zellij by itself - delete that line so new terminals open Herdr"
     fi
   elif command -v zellij &>/dev/null; then
     echo "  [OK]      Zellij"
@@ -216,6 +222,15 @@ omawsl_doctor_report_multiplexer() {
 # Entry point for `bin/omawsl doctor` (design spec §14).
 omawsl_doctor() {
   echo "omawsl doctor - checking what's installed/configured:"
+
+  # A machine left on a test branch (`omawsl update --ref`) keeps
+  # following it - easy to forget, so say so up front.
+  local testing
+  if testing="$(omawsl_testing_branch)"; then
+    echo
+    echo "omawsl itself:"
+    echo "  [NOTE]    Testing branch '$testing' - go back: omawsl update --ref master"
+  fi
   echo
   echo "Languages:"
   omawsl_doctor_report_category language omawsl_doctor_language_installed OMAWSL_LANGUAGES
