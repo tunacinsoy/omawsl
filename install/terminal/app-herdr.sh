@@ -308,6 +308,35 @@ omawsl_install_herdr_config() {
   fi
 }
 
+# omawsl_herdr_handoff_if_stale
+# After `omawsl update` replaces Herdr's binary, a running server is still
+# the old version, running from a file that no longer exists - anything it
+# starts from its own path fails, and on 2026-10-16 it also read every Alt
+# chord as Ctrl+Alt until it was restarted. Hands the live panes over to a
+# fresh server from the new binary, the way `herdr server live-handoff`
+# is meant to be used after an update (--import-exe, because the old
+# server's own path is gone). No server, or one already current: nothing
+# to do. A failed handoff only prints the command to finish it by hand -
+# the update itself still worked.
+omawsl_herdr_handoff_if_stale() {
+  command -v herdr &>/dev/null || return 0
+  command -v jq &>/dev/null || return 0
+  local bin new
+  bin="$(command -v herdr)"
+  new="$(herdr --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+  [[ -n "$new" ]] || return 0
+  herdr status server --json 2>/dev/null |
+    jq -e --arg v "$new" '.running == true and (.version != $v or .server_binary_stale == true)' >/dev/null 2>&1 ||
+    return 0
+  local out
+  if out="$(herdr server live-handoff --import-exe "$bin" --expected-version "$new" 2>&1)" &&
+    ! jq -e '.error' <<< "$out" >/dev/null 2>&1; then
+    echo "omawsl: moved your Herdr session to the new server ($new)."
+  else
+    echo "omawsl: Herdr $new is installed, but your running session is still on the old server. Finish with: herdr server live-handoff --import-exe $bin --expected-version $new"
+  fi
+}
+
 # omawsl_herdr_ensure_installed
 # Succeeds once herdr is on PATH, downloading it first if needed. Judged
 # by the binary actually being there afterwards, not by the installer's
