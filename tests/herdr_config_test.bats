@@ -70,3 +70,8 @@ CONFIG="$REPO_ROOT/configs/herdr.toml"
   # idle apart by shape too.
   grep -A10 '^\[ui\]' "$CONFIG" | grep -qx 'status_indicators = "symbols"'
 }
+
+@test "the sidebar shows the note under each Copilot agent too" {
+  grep -A2 '^\[ui.sidebar.agents.rows_by_agent\]' "$CONFIG" |
+    grep -qF 'copilot = [["state_icon", "workspace", "tab"], ["pane"], ["terminal_title_stripped"]]'
+}

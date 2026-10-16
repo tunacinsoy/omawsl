@@ -46,7 +46,7 @@ popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next 
 
 ## Notifications
 
-omawsl can tell you when a Claude Code session in Herdr is **done** - nothing left running,
+omawsl can tell you when a Claude Code or GitHub Copilot CLI session in Herdr is **done** -
 your turn - or **needs you** (a permission prompt or a question). It asks how on first run,
 when you pick Herdr, and you can change it any time:
 
@@ -56,12 +56,14 @@ when you pick Herdr, and you can change it any time:
     omawsl notifications popup     # Windows popup only
     omawsl notifications off
 
-"Done" means the whole session is idle: no subagent, background shell, monitor or scheduled
-wakeup still running. A turn that ends with "I'll wait for the subagent" doesn't alert you.
+For Claude Code, "done" means the whole session is idle: no subagent, background shell,
+monitor or scheduled wakeup still running. A turn that ends with "I'll wait for the subagent"
+doesn't alert you. For Copilot CLI, "done" means the main agent finished its turn. A subagent
+finishing never alerts, but Copilot doesn't say whether a background shell is still running.
 
 How it works:
 
-- The alerts come from Claude Code's own hooks, not from Herdr. Herdr decides "done" by
+- The alerts come from the agents' own hooks, not from Herdr. Herdr decides "done" by
   watching the screen, so it alerts every time Claude ends a turn to wait for background work
   (herdrdev/herdr#5004, and #1217 - background shells and monitors read as idle by design).
   omawsl therefore turns Herdr's own sound and popups off (`[ui.sound] enabled = false`,
@@ -69,6 +71,10 @@ How it works:
 - omawsl adds three hooks for `bin/omawsl-claude-notify` (Stop, Notification, and
   PreToolUse for AskUserQuestion) to `~/.claude/settings.json`. Your own hooks there are left
   alone; `omawsl notifications off` and uninstalling Herdr remove only omawsl's.
+- For Copilot CLI, omawsl writes its own `~/.copilot/hooks/omawsl.json` (two hooks for
+  `bin/omawsl-copilot-notify`: agentStop and notification), only if Copilot is installed or
+  you picked it. `omawsl notifications off` and uninstalling Herdr delete that file. Your own
+  hook files there are never touched.
 - **Sound** installs `pulseaudio-utils` - the one step that asks for your sudo password, once
   per machine - and plays Windows' own notification sounds with `paplay`, through WSLg.
 - **Popup** shows a normal Windows notification via PowerShell. The popup is silent - pick
@@ -77,7 +83,10 @@ How it works:
 
 Good to know:
 
-- **Claude Code only.** Other agents in Herdr (Codex, Copilot, Antigravity) don't get alerts.
+- **Claude Code and GitHub Copilot CLI only.** Other agents in Herdr (Codex, Antigravity)
+  don't get alerts.
+- Copilot not installed when you chose notifications? Run `omawsl notifications` again after
+  installing it.
 - You're alerted for every session, including the one you're looking at.
 - Sound needs WSLg (Windows 11, or Windows 10 with WSL from the Microsoft Store).
 - Hear the sound but no popup appears (it's only in the notification centre)? A full-screen

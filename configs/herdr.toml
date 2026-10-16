@@ -38,14 +38,15 @@ prompt_new_tab_name = false
 # give blocked / working / done / idle each a shape too.
 status_indicators = "symbols"
 
-# Under each Claude agent the sidebar shows the note set with Ctrl g p c
-# (the pane's name, "pane"), then the task summary Claude Code puts in its
-# terminal title - zellij showed that summary in the pane frame, but
-# Herdr's border label only says "claude" (show_agent_labels_on_pane_borders).
-# Claude names the session from its first prompt, so the note is what
-# says what an agent is for.
+# Under each Claude or Copilot agent the sidebar shows the note set with
+# Ctrl g p c (the pane's name, "pane"), then the agent's terminal title -
+# for Claude Code its task summary, which zellij showed in the pane frame,
+# but Herdr's border label only says "claude"
+# (show_agent_labels_on_pane_borders). The note is what says what an agent
+# is for. Herdr hides empty rows, so no note means no blank line.
 [ui.sidebar.agents.rows_by_agent]
 claude = [["state_icon", "workspace", "tab"], ["pane"], ["terminal_title_stripped"]]
+copilot = [["state_icon", "workspace", "tab"], ["pane"], ["terminal_title_stripped"]]
 
 [keys]
 prefix = "ctrl+g"
