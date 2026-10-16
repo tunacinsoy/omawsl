@@ -216,6 +216,15 @@ omawsl_doctor_report_multiplexer() {
 # Entry point for `bin/omawsl doctor` (design spec §14).
 omawsl_doctor() {
   echo "omawsl doctor - checking what's installed/configured:"
+
+  # A machine left on a test branch (`omawsl update --ref`) keeps
+  # following it - easy to forget, so say so up front.
+  local testing
+  if testing="$(omawsl_testing_branch)"; then
+    echo
+    echo "omawsl itself:"
+    echo "  [NOTE]    Testing branch '$testing' - go back: omawsl update --ref master"
+  fi
   echo
   echo "Languages:"
   omawsl_doctor_report_category language omawsl_doctor_language_installed OMAWSL_LANGUAGES
