@@ -27,8 +27,10 @@ omawsl_uninstall_herdr() {
   if [[ "$(readlink "$HOME/.local/bin/notify-send" 2>/dev/null)" == */bin/omawsl-notify-send ]]; then
     rm -f "$HOME/.local/bin/notify-send"
   fi
-  # `omawsl notifications`' Claude Code hooks - the user's own hooks stay.
+  # `omawsl notifications`' Claude Code and Copilot CLI hooks - the user's
+  # own hooks stay.
   omawsl_claude_hooks_remove
+  omawsl_copilot_hooks_remove
   rm -rf "$HOME/.config/herdr"
   if [[ "$(omawsl_load_choice OMAWSL_MULTIPLEXER)" == herdr ]]; then
     omawsl_save_choice OMAWSL_MULTIPLEXER zellij
