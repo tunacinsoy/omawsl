@@ -313,3 +313,16 @@ omawsl_multiplexer_slug() {
     *) echo "zellij" ;;
   esac
 }
+
+# omawsl_testing_branch [checkout_dir]
+# The branch an install is on when that isn't master - i.e. a machine
+# testing a feature/fix branch via `omawsl update --ref` before it's
+# merged (docs/testing-changes.md). Prints nothing (and fails) on master,
+# or when there's no git checkout at all.
+omawsl_testing_branch() {
+  local dir="${1:-${OMAWSL_HOME:-$HOME/.local/share/omawsl}}"
+  local branch
+  branch="$(git -C "$dir" rev-parse --abbrev-ref HEAD 2>/dev/null)" || return 1
+  [[ -n "$branch" && "$branch" != master ]] || return 1
+  echo "$branch"
+}

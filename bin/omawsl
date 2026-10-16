@@ -28,8 +28,10 @@ Usage: omawsl <command> [args]
 Commands:
   theme [name]              Apply one of the ported themes. With no name,
                              choose interactively.
-  update                    Pull the latest omawsl and run pending
-                             migrations.
+  update [--ref <branch>]   Pull the latest omawsl and run pending
+                             migrations. --ref switches this machine to
+                             a pushed branch to test it before merging;
+                             --ref master goes back.
   migrate                   Run pending migrations only, without pulling.
   install [category] [item] Add a language/cloud/editor/storage item. With
                              no args, choose interactively.
@@ -50,7 +52,8 @@ omawsl_main() {
       omawsl_theme_command "$@"
       ;;
     update)
-      omawsl_update
+      shift
+      omawsl_update "$@"
       ;;
     migrate)
       omawsl_migrate
