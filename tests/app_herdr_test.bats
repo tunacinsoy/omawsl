@@ -409,3 +409,44 @@ EOF
   [ "$status" -eq 0 ]
   [ ! -e "$HOME/.copilot" ]
 }
+
+# stale_server <server json> - herdr 0.9.5 on disk; `herdr status server
+# --json` answers <server json>.
+stale_server() {
+  stub_command_output_for herdr "--version" "herdr 0.9.5"
+  stub_command_output_for herdr "status server --json" "$1"
+}
+
+@test "handoff moves a running old server to the updated Herdr" {
+  stale_server '{"running":true,"version":"0.9.3","server_binary_stale":true}'
+  stub_command_output_for herdr "server live-handoff" '{"result":{"status":"ok"}}'
+  run omawsl_herdr_handoff_if_stale
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"herdr server live-handoff --import-exe herdr --expected-version 0.9.5"* ]]
+  [[ "$output" == *"moved your Herdr session to the new server (0.9.5)"* ]]
+}
+
+@test "handoff leaves a server that already runs the installed Herdr alone" {
+  stale_server '{"running":true,"version":"0.9.5","server_binary_stale":false}'
+  run omawsl_herdr_handoff_if_stale
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"live-handoff"* ]]
+  [ -z "$output" ]
+}
+
+@test "handoff does nothing when no Herdr server is running" {
+  stale_server '{"running":false}'
+  run omawsl_herdr_handoff_if_stale
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *"live-handoff"* ]]
+  [ -z "$output" ]
+}
+
+@test "a failed handoff prints the command to finish it by hand and doesn't fail the update" {
+  stale_server '{"running":true,"version":"0.9.3","server_binary_stale":true}'
+  stub_command_output_for herdr "server live-handoff" '{"error":{"code":"handoff_failed","message":"nope"}}'
+  run omawsl_herdr_handoff_if_stale
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"still on the old server"* ]]
+  [[ "$output" == *"herdr server live-handoff --import-exe herdr --expected-version 0.9.5"* ]]
+}
