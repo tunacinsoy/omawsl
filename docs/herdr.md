@@ -16,6 +16,10 @@ It's marked **preview** because Herdr itself is still pre-1.0.
 The terminal you run it in doesn't change - open a new one. If Herdr can't be downloaded
 (e.g. a corporate network blocking herdr.dev), the choice stays on zellij.
 
+Still getting zellij? Look in `~/.bashrc` for an `eval "$(zellij setup --generate-auto-start bash)"`
+line. It starts zellij before omawsl's block runs. omawsl doesn't edit lines it didn't write,
+so `omawsl multiplexer herdr` and `omawsl doctor` point at that line, and you delete it yourself.
+
 ## Same keys as zellij
 
 omawsl's Herdr config (`configs/herdr.toml`, deployed to `~/.config/herdr/config.toml` only

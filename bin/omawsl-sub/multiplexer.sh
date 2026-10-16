@@ -39,6 +39,10 @@ omawsl_multiplexer_set() {
   esac
   omawsl_save_choice OMAWSL_MULTIPLEXER "$slug"
   echo "omawsl: new terminals will open $slug - open a new terminal to switch."
+  local autostart_line
+  if [[ "$slug" == herdr ]] && autostart_line="$(omawsl_bashrc_zellij_autostart_line)"; then
+    echo "omawsl: ~/.bashrc:$autostart_line starts zellij by itself - delete that line so new terminals open Herdr."
+  fi
   if [[ "$slug" == herdr && -z "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" ]]; then
     echo "omawsl: choose how Herdr tells you an agent is done with: omawsl notifications"
   fi
