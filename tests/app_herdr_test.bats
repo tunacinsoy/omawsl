@@ -324,3 +324,88 @@ EOF
   [ "$status" -eq 0 ]
   [ "$(cat "$HOME/.claude/settings.json")" = 'bin/omawsl-claude-notify {' ]
 }
+
+@test "copilot hooks install writes omawsl's own hooks file when Copilot is on PATH" {
+  stub_command copilot
+  omawsl_copilot_hooks_install
+  local f="$HOME/.copilot/hooks/omawsl.json" cmd="\"$REPO_ROOT/bin/omawsl-copilot-notify\""
+  [ "$(jq -r '.version' "$f")" = 1 ]
+  [ "$(jq -r '.hooks.agentStop[0].type' "$f")" = command ]
+  [ "$(jq -r '.hooks.agentStop[0].bash' "$f")" = "$cmd stop" ]
+  [ "$(jq -r '.hooks.notification[0].bash' "$f")" = "$cmd notify" ]
+  [ "$(jq -r '.hooks.agentStop[0].timeoutSec' "$f")" = 10 ]
+}
+
+@test "copilot hooks install twice still leaves one hook per event" {
+  stub_command copilot
+  omawsl_copilot_hooks_install
+  omawsl_copilot_hooks_install
+  [ "$(jq '[.hooks[][]] | length' "$HOME/.copilot/hooks/omawsl.json")" -eq 2 ]
+}
+
+@test "copilot hooks install quotes a checkout path with a space" {
+  stub_command copilot
+  OMAWSL_HERDR_REPO_ROOT="/opt/my omawsl"
+  omawsl_copilot_hooks_install
+  [ "$(jq -r '.hooks.agentStop[0].bash' "$HOME/.copilot/hooks/omawsl.json")" = '"/opt/my omawsl/bin/omawsl-copilot-notify" stop' ]
+}
+
+@test "copilot hooks install writes the file when Copilot is only chosen, not installed yet" {
+  stub_hide_command copilot
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,GitHub Copilot CLI"
+  omawsl_copilot_hooks_install
+  [ -f "$HOME/.copilot/hooks/omawsl.json" ]
+}
+
+@test "copilot hooks install leaves a machine without Copilot alone" {
+  stub_hide_command copilot
+  omawsl_save_choice OMAWSL_EDITORS "VS Code,Claude Code CLI"
+  run omawsl_copilot_hooks_install
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/.copilot" ]
+}
+
+@test "copilot hooks install honours COPILOT_HOME" {
+  stub_command copilot
+  export COPILOT_HOME="$BATS_TEST_TMPDIR/copilot-home"
+  omawsl_copilot_hooks_install
+  [ -f "$COPILOT_HOME/hooks/omawsl.json" ]
+  [ ! -e "$HOME/.copilot" ]
+}
+
+@test "copilot hooks install repoints a file left by another omawsl checkout" {
+  stub_command copilot
+  mkdir -p "$HOME/.copilot/hooks"
+  echo '{"version":1,"hooks":{"agentStop":[{"type":"command","bash":"\"/gone/bin/omawsl-copilot-notify\" stop"}]}}' > "$HOME/.copilot/hooks/omawsl.json"
+  omawsl_copilot_hooks_install
+  ! grep -qF '/gone/' "$HOME/.copilot/hooks/omawsl.json"
+}
+
+@test "copilot hooks remove deletes only omawsl's file" {
+  stub_command copilot
+  omawsl_copilot_hooks_install
+  echo '{"version":1,"hooks":{}}' > "$HOME/.copilot/hooks/mine.json"
+  omawsl_copilot_hooks_remove
+  [ ! -e "$HOME/.copilot/hooks/omawsl.json" ]
+  [ -f "$HOME/.copilot/hooks/mine.json" ]
+}
+
+@test "notifications setup adds the Copilot hooks for an alert choice and removes them for off" {
+  stub_command paplay
+  stub_hide_command herdr
+  stub_command copilot
+  local slug
+  for slug in both sound popup; do
+    omawsl_herdr_setup_notifications "$slug"
+    [ -f "$HOME/.copilot/hooks/omawsl.json" ] || { echo "$slug"; return 1; }
+  done
+  omawsl_herdr_setup_notifications off
+  [ ! -e "$HOME/.copilot/hooks/omawsl.json" ]
+}
+
+@test "notifications off without Copilot ever set up creates nothing and succeeds" {
+  stub_hide_command herdr copilot
+  run omawsl_herdr_setup_notifications off
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/.copilot" ]
+}

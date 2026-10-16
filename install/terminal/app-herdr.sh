@@ -195,11 +195,49 @@ omawsl_claude_hooks_remove() {
   rm -f "$tmp"
 }
 
+# omawsl_copilot_hooks_file
+# Where omawsl's GitHub Copilot CLI hooks live: Copilot loads every *.json
+# in its hooks directory ($COPILOT_HOME/hooks, else ~/.copilot/hooks).
+omawsl_copilot_hooks_file() {
+  echo "${COPILOT_HOME:-$HOME/.copilot}/hooks/omawsl.json"
+}
+
+# omawsl_copilot_hooks_install
+# Points Copilot CLI's agentStop and notification hooks at
+# bin/omawsl-copilot-notify. The file is omawsl's own, so it's written
+# whole every time - a moved checkout is repointed for free, and re-runs
+# never duplicate anything. Only when Copilot is installed or chosen, so a
+# machine without it gets no ~/.copilot.
+omawsl_copilot_hooks_install() {
+  command -v copilot &>/dev/null ||
+    omawsl_list_has "$(omawsl_load_choice OMAWSL_EDITORS)" "GitHub Copilot CLI" ||
+    return 0
+  local file cmd
+  file="$(omawsl_copilot_hooks_file)"
+  cmd="\\\"$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-copilot-notify\\\""
+  mkdir -p "$(dirname "$file")"
+  cat > "$file" <<EOF
+{
+  "version": 1,
+  "hooks": {
+    "agentStop": [{"type": "command", "bash": "$cmd stop", "timeoutSec": 10}],
+    "notification": [{"type": "command", "bash": "$cmd notify", "timeoutSec": 10}]
+  }
+}
+EOF
+}
+
+# omawsl_copilot_hooks_remove
+# Deletes omawsl's hooks file; Copilot's other hook files stay.
+omawsl_copilot_hooks_remove() {
+  rm -f "$(omawsl_copilot_hooks_file)"
+}
+
 # omawsl_herdr_setup_notifications <both|sound|popup|off>
 # Everything one notifications choice needs. Sound: paplay
 # (pulseaudio-utils), which reaches Windows' speakers via WSLg's
-# PulseAudio server. Any alert choice: the Claude Code hooks that raise
-# them; off removes those. Herdr's own alerts are always switched off.
+# PulseAudio server. Any alert choice: the Claude Code and Copilot CLI
+# hooks that raise them; off removes those. Herdr's own alerts are always switched off.
 # Fails only when paplay can't be installed, so callers can keep the
 # previous choice. Missing WSLg only warns - the choice still applies once
 # it's there.
@@ -221,8 +259,14 @@ omawsl_herdr_setup_notifications() {
   esac
   omawsl_herdr_unlink_notify_send
   case "$slug" in
-    off) omawsl_claude_hooks_remove ;;
-    *) omawsl_claude_hooks_install ;;
+    off)
+      omawsl_claude_hooks_remove
+      omawsl_copilot_hooks_remove
+      ;;
+    *)
+      omawsl_claude_hooks_install
+      omawsl_copilot_hooks_install
+      ;;
   esac
   omawsl_herdr_apply_notifications
 }

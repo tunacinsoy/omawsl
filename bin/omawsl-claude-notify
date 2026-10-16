@@ -8,35 +8,22 @@
 # and #1217, idle by design). Claude's Stop hook says whether anything is
 # still running, so this alerts only when nothing is. If Herdr ever gets
 # this right, go back to its alerts: have omawsl_herdr_setup_notifications
-# call omawsl_claude_hooks_remove and stop forcing Herdr's alerts off.
+# call omawsl_claude_hooks_remove and omawsl_copilot_hooks_remove, and stop
+# forcing Herdr's alerts off.
 #
 #   omawsl-claude-notify stop|notify|ask   (hook JSON on stdin)
 #
 # Installed into ~/.claude/settings.json by omawsl_claude_hooks_install.
 # Reads the saved choice on every run, so `omawsl notifications` only has
 # to add or remove the hooks. Always exits 0 - a hook must never get in
-# Claude's way.
+# Claude's way. Naming, popup and sound: bin/omawsl-agent-alert.sh.
 set -uo pipefail
 
 event="${1:-}"
-input="$(cat)"
-[[ "${HERDR_ENV:-}" == 1 ]] || exit 0
-command -v jq &>/dev/null || exit 0
-jq -e 'type == "object"' <<< "$input" >/dev/null 2>&1 || exit 0
-
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
-# shellcheck source=../install/lib.sh
-source "$ROOT/install/lib.sh"
-choice="$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)"
-case "$choice" in
-  both|sound|popup) ;;
-  *) exit 0 ;;
-esac
-
-# field <jq path> - one string from the hook JSON, empty when missing.
-field() {
-  jq -r "$1 // empty" <<< "$input" 2>/dev/null
-}
+# shellcheck source=omawsl-agent-alert.sh
+source "$ROOT/bin/omawsl-agent-alert.sh"
+omawsl_agent_alert_start
 
 # session_title - the session's /rename name, else Claude's own title for
 # it, read from the transcript. Empty when neither exists.
@@ -46,22 +33,6 @@ session_title() {
   [[ -f "$transcript" ]] || return 0
   grep -E '"(customTitle|aiTitle)"' "$transcript" 2>/dev/null |
     jq -rs '(map(.customTitle // empty) | last) // (map(.aiTitle // empty) | last) // empty' 2>/dev/null
-}
-
-# herdr_name - the agent's name as Herdr's sidebar shows it: the pane's
-# note (Ctrl g p c), else its title. Empty outside a Herdr pane.
-herdr_name() {
-  [[ -n "$pane" ]] || return 0
-  jq -r '[.label, .terminal_title_stripped] | map(select(. != null and . != "")) | first // empty' <<< "$pane" 2>/dev/null
-}
-
-# herdr_workspace - the name of the Herdr workspace the agent runs in.
-# Empty outside a Herdr pane.
-herdr_workspace() {
-  local id
-  id="$(jq -r '.workspace_id // empty' <<< "$pane" 2>/dev/null)"
-  [[ -n "$id" ]] || return 0
-  herdr workspace get "$id" 2>/dev/null | jq -r '.result.workspace.label // empty' 2>/dev/null
 }
 
 # pending_tool - name of the newest tool call in the transcript that has
@@ -77,6 +48,7 @@ pending_tool() {
     | last | .name // empty' 2>/dev/null
 }
 
+body=""
 case "$event" in
   stop)
     # A subagent finishing, or the main agent pausing while background
@@ -106,34 +78,6 @@ case "$event" in
   *) exit 0 ;;
 esac
 
-# Name the agent the way Herdr's sidebar does, so you know which one to go to.
-pane=""
-if [[ -n "${HERDR_PANE_ID:-}" ]]; then
-  pane="$(herdr pane get "$HERDR_PANE_ID" 2>/dev/null | jq -c '.result.pane // empty' 2>/dev/null)"
-fi
-title="$(herdr_name)"
-[[ -n "$title" ]] || title="$(session_title)"
-title="${title:-Claude Code}"
-if [[ "$kind" == done ]]; then
-  body="$(herdr_workspace)"
-  if [[ -z "$body" ]]; then
-    body="$(field .cwd)"
-    body="${body%/}"
-    body="${body##*/}"
-    body="${body:-Finished}"
-  fi
-  title+=" — done"
-  sound_file="Windows Notify System Generic.wav"
-else
-  title+=" — needs you"
-  sound_file="Windows Proximity Notification.wav"
-fi
-body="${body:0:200}"
-
-if [[ "$choice" != sound ]]; then
-  "${OMAWSL_NOTIFY_SEND:-$ROOT/bin/omawsl-notify-send}" -- "$title" "$body" >/dev/null 2>&1 || true
-fi
-if [[ "$choice" != popup ]]; then
-  paplay "${OMAWSL_NOTIFY_SOUND_DIR:-/mnt/c/Windows/Media}/$sound_file" >/dev/null 2>&1 || true
-fi
+name="$(session_title)"
+omawsl_agent_alert "$kind" "${name:-Claude Code}" "$body"
 exit 0

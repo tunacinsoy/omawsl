@@ -23,7 +23,7 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
 @test "docs/herdr.md documents omawsl notifications and its limits" {
   local doc="$REPO_ROOT/docs/herdr.md"
-  for s in "omawsl notifications" "pulseaudio-utils" "WSLg" "Claude Code only" "~/.claude/settings.json" "herdrdev/herdr#5004" "do not disturb automatically"; do
+  for s in "omawsl notifications" "pulseaudio-utils" "WSLg" "Claude Code and GitHub Copilot CLI only" "~/.claude/settings.json" "~/.copilot/hooks/omawsl.json" "herdrdev/herdr#5004" "do not disturb automatically"; do
     grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
   done
 }
