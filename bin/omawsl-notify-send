@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# A notify-send-style Windows popup: `omawsl-notify-send [options] --
+# <title> [body]`. bin/omawsl-claude-notify calls it for `omawsl
+# notifications`' popups; WSL has no notification daemon that reaches
+# Windows, so this goes through PowerShell.
+#
+# Title and body reach PowerShell through WSLENV-shared environment
+# variables and are XML-escaped there, never spliced into the script text,
+# so quotes or markup in an agent's message can't break out. The script
+# itself goes in as -EncodedCommand for the same reason. The popup is
+# silent: sound is its own choice (paplay, from omawsl-claude-notify), so
+# "both" doesn't play two sounds. PowerShell takes about a second to start,
+# and the hook waits for it to exit, so this returns right away and
+# lets PowerShell finish in the background.
+set -euo pipefail
+
+title=""
+body=""
+positional=0
+while (($#)); do
+  case "$1" in
+    --)
+      shift
+      break
+      ;;
+    -u|-t|-a|-i|-c|-h|--urgency|--expire-time|--app-name|--icon|--category|--hint)
+      shift 2 || shift
+      continue
+      ;;
+    -*)
+      shift
+      continue
+      ;;
+  esac
+  break
+done
+for arg in "$@"; do
+  case "$positional" in
+    0) title="$arg" ;;
+    1) body="$arg" ;;
+  esac
+  positional=$((positional + 1))
+done
+[[ -n "$title" ]] || exit 0
+
+powershell="$(command -v powershell.exe || true)"
+# appendWindowsPath=false (common on corporate images) hides Windows
+# binaries from PATH without disabling interop - same fallback idea as
+# install/lib.sh's omawsl_resolve_cmd_exe.
+[[ -n "$powershell" ]] || powershell="${OMAWSL_POWERSHELL_FALLBACK:-/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe}"
+[[ -x "$powershell" ]] || exit 1
+
+read -r -d '' script <<'PS' || true
+[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
+[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null
+$t = [Security.SecurityElement]::Escape($env:OMAWSL_NOTIFY_TITLE)
+$b = [Security.SecurityElement]::Escape($env:OMAWSL_NOTIFY_BODY)
+$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+$xml.LoadXml("<toast><visual><binding template='ToastGeneric'><text>$t</text><text>$b</text></binding></visual><audio silent='true'/></toast>")
+$app = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($app).Show([Windows.UI.Notifications.ToastNotification]::new($xml))
+PS
+encoded="$(printf '%s' "$script" | iconv -f UTF-8 -t UTF-16LE | base64 -w0)"
+
+export OMAWSL_NOTIFY_TITLE="$title" OMAWSL_NOTIFY_BODY="$body"
+export WSLENV="OMAWSL_NOTIFY_TITLE:OMAWSL_NOTIFY_BODY${WSLENV:+:$WSLENV}"
+# Started from a Windows drive so PowerShell doesn't warn about a UNC
+# working directory.
+(cd /mnt/c 2>/dev/null || true
+ setsid "$powershell" -NoProfile -NonInteractive -EncodedCommand "$encoded" </dev/null >/dev/null 2>&1 &)

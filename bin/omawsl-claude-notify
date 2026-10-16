@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Claude Code hook behind `omawsl notifications`: a Windows popup and/or a
+# sound when a Claude Code session inside Herdr is done or needs you.
+#
+# Why not Herdr's own alerts: Herdr reads "done" off the screen, so every
+# turn that ends to wait - for a background subagent, shell, monitor or
+# scheduled wakeup - counts as finished (herdrdev/herdr#5004, an open bug,
+# and #1217, idle by design). Claude's Stop hook says whether anything is
+# still running, so this alerts only when nothing is. If Herdr ever gets
+# this right, go back to its alerts: have omawsl_herdr_setup_notifications
+# call omawsl_claude_hooks_remove and omawsl_copilot_hooks_remove, and stop
+# forcing Herdr's alerts off.
+#
+#   omawsl-claude-notify stop|notify|ask   (hook JSON on stdin)
+#
+# Installed into ~/.claude/settings.json by omawsl_claude_hooks_install.
+# Reads the saved choice on every run, so `omawsl notifications` only has
+# to add or remove the hooks. Always exits 0 - a hook must never get in
+# Claude's way. Naming, popup and sound: bin/omawsl-agent-alert.sh.
+set -uo pipefail
+
+event="${1:-}"
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=omawsl-agent-alert.sh
+source "$ROOT/bin/omawsl-agent-alert.sh"
+omawsl_agent_alert_start
+
+# session_title - the session's /rename name, else Claude's own title for
+# it, read from the transcript. Empty when neither exists.
+session_title() {
+  local transcript
+  transcript="$(field .transcript_path)"
+  [[ -f "$transcript" ]] || return 0
+  grep -E '"(customTitle|aiTitle)"' "$transcript" 2>/dev/null |
+    jq -rs '(map(.customTitle // empty) | last) // (map(.aiTitle // empty) | last) // empty' 2>/dev/null
+}
+
+# pending_tool - name of the newest tool call in the transcript that has
+# no result yet (what a permission prompt is about). Empty when unknown.
+pending_tool() {
+  local transcript
+  transcript="$(field .transcript_path)"
+  [[ -f "$transcript" ]] || return 0
+  tail -n 400 "$transcript" | jq -Rrn '
+    [inputs | fromjson? | .message.content? | arrays | .[] | objects] as $blocks
+    | [$blocks[] | select(.type == "tool_result") | .tool_use_id] as $done
+    | [$blocks[] | select(.type == "tool_use") | select(.id as $id | $done | index($id) | not)]
+    | last | .name // empty' 2>/dev/null
+}
+
+body=""
+case "$event" in
+  stop)
+    # A subagent finishing, or the main agent pausing while background
+    # work runs, is not the user's turn yet.
+    [[ -z "$(field .agent_id)" ]] || exit 0
+    running="$(jq -r '((.background_tasks // []) | length) + ((.session_crons // []) | length)' <<< "$input" 2>/dev/null)"
+    [[ "$running" == 0 ]] || exit 0
+    kind=done
+    ;;
+  notify)
+    case "$(field .notification_type)" in
+      permission_prompt|agent_needs_input|worker_permission_prompt|elicitation_dialog|elicitation_url_dialog) ;;
+      *) exit 0 ;;
+    esac
+    body="$(field .message)"
+    # An open question also sends a plain "Claude needs your permission"
+    # prompt a few seconds later - the ask hook already announced it, with
+    # the question itself.
+    [[ "$body" != *AskUserQuestion* ]] || exit 0
+    [[ "$(pending_tool)" != AskUserQuestion ]] || exit 0
+    kind=request
+    ;;
+  ask)
+    kind=request
+    body="$(field '.tool_input.questions[0].question')"
+    ;;
+  *) exit 0 ;;
+esac
+
+name="$(session_title)"
+omawsl_agent_alert "$kind" "${name:-Claude Code}" "$body"
+exit 0

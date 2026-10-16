@@ -60,7 +60,17 @@ omawsl_first_run_choices() {
   OMAWSL_MULTIPLEXER="$(omawsl_multiplexer_slug "$(omawsl_prompt_single "Terminal multiplexer - what should every new terminal open?" \
     "$OMAWSL_MULTIPLEXER_LABEL_ZELLIJ" "$OMAWSL_MULTIPLEXER_LABEL_HERDR")")"
 
-  export OMAWSL_NETWORK_MODE OMAWSL_DOCKER_MODE OMAWSL_EDITORS OMAWSL_LANGUAGES OMAWSL_CLOUD_CLIS OMAWSL_STORAGE OMAWSL_FONT_MODE OMAWSL_MULTIPLEXER
+  # Only for Herdr - zellij has no agent notifications. An unanswered
+  # question saves nothing, leaving Herdr's own defaults;
+  # `omawsl notifications` changes it later.
+  OMAWSL_HERDR_NOTIFICATIONS=""
+  if [[ "$OMAWSL_MULTIPLEXER" == herdr ]]; then
+    OMAWSL_HERDR_NOTIFICATIONS="$(omawsl_herdr_notifications_slug "$(omawsl_prompt_single "Herdr: how should it tell you an agent finished or needs input?" \
+      "$OMAWSL_HERDR_NOTIFY_LABEL_BOTH" "$OMAWSL_HERDR_NOTIFY_LABEL_SOUND" \
+      "$OMAWSL_HERDR_NOTIFY_LABEL_POPUP" "$OMAWSL_HERDR_NOTIFY_LABEL_OFF")")"
+  fi
+
+  export OMAWSL_NETWORK_MODE OMAWSL_DOCKER_MODE OMAWSL_EDITORS OMAWSL_LANGUAGES OMAWSL_CLOUD_CLIS OMAWSL_STORAGE OMAWSL_FONT_MODE OMAWSL_MULTIPLEXER OMAWSL_HERDR_NOTIFICATIONS
 
   omawsl_save_choice OMAWSL_NETWORK_MODE "$OMAWSL_NETWORK_MODE"
   omawsl_save_choice OMAWSL_DOCKER_MODE "$OMAWSL_DOCKER_MODE"
@@ -70,6 +80,9 @@ omawsl_first_run_choices() {
   omawsl_save_choice OMAWSL_STORAGE "$OMAWSL_STORAGE"
   omawsl_save_choice OMAWSL_FONT_MODE "$OMAWSL_FONT_MODE"
   omawsl_save_choice OMAWSL_MULTIPLEXER "$OMAWSL_MULTIPLEXER"
+  if [[ -n "$OMAWSL_HERDR_NOTIFICATIONS" ]]; then
+    omawsl_save_choice OMAWSL_HERDR_NOTIFICATIONS "$OMAWSL_HERDR_NOTIFICATIONS"
+  fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

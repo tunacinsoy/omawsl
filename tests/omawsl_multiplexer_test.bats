@@ -46,6 +46,29 @@ _fake_successful_install() {
   [[ "$output" == *"open a new terminal"* ]]
 }
 
+@test "switching to herdr points at a ~/.bashrc line that would still start zellij" {
+  _fake_successful_install
+  printf '%s\n' 'eval "$(zellij setup --generate-auto-start bash)"' > "$HOME/.bashrc"
+  run omawsl_multiplexer_command herdr
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"~/.bashrc:1 starts zellij by itself - delete that line so new terminals open Herdr"* ]]
+}
+
+@test "switching to zellij says nothing about a zellij auto-start line" {
+  printf '%s\n' 'eval "$(zellij setup --generate-auto-start bash)"' > "$HOME/.bashrc"
+  run omawsl_multiplexer_command zellij
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"starts zellij by itself"* ]]
+}
+
+@test "switching to herdr ignores a commented-out zellij auto-start line" {
+  _fake_successful_install
+  printf '%s\n' '#eval "$(zellij setup --generate-auto-start bash)"' > "$HOME/.bashrc"
+  run omawsl_multiplexer_command herdr
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"starts zellij by itself"* ]]
+}
+
 @test "install failure leaves the choice unchanged" {
   omawsl_save_choice OMAWSL_MULTIPLEXER zellij
   omawsl_herdr_install_steps() { return 1; }
