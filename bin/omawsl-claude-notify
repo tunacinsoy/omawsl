@@ -52,9 +52,15 @@ body=""
 case "$event" in
   stop)
     # A subagent finishing, or the main agent pausing while background
-    # work runs, is not the user's turn yet.
+    # work runs, is not the user's turn yet. Artifact watches don't count:
+    # Claude Code arms one per published artifact and re-arms them on
+    # resume, so they'd silence every alert for the rest of the session.
     [[ -z "$(field .agent_id)" ]] || exit 0
-    running="$(jq -r '((.background_tasks // []) | length) + ((.session_crons // []) | length)' <<< "$input" 2>/dev/null)"
+    running="$(jq -r '
+      ((.background_tasks // [])
+        | map(select((.type == "monitor" and ((.description // "") | startswith("live updates for artifact"))) | not))
+        | length)
+      + ((.session_crons // []) | length)' <<< "$input" 2>/dev/null)"
     [[ "$running" == 0 ]] || exit 0
     kind=done
     ;;

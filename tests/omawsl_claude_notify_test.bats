@@ -85,6 +85,18 @@ no_alert() {
   no_alert
 }
 
+@test "stop with only artifact watches running still alerts" {
+  # Claude Code arms one of these per published artifact and re-arms them
+  # on resume - they never finish, so they aren't work in progress.
+  hook stop "{\"cwd\":\"$PROJECT\",\"background_tasks\":[{\"id\":\"m1\",\"type\":\"monitor\",\"status\":\"running\",\"description\":\"live updates for artifact https://claude.ai/artifact/abc (re-armed on session resume)\"}]}"
+  [ "$(cat "$POPUPS")" = "Claude Code — done|myproj" ]
+}
+
+@test "stop with an artifact watch and another background task doesn't alert" {
+  hook stop "{\"cwd\":\"$PROJECT\",\"background_tasks\":[{\"id\":\"m1\",\"type\":\"monitor\",\"description\":\"live updates for artifact https://claude.ai/artifact/abc (auto-armed on publish)\"},{\"id\":\"m2\",\"type\":\"monitor\",\"description\":\"CI checks on PR 12\"}]}"
+  no_alert
+}
+
 @test "stop with a scheduled wakeup left doesn't alert" {
   hook stop "{\"cwd\":\"$PROJECT\",\"session_crons\":[{\"id\":\"c1\"}]}"
   no_alert
