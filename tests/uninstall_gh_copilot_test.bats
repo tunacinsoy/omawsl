@@ -9,17 +9,61 @@ setup() {
   mkdir -p "$HOME"
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/uninstall/app-gh-copilot.sh"
+  # Hides any real `copilot` on this host (a mise shim, a Windows-side
+  # copy via /mnt/c interop, ...) so the leftover-on-PATH check below
+  # only ever sees what each test puts there itself.
+  stub_hide_command copilot
 }
 
 @test "omawsl_uninstall_gh_copilot uninstalls the npm package and removes the wrapper" {
-  stub_command mise
+  stub_command_output_for mise "ls --installed node" "node  24.18.0"
   stub_command gh
   mkdir -p "$HOME/.local/bin"
   touch "$HOME/.local/bin/copilot"
   run omawsl_uninstall_gh_copilot
   [ "$status" -eq 0 ]
   [ ! -f "$HOME/.local/bin/copilot" ]
-  [[ "$(stub_calls)" == *"mise exec node@lts -- npm uninstall -g @github/copilot"* ]]
+  [[ "$(stub_calls)" == *"mise exec node@24.18.0 -- npm uninstall -g @github/copilot"* ]]
+}
+
+@test "omawsl_uninstall_gh_copilot uninstalls the npm package from every installed mise Node, not just node@lts" {
+  # Issue #16: npm printed "up to date" (nothing to remove) under node@lts
+  # while a copilot installed under another Node kept running.
+  stub_command_output_for mise "ls --installed node" "node  22.11.0
+node  24.18.0"
+  stub_command gh
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"mise exec node@22.11.0 -- npm uninstall -g @github/copilot"* ]]
+  [[ "$(stub_calls)" == *"mise exec node@24.18.0 -- npm uninstall -g @github/copilot"* ]]
+  [[ "$(stub_calls)" != *"node@lts"* ]]
+}
+
+@test "omawsl_uninstall_gh_copilot warns with the path instead of claiming success when another copilot is still on PATH" {
+  # Issue #16: a copilot omawsl didn't install (Windows side via /mnt/c,
+  # GitHub's install script, ...) survived, but uninstall still said
+  # "removed".
+  stub_command mise
+  stub_command gh
+  # A space in the dir, like a Windows "Program Files" path via /mnt/c.
+  mkdir -p "$BATS_TEST_TMPDIR/else where"
+  printf '#!/bin/sh\n' > "$BATS_TEST_TMPDIR/else where/copilot"
+  chmod +x "$BATS_TEST_TMPDIR/else where/copilot"
+  export PATH="$BATS_TEST_TMPDIR/else where:$PATH"
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"GitHub Copilot CLI removed."* ]]
+  [[ "$output" == *"$BATS_TEST_TMPDIR/else where/copilot"* ]]
+  # Never deletes a copy omawsl didn't install.
+  [ -x "$BATS_TEST_TMPDIR/else where/copilot" ]
+}
+
+@test "omawsl_uninstall_gh_copilot reports success when no copilot is left on PATH" {
+  stub_command mise
+  stub_command gh
+  run omawsl_uninstall_gh_copilot
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"GitHub Copilot CLI removed."* ]]
 }
 
 @test "omawsl_uninstall_gh_copilot no-ops the npm step cleanly when mise isn't reachable" {
