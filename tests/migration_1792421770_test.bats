@@ -40,7 +40,7 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(jq -r '.["workbench.colorTheme"]' "$WINHOME/AppData/Roaming/Code/User/settings.json")" == "Ristretto (omawsl)" ]]
   [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" == "Ristretto (omawsl)" ]]
-  [[ "$(stub_calls)" == *"/omawsl-ristretto-theme.vsix --force"* ]]
+  [[ "$(stub_calls)" == *"code --install-extension omawsl-ristretto-theme.vsix --force"* ]]
 }
 
 @test "uninstalls Monokai Pro on both sides after installing the replacement theme" {

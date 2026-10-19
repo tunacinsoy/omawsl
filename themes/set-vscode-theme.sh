@@ -226,14 +226,18 @@ omawsl_theme_apply_vscode() {
     omawsl_theme_set_vscode_settings "$cursor_settings" "$color_theme"
   fi
 
-  # A local .vsix (omawsl's own generated theme, e.g. Ristretto) keeps the
-  # same version across releases, so --force is what makes a re-run
-  # replace an older copy instead of `code` refusing it as "already
-  # installed". Marketplace ids don't need it - `code` upgrades those.
-  local force=()
-  [[ "$extension_id" == *.vsix ]] && force=(--force)
-
-  if [[ -n "$extension_id" ]] && omawsl_code_reachable; then
+  # A local .vsix (omawsl's own generated theme, e.g. Ristretto) is only
+  # installed natively. From a WSL shell `code` is VS Code's Windows CLI,
+  # which refuses to read the .vsix's \\wsl.localhost path
+  # (ERR_UNC_HOST_NOT_ALLOWED, confirmed live), and color themes load from
+  # the Windows side even in Remote-WSL windows - so the WSL-side `code`
+  # isn't needed at all, and this works even when it's off PATH.
+  if [[ "$extension_id" == *.vsix ]]; then
+    local cmd_exe
+    if [[ -n "${profile:-}" ]] && cmd_exe="$(omawsl_resolve_cmd_exe)"; then
+      omawsl_theme_install_vsix_native "$cmd_exe" "$profile" "$extension_id"
+    fi
+  elif [[ -n "$extension_id" ]] && omawsl_code_reachable; then
     # NODE_NO_WARNINGS=1: VS Code's `code` CLI is itself a Node.js binary
     # and emits a `[DEP0169] DeprecationWarning: url.parse()...` to
     # stderr on every fresh extension install - confirmed Microsoft's own
@@ -249,7 +253,7 @@ omawsl_theme_apply_vscode() {
     # even though `command -v code` succeeds. That's a third-party tool
     # failure outside omawsl's control, and shouldn't take the rest of
     # the theme sync (Windows Terminal, opencode, etc.) down with it.
-    if ! NODE_NO_WARNINGS=1 code --install-extension "$extension_id" "${force[@]}" >/dev/null; then
+    if ! NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null; then
       echo "omawsl: 'code --install-extension $extension_id' failed - skipping, continuing with the rest of the theme sync." >&2
     fi
 
@@ -271,28 +275,23 @@ omawsl_theme_apply_vscode() {
     # Best-effort (|| true): the WSL-side install above already
     # succeeded, so a failure here shouldn't fail the rest of
     # `bin/omawsl theme`.
-    #
-    # A .vsix needs a path the native process can read, so it's copied
-    # into the Windows temp folder first and `code` is run from there with
-    # just the file name - VS Code resolves a relative .vsix against its
-    # working directory, which sidesteps quoting a profile path that may
-    # contain spaces through WSL interop and cmd.exe.
     local cmd_exe
     if cmd_exe="$(omawsl_resolve_cmd_exe)"; then
-      if [[ "$extension_id" == *.vsix ]]; then
-        if [[ -n "${profile:-}" ]]; then
-          omawsl_theme_install_vsix_native "$cmd_exe" "$profile" "$extension_id"
-        fi
-      else
-        "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
-      fi
+      "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
     fi
   fi
 }
 
 # omawsl_theme_install_vsix_native <cmd_exe> <profile> <vsix>
-# The native half of a .vsix install - see omawsl_theme_apply_vscode
-# above. Best-effort like the marketplace path: never fails the caller.
+# Installs a local .vsix into native Windows-side VS Code - see
+# omawsl_theme_apply_vscode above. The native process can't read the
+# .vsix's WSL path, so it's copied into the Windows temp folder first and
+# `code` is run from there with just the file name: VS Code resolves a
+# relative .vsix against its working directory, which sidesteps quoting a
+# profile path that may contain spaces through WSL interop and cmd.exe.
+# --force replaces an older copy - the .vsix keeps its version across
+# releases, so without it `code` would refuse it as already installed.
+# Best-effort like the marketplace path: never fails the caller.
 omawsl_theme_install_vsix_native() {
   local cmd_exe="$1" profile="$2" vsix="$3"
   local staging="$profile/AppData/Local/Temp"

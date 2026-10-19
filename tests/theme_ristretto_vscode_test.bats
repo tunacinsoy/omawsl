@@ -66,13 +66,26 @@ setup() {
   [[ "$listing" == *"extension/themes/ristretto-color-theme.json"* ]]
 }
 
-@test "omawsl_theme_apply_vscode force-installs a .vsix on the WSL side, so re-running refreshes it" {
+@test "omawsl_theme_apply_vscode never hands a .vsix's Linux path to the WSL-side code CLI" {
+  # From a WSL shell, `code` is VS Code's Windows CLI (/mnt/c/...), which
+  # refuses \\wsl.localhost paths (ERR_UNC_HOST_NOT_ALLOWED) - confirmed
+  # live. Color themes load from the Windows side even in Remote-WSL
+  # windows, so the native install below is the only one needed.
   stub_command code
   local vsix="$BATS_TEST_TMPDIR/omawsl-ristretto-theme.vsix"
   touch "$vsix"
   run omawsl_theme_apply_vscode "Ristretto (omawsl)" "$vsix"
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"code --install-extension $vsix --force"* ]]
+  [[ "$(stub_calls)" != *"code --install-extension $vsix"* ]]
+}
+
+@test "omawsl_theme_apply_vscode installs a .vsix natively even when code isn't on the WSL PATH" {
+  stub_hide_command code
+  local vsix="$BATS_TEST_TMPDIR/omawsl-ristretto-theme.vsix"
+  touch "$vsix"
+  run omawsl_theme_apply_vscode "Ristretto (omawsl)" "$vsix"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"/c set NODE_NO_WARNINGS=1&&code --install-extension omawsl-ristretto-theme.vsix --force"* ]]
 }
 
 @test "omawsl_theme_apply_vscode installs a .vsix natively by running code from the Windows temp folder it was copied to" {
@@ -93,7 +106,7 @@ setup() {
   run bash -c "set -euo pipefail; source '$REPO_ROOT/themes/ristretto/vscode.sh'"
   [ "$status" -eq 0 ]
   [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" == "Ristretto (omawsl)" ]]
-  [[ "$(stub_calls)" == *"code --install-extension "*"/omawsl-ristretto-theme.vsix --force"* ]]
+  [[ "$(stub_calls)" == *"code --install-extension omawsl-ristretto-theme.vsix --force"* ]]
   [[ "$(stub_calls)" != *"monokai"* ]]
 }
 
