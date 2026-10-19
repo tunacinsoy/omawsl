@@ -37,8 +37,13 @@ omawsl_install_apply_editor() {
   local picked="$1" existing="$2"
   omawsl_prompt_copilot_autopilot_if_needed "$picked" "$existing"
   local merged; merged="$(omawsl_merge_csv "$existing" "$picked")"
-  export OMAWSL_EDITORS="$merged"
   omawsl_save_choice OMAWSL_EDITORS "$merged"
+  # The installers below only see this run's picks, not the merged list:
+  # otherwise `omawsl install editor gh-copilot` re-ran VS Code's step too,
+  # whose `code --install-extension` call installs the VS Code Server
+  # (issue #16). The interactive picker pre-checks installed items, so
+  # anything left checked there still re-runs, as before.
+  export OMAWSL_EDITORS="$picked"
   local f
   for f in app-vscode app-neovim app-opencode app-cursor app-claude-cli app-codex-cli app-gh-copilot app-antigravity-cli; do
     # shellcheck source=/dev/null
