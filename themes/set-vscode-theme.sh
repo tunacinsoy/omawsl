@@ -46,7 +46,7 @@ omawsl_native_vscode_settings_path() {
 # can also deploy other single-string settings, like "update.mode".
 #
 # <value> is NOT letters-and-spaces-only - real values include
-# "Ocean Green: Dark", "Monokai Pro (Filter Ristretto)", "Rosé Pine
+# "Ocean Green: Dark", "Ristretto (omawsl)", "Rosé Pine
 # Dawn" (see themes/*/vscode.sh). The JSONC-fallback path below never
 # interpolates it into a sed s/// or awk sub() replacement (both treat
 # '&' and '\' specially, and a stray '/' would break a sed script that
@@ -226,6 +226,13 @@ omawsl_theme_apply_vscode() {
     omawsl_theme_set_vscode_settings "$cursor_settings" "$color_theme"
   fi
 
+  # A local .vsix (omawsl's own generated theme, e.g. Ristretto) keeps the
+  # same version across releases, so --force is what makes a re-run
+  # replace an older copy instead of `code` refusing it as "already
+  # installed". Marketplace ids don't need it - `code` upgrades those.
+  local force=()
+  [[ "$extension_id" == *.vsix ]] && force=(--force)
+
   if [[ -n "$extension_id" ]] && omawsl_code_reachable; then
     # NODE_NO_WARNINGS=1: VS Code's `code` CLI is itself a Node.js binary
     # and emits a `[DEP0169] DeprecationWarning: url.parse()...` to
@@ -242,7 +249,7 @@ omawsl_theme_apply_vscode() {
     # even though `command -v code` succeeds. That's a third-party tool
     # failure outside omawsl's control, and shouldn't take the rest of
     # the theme sync (Windows Terminal, opencode, etc.) down with it.
-    if ! NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null; then
+    if ! NODE_NO_WARNINGS=1 code --install-extension "$extension_id" "${force[@]}" >/dev/null; then
       echo "omawsl: 'code --install-extension $extension_id' failed - skipping, continuing with the rest of the theme sync." >&2
     fi
 
@@ -264,9 +271,96 @@ omawsl_theme_apply_vscode() {
     # Best-effort (|| true): the WSL-side install above already
     # succeeded, so a failure here shouldn't fail the rest of
     # `bin/omawsl theme`.
+    #
+    # A .vsix needs a path the native process can read, so it's copied
+    # into the Windows temp folder first and `code` is run from there with
+    # just the file name - VS Code resolves a relative .vsix against its
+    # working directory, which sidesteps quoting a profile path that may
+    # contain spaces through WSL interop and cmd.exe.
     local cmd_exe
     if cmd_exe="$(omawsl_resolve_cmd_exe)"; then
-      "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
+      if [[ "$extension_id" == *.vsix ]]; then
+        if [[ -n "${profile:-}" ]]; then
+          omawsl_theme_install_vsix_native "$cmd_exe" "$profile" "$extension_id"
+        fi
+      else
+        "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
+      fi
     fi
+  fi
+}
+
+# omawsl_theme_install_vsix_native <cmd_exe> <profile> <vsix>
+# The native half of a .vsix install - see omawsl_theme_apply_vscode
+# above. Best-effort like the marketplace path: never fails the caller.
+omawsl_theme_install_vsix_native() {
+  local cmd_exe="$1" profile="$2" vsix="$3"
+  local staging="$profile/AppData/Local/Temp"
+  local name; name="$(basename "$vsix")"
+  mkdir -p "$staging" && cp "$vsix" "$staging/$name" || return 0
+  (cd "$staging" && "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --install-extension $name --force") >/dev/null 2>&1 || true
+  rm -f "$staging/$name"
+}
+
+# omawsl_theme_build_vsix <extension_dir> <out_vsix>
+# Zips an unpacked theme extension (package.json + theme JSON, committed
+# under themes/<name>/vscode-extension) into <out_vsix>, which must be an
+# absolute path (the zip runs from a staging dir). A .vsix is a zip
+# whose extension files sit under an `extension/` folder, which is all
+# `code --install-extension` reads. Uses python3's zipfile module rather
+# than `zip`, which Ubuntu doesn't ship by default.
+omawsl_theme_build_vsix() {
+  local extension_dir="$1" out_vsix="$2"
+  local staging; staging="$(mktemp -d)"
+  cp -r "$extension_dir" "$staging/extension"
+  local status=0
+  (cd "$staging" && python3 -m zipfile -c "$out_vsix" extension) || status=$?
+  rm -rf "$staging"
+  return "$status"
+}
+
+# omawsl_theme_vscode_settings_files
+# Every VS Code/Cursor settings.json omawsl_theme_apply_vscode writes to -
+# the Remote-WSL ones always, the native Windows-side ones only when the
+# Windows profile resolves.
+omawsl_theme_vscode_settings_files() {
+  echo "$HOME/.vscode-server/data/Machine/settings.json"
+  echo "$HOME/.cursor-server/data/Machine/settings.json"
+  local profile
+  if profile="$(omawsl_windows_userprofile)"; then
+    omawsl_native_vscode_settings_path "$profile"
+    echo "$profile/AppData/Roaming/Cursor/User/settings.json"
+  fi
+}
+
+# omawsl_theme_vscode_uses <color_theme>
+# Succeeds if any VS Code/Cursor settings.json has workbench.colorTheme set
+# to <color_theme> - comment-stripped first, since native settings files
+# are often hand-edited JSONC. Used by migrations to spot who's on a theme.
+omawsl_theme_vscode_uses() {
+  local color_theme="$1" file
+  command -v jq &>/dev/null || return 1
+  while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
+    if omawsl_strip_jsonc_comments "$file" | jq -e --arg t "$color_theme" '.["workbench.colorTheme"] == $t' >/dev/null 2>&1; then
+      return 0
+    fi
+  done < <(omawsl_theme_vscode_settings_files)
+  return 1
+}
+
+# omawsl_vscode_uninstall_extension <extension_id>
+# Removes an extension from both the Remote-WSL extension host and the
+# native Windows-side store - the same two places omawsl_theme_apply_vscode
+# installs into. Silent and best-effort: `code` exits non-zero when the
+# extension isn't installed, which is the common case, not an error.
+omawsl_vscode_uninstall_extension() {
+  local extension_id="$1"
+  if omawsl_code_reachable; then
+    NODE_NO_WARNINGS=1 code --uninstall-extension "$extension_id" >/dev/null 2>&1 || true
+  fi
+  local cmd_exe
+  if cmd_exe="$(omawsl_resolve_cmd_exe)"; then
+    "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --uninstall-extension $extension_id" >/dev/null 2>&1 || true
   fi
 }
