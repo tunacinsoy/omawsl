@@ -30,10 +30,11 @@ omawsl_uninstall_storage() {
     return 0
   fi
 
-  if sudo docker ps -a --format '{{.Names}}' | grep -qx "$container"; then
+  # Strings, not pipes - see omawsl_theme_is_valid in bin/omawsl-sub/theme.sh.
+  if grep -qx "$container" <<< "$(sudo docker ps -a --format '{{.Names}}')"; then
     sudo docker rm -f "$container" >/dev/null
   fi
-  if sudo docker volume ls --format '{{.Name}}' | grep -qx "$volume"; then
+  if grep -qx "$volume" <<< "$(sudo docker volume ls --format '{{.Name}}')"; then
     sudo docker volume rm "$volume" >/dev/null
   fi
   echo "omawsl: $label container removed (or was already not present)."
