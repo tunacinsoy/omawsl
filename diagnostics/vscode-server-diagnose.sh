@@ -132,7 +132,9 @@ for d in ~/.vscode-server/bin/*/; do
 done
 
 section "Running WSL-side server processes (which commit open windows use)"
-ps -eo pid,lstart,args 2>/dev/null | grep -E '\.vscode-server/(bin|cli)' | grep -v grep || echo "(none running)"
+# --connection-token is the server's local auth secret: never print it.
+ps -eo pid,lstart,args 2>/dev/null | grep -E '\.vscode-server/(bin|cli)' | grep -v grep |
+  sed -E 's/(--connection-token=)[^ ]+/\1<redacted>/g' || echo "(none running)"
 while IFS= read -r c; do note_commit "running server ($c)" "$c"; done < <(
   ps -eo args 2>/dev/null | grep -oE '\.vscode-server/bin/[0-9a-f]{40}' | cut -d/ -f3 | sort -u)
 
