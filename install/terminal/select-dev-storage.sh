@@ -22,7 +22,8 @@ source "$SCRIPT_DIR/../lib.sh"
 # (and reuses the sudo timestamp cache docker.sh's own sudo calls just set).
 omawsl_ensure_container() {
   local name="$1"; shift
-  if sudo docker ps -a --format '{{.Names}}' | grep -qx "$name"; then
+  # A string, not a pipe - see omawsl_theme_is_valid in bin/omawsl-sub/theme.sh.
+  if grep -qx "$name" <<< "$(sudo docker ps -a --format '{{.Names}}')"; then
     return 0
   fi
   sudo docker run -d --name "$name" --restart unless-stopped "$@"
