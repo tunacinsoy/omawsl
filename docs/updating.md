@@ -55,3 +55,8 @@ current:
 
 If everything here is already confirmed up to date, `omawsl update` says so and skips the
 picker - there's nothing for it to offer.
+
+Updating Herdr while it's running also moves your session to the new version
+(`herdr server live-handoff`). Your panes and agents keep running. If that step fails,
+`omawsl update` prints the exact command to finish it yourself. Until then the old Herdr
+server keeps running, and can misbehave (Alt shortcuts stopped working once).

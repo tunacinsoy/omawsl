@@ -49,14 +49,19 @@ Nothing in any picker is pre-selected - what you get is exactly what you choose,
 
 New terminals open zellij by default, or [Herdr](docs/herdr.md) (preview) - a multiplexer
 built for AI coding agents, set up with the same keybindings. Switch any time with
-`omawsl multiplexer`.
+`omawsl multiplexer`; choose whether a Claude Code or Copilot session in Herdr plays a sound
+when it's done or needs you with `omawsl notifications`.
+
+Forgot a key? `omawsl keys` asks which tool, then shows its keys - zellij/Herdr, the shell,
+Claude Code, Neovim, lazygit, lazydocker or btop; `omawsl keys herdr` skips the question.
+Everything on one page: [`docs/keys.md`](docs/keys.md).
 
 omawsl ships its own theme set - Omakub's original ten (Catppuccin, Everforest, Gruvbox,
 Kanagawa, Matte Black, Nord, Osaka Jade, Ristretto, Rosé Pine, Tokyo Night) plus Dracula,
 One Dark and Solarized - via `bin/omawsl theme <name>`, applied consistently across zellij,
-Herdr, btop, Neovim, VS Code/Cursor, opencode (where it has a matching built-in preset),
-and - the one exception to "never auto-touch Windows-side files" - Windows Terminal's own
-color scheme, synced automatically.
+Herdr, btop, Neovim, VS Code/Cursor, opencode (where it has a matching built-in preset) and
+Windows Terminal. On the Windows side, omawsl only writes color settings into the settings
+files of Windows Terminal, VS Code and Cursor; it never starts a Windows program.
 
 See [`docs/updating.md`](docs/updating.md) for how to keep everything current - omawsl itself, language runtimes, system packages, and the handful of tools with no native updater of their own.
 
@@ -92,5 +97,5 @@ Not every gap here is an oversight - some are deliberate:
 ## Status
 
 omawsl's full CLI is now shipped: `bin/omawsl theme`, `update`, `migrate`,
-`install`, `uninstall`, `doctor`, and `multiplexer`. Run `bin/omawsl` with no arguments for
+`install`, `uninstall`, `doctor`, `multiplexer`, `notifications`, and `keys`. Run `bin/omawsl` with no arguments for
 the full command list.

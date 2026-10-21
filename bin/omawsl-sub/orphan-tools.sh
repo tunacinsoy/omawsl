@@ -345,7 +345,7 @@ omawsl_orphan_tool_apply_update() {
     antigravity) omawsl_antigravity_cli_install_steps || ok=0 ;;
     gh-copilot) omawsl_gh_copilot_install_steps || ok=0 ;;
     aws) omawsl_aws_cli_install_steps || ok=0 ;;
-    herdr) omawsl_herdr_install_steps || ok=0 ;;
+    herdr) omawsl_herdr_install_steps || ok=0; omawsl_herdr_handoff_if_stale ;;
     *) echo "omawsl: unknown orphan tool slug '$slug'" >&2; return 1 ;;
   esac
   if [[ "$ok" -eq 0 ]]; then

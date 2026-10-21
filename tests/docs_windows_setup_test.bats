@@ -37,3 +37,12 @@ DOC="$REPO_ROOT/docs/windows-setup.md"
     grep -qF "<a id=\"$anchor\"></a>" "$DOC" || { echo "doc missing <a id=\"$anchor\"> for anchor referenced in code"; return 1; }
   done < "$BATS_TEST_TMPDIR/wanted_anchors"
 }
+
+@test "the VS Code theme section says colors go through settings, from Omarchy's template, with nothing installed" {
+  local section
+  section="$(awk '/^## VS Code and Cursor theme/{f=1; next} /^## /{f=0} f' "$REPO_ROOT/docs/windows-setup.md")"
+  for s in "workbench.colorCustomizations" "Default Dark Modern" "Omarchy" "Monokai Pro" "never starts a Windows program"; do
+    [[ "$section" == *"$s"* ]] || { echo "missing: $s"; return 1; }
+  done
+  [[ "$section" != *"install-extension"* ]]
+}

@@ -85,3 +85,27 @@ EOF
   [[ "$output" == *"inside Herdr"* ]]
   [ -f "$HOME/.local/bin/herdr" ]
 }
+
+@test "omawsl_uninstall_herdr removes omawsl's Claude hooks and keeps the user's" {
+  unset HERDR_ENV
+  stub_hide_command herdr
+  mkdir -p "$HOME/.claude"
+  echo '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"mine.sh"}]}]}}' > "$HOME/.claude/settings.json"
+  omawsl_claude_hooks_install
+  run omawsl_uninstall_herdr
+  [ "$status" -eq 0 ]
+  ! grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json"
+  [ "$(jq -r '.hooks.Stop[0].hooks[0].command' "$HOME/.claude/settings.json")" = mine.sh ]
+}
+
+@test "omawsl_uninstall_herdr removes omawsl's Copilot hooks file and keeps the user's" {
+  unset HERDR_ENV
+  stub_hide_command herdr
+  stub_command copilot
+  omawsl_copilot_hooks_install
+  echo '{"version":1,"hooks":{}}' > "$HOME/.copilot/hooks/mine.json"
+  run omawsl_uninstall_herdr
+  [ "$status" -eq 0 ]
+  [ ! -e "$HOME/.copilot/hooks/omawsl.json" ]
+  [ -f "$HOME/.copilot/hooks/mine.json" ]
+}

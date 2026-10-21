@@ -4,7 +4,7 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
 @test "every ported theme has all 7 required files" {
   for name in catppuccin dracula everforest gruvbox kanagawa matte-black nord one-dark osaka-jade ristretto rose-pine solarized tokyo-night; do
-    for f in neovim.lua zellij.kdl btop.theme vscode.sh windows-terminal-scheme.json starship.toml starship-plain.toml; do
+    for f in neovim.lua zellij.kdl btop.theme vscode-palette.json windows-terminal-scheme.json starship.toml starship-plain.toml; do
       [ -f "$REPO_ROOT/themes/$name/$f" ] || { echo "missing themes/$name/$f"; return 1; }
     done
   done
@@ -32,10 +32,6 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   local f="$REPO_ROOT/themes/gruvbox/windows-terminal-scheme.json"
   [[ "$(jq -r .background "$f")" == "#282828" ]]
   [[ "$(jq -r .red "$f")" == "#ea6962" ]]
-}
-
-@test "catppuccin vscode.sh calls the shared helper with the right theme and extension" {
-  grep -q 'omawsl_theme_apply_vscode "Catppuccin Macchiato" "Catppuccin.catppuccin-vsc"' "$REPO_ROOT/themes/catppuccin/vscode.sh"
 }
 
 @test "tokyo-night starship.toml palette matches its zellij.kdl hex values" {
