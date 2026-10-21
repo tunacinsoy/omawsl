@@ -34,8 +34,11 @@ EOF
 }
 
 # omawsl_theme_is_valid <folder_name>
+# Reads the names as a string, not through a pipe: under pipefail, `grep -q`
+# quitting early can kill the writer with SIGPIPE and turn a match into a
+# miss (tests/grep_sigpipe_test.bats).
 omawsl_theme_is_valid() {
-  omawsl_theme_names | grep -qx "$1"
+  grep -qx "$1" <<< "$(omawsl_theme_names)"
 }
 
 # omawsl_theme_display_name <folder_name>

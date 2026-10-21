@@ -36,7 +36,8 @@ omawsl_uninstall_gh_copilot() {
   fi
   rm -f "$HOME/.local/bin/copilot"
 
-  if gh extension list 2>/dev/null | grep -q '^gh-copilot\|^gh copilot'; then
+  # A string, not a pipe - see omawsl_theme_is_valid in bin/omawsl-sub/theme.sh.
+  if grep -q '^gh-copilot\|^gh copilot' <<< "$(gh extension list 2>/dev/null)"; then
     gh extension remove gh-copilot || true
   fi
 
