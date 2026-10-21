@@ -123,3 +123,12 @@ EOF
   [ "$(jq -r '.["editor.semanticTokenColorCustomizations"]["[Default Light Modern]"].enabled' "$f")" = true ]
   [ "$(jq -r '.["editor.tokenColorCustomizations"]["[Default Light Modern]"].textMateRules | length > 0' "$f")" = true ]
 }
+
+@test "omawsl_theme_apply_vscode backs up the settings once, as they were before the theme switch" {
+  local f="$WINHOME/AppData/Roaming/Code/User/settings.json"
+  mkdir -p "$(dirname "$f")"
+  echo '{"editor.fontSize": 14}' > "$f"
+  run omawsl_theme_apply_vscode "$TOKYO"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$f.bak")" = '{"editor.fontSize": 14}' ]
+}

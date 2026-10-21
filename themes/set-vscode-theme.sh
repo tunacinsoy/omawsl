@@ -40,9 +40,11 @@ omawsl_native_vscode_settings_path() {
 # Remote-WSL machine-settings file) and on JSONC with comments (typical of
 # a hand-edited native settings.json - design spec "Sync theme to native
 # Windows-side VS Code/Cursor" §"The JSONC problem"). No-ops if the file
-# doesn't exist yet or jq isn't reachable. Always backs up to
-# <settings_file>.bak first and re-validates its own edit before
-# committing - a corrupted settings.json breaks the user's whole editor.
+# doesn't exist yet or jq isn't reachable. Backs up to <settings_file>.bak
+# first - unless OMAWSL_JSON_NO_BACKUP=1, for a caller making several edits
+# that took one backup before the first - and re-validates its own edit
+# before committing - a corrupted settings.json breaks the user's whole
+# editor.
 #
 # JSONC is edited line by line so comments survive: a missing key is
 # inserted on one line right after the first '{'; an existing one is
@@ -58,11 +60,11 @@ omawsl_json_update_value() {
   [[ -f "$settings_file" ]] || return 0
   command -v jq &>/dev/null || return 0
 
-  cp "$settings_file" "$settings_file.bak" || {
+  if [[ "${OMAWSL_JSON_NO_BACKUP:-}" != 1 ]] && ! cp "$settings_file" "$settings_file.bak"; then
     echo "omawsl: couldn't back up $settings_file - skipping the $key sync." >&2
     echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
     return 0
-  }
+  fi
 
   # Fast path: strict JSON, no comments - jq edits it directly.
   if jq empty "$settings_file" 2>/dev/null; then
@@ -241,13 +243,20 @@ omawsl_theme_apply_vscode() {
     omawsl_theme_ensure_vscode_settings_exists "$profile/AppData/Roaming/Cursor/User/settings.json"
   fi
 
+  # One backup per file, of the settings as they were before this switch -
+  # the four edits below don't each overwrite it.
   local file
   while IFS= read -r file; do
     [[ -f "$file" ]] || continue
-    omawsl_theme_set_vscode_settings "$file" "$base"
-    omawsl_json_update_value "$file" workbench.colorCustomizations "$scoped" "$colors"
-    omawsl_json_update_value "$file" editor.tokenColorCustomizations "$scoped" "$token_rules"
-    omawsl_json_update_value "$file" editor.semanticTokenColorCustomizations "$scoped" "$semantic"
+    if ! cp "$file" "$file.bak"; then
+      echo "omawsl: couldn't back up $file - skipping the VS Code theme sync for it." >&2
+      echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
+      continue
+    fi
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_theme_set_vscode_settings "$file" "$base"
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_json_update_value "$file" workbench.colorCustomizations "$scoped" "$colors"
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_json_update_value "$file" editor.tokenColorCustomizations "$scoped" "$token_rules"
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_json_update_value "$file" editor.semanticTokenColorCustomizations "$scoped" "$semantic"
   done < <(omawsl_theme_vscode_settings_files)
 }
 
