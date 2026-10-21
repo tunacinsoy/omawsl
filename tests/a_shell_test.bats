@@ -19,6 +19,13 @@ setup() {
   # The zellij tests below that need the real exec behavior explicitly
   # `unset ZELLIJ` themselves to override this default.
   export ZELLIJ=0
+  # Same leak from the other direction: run from inside a Herdr pane, the
+  # suite inherits HERDR_ENV=1, which skips the auto-launch every zellij
+  # test below expects.
+  unset HERDR_ENV
+  # The auto-launch creates ZELLIJ_SOCKET_DIR - keep it out of the real
+  # /tmp (issue #34 tests below).
+  export ZELLIJ_SOCKET_DIR="$BATS_TEST_TMPDIR/sock"
   # Tests below assert on $INPUTRC's value (configs/bashrc:36's
   # [ -z "${INPUTRC:-}" ] guard) - unset here so they're deterministic
   # regardless of whether the host shell running this suite already has
@@ -539,11 +546,13 @@ EOF
   [[ "$(cat "$HOME/zellij_marker")" == "ZELLIJ_STARTED" ]]
 }
 
-@test "sets ZELLIJ_SOCKET_DIR to a /tmp path before exec'ing zellij (WSL2/WSLg XDG_RUNTIME_DIR workaround)" {
-  # Regression guard for microsoft/WSL#9689/#10896/#11542 + zellij-org/zellij#4155:
-  # WSLg's $XDG_RUNTIME_DIR mount doesn't reliably support the chmod zellij
-  # needs on its own socket dir, causing a raw Rust panic instead of a
-  # graceful error. bashrc must override ZELLIJ_SOCKET_DIR to sidestep it.
+# --- zellij socket dir (issue #34): zellij's default is $XDG_RUNTIME_DIR/zellij,
+# and on WSL /run/user/<uid> comes and goes with WSL init and systemd-logind,
+# so bashrc pins ZELLIJ_SOCKET_DIR to /tmp/zellij-<uid> (setup() presets it
+# under $BATS_TEST_TMPDIR instead) ---
+
+# Stubs zellij to record the socket dir it was handed.
+_zellij_socket_home() {
   unset ZELLIJ
   export HOME="$BATS_TEST_TMPDIR/home_zellij_socket_dir"
   mkdir -p "$HOME/.local/bin"
@@ -554,10 +563,51 @@ EOF
   chmod +x "$HOME/.local/bin/zellij"
   export PATH="$HOME/.local/bin:$PATH"
   bash "$REPO_ROOT/install/terminal/a-shell.sh"
+}
+
+@test "exports ZELLIJ_SOCKET_DIR=/tmp/zellij-<uid> in every shell, not just the zellij auto-launch" {
+  # A zellij typed by hand in a Herdr pane (or any shell that didn't come
+  # from the auto-launch) used to fall back to /run/user/<uid>/zellij -
+  # the exact directory issue #34's error names.
+  _zellij_socket_home
+  unset ZELLIJ_SOCKET_DIR
+  export HERDR_ENV=1
+  run bash -i -c 'env | grep "^ZELLIJ_SOCKET_DIR="'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ZELLIJ_SOCKET_DIR=/tmp/zellij-$(id -u)"* ]]
+  [ ! -f "$HOME/zellij_socket_dir_seen" ]
+}
+
+@test "hands zellij an owner-only socket dir it can use, keeping one the user already set" {
+  _zellij_socket_home
   run bash -i -c 'true'
   [ "$status" -eq 0 ]
-  [ -f "$HOME/zellij_socket_dir_seen" ]
-  [[ "$(cat "$HOME/zellij_socket_dir_seen")" == "/tmp/zellij-$(id -u)" ]]
+  [[ "$(cat "$HOME/zellij_socket_dir_seen")" == "$BATS_TEST_TMPDIR/sock" ]]
+  [[ "$(stat -c %a "$BATS_TEST_TMPDIR/sock")" == 700 ]]
+}
+
+@test "stays in a plain shell instead of exec'ing a doomed zellij when the socket dir isn't the user's" {
+  # e.g. root-owned after `sudo -E zellij` - zellij would die with
+  # "Permission denied" and take the terminal with it. A symlink to a
+  # root-owned dir stands in for that without needing root in the test.
+  _zellij_socket_home
+  ln -s /usr "$BATS_TEST_TMPDIR/sock"
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [ ! -f "$HOME/zellij_socket_dir_seen" ]
+  [[ "$output" == *"STILL_RUNNING"* ]]
+  [[ "$output" == *"$BATS_TEST_TMPDIR/sock isn't owned by you"* ]]
+}
+
+@test "also catches a directory zellij made inside the socket dir that isn't the user's" {
+  _zellij_socket_home
+  mkdir -m 700 "$BATS_TEST_TMPDIR/sock"
+  ln -s /usr "$BATS_TEST_TMPDIR/sock/contract_version_1"
+  run bash -i -c 'echo STILL_RUNNING'
+  [ "$status" -eq 0 ]
+  [ ! -f "$HOME/zellij_socket_dir_seen" ]
+  [[ "$output" == *"STILL_RUNNING"* ]]
+  [[ "$output" == *"$BATS_TEST_TMPDIR/sock/contract_version_1 isn't owned by you"* ]]
 }
 
 @test "does not exec into zellij when already inside a zellij session" {
