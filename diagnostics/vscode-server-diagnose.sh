@@ -19,8 +19,9 @@
 # suggesting the terminal's `code` was an older install than the GUI.
 #
 # This gathers the evidence to confirm or rule that out. Entirely
-# read-only: lists, reads and queries; nothing is created, removed, or
-# changed, on either the WSL or the Windows side.
+# read-only: it only lists and reads files. It starts no Windows program
+# (CONTRIBUTING.md), uses no network, and creates, removes or changes
+# nothing, on either the WSL or the Windows side.
 #
 # Usage: bash diagnostics/vscode-server-diagnose.sh 2>&1 | tee /tmp/vscode-diagnose.txt
 # Best run right after seeing "Updating VS Code Server" (with the VS Code
@@ -76,11 +77,10 @@ done < <(type -ap code)
 echo "--- rc-file lines that mention VS Code / put code on PATH ---"
 grep -nH -iE 'vs ?code|/bin/code|Microsoft VS Code' ~/.bashrc ~/.bashrc.local ~/.profile ~/.bash_profile /etc/profile.d/*.sh 2>/dev/null || echo "(none)"
 
-section "omawsl's Windows profile lookup (what PR #33's fix depends on)"
-echo "omawsl_resolve_cmd_exe: $(omawsl_resolve_cmd_exe || echo '<FAILED>')"
+section "omawsl's Windows profile lookup"
 profile="$(omawsl_windows_userprofile)" || profile=""
-echo "omawsl_windows_userprofile: ${profile:-<FAILED - so the update.mode fix silently did nothing>}"
-echo "omawsl migration state version: $(cat "$(omawsl_choices_dir)/version" 2>/dev/null || echo '<none>') (PR #33's migration is 1788278074)"
+echo "omawsl_windows_userprofile: ${profile:-<FAILED>}"
+echo "omawsl migration state version: $(cat "$(omawsl_choices_dir)/version" 2>/dev/null || echo '<none>')"
 
 section "Known VS Code installs on Windows"
 candidates=()
@@ -101,30 +101,24 @@ for d in "${candidates[@]}"; do
   fi
 done
 
-section "Running VS Code GUI processes on Windows (which install is actually open)"
-ps_exe="${c_root%/}/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
-if [[ -n "$c_root" && -x "$ps_exe" ]]; then
-  gui_paths="$("$ps_exe" -NoProfile -NonInteractive -Command \
-    "Get-Process Code -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path -Unique" 2>&1 | tr -d '\r')"
-  echo "${gui_paths:-(no Code.exe running)}"
-  while IFS= read -r p; do
-    [[ "$p" == *Code.exe ]] || continue
-    gui_dir="$(wslpath -u "$(dirname "$p" | tr '/' '\\')" 2>/dev/null || true)"
-    # Code.exe sits at the install root; the running build is its versioned
-    # folder (or resources/ in the older flat layout).
-    [[ -n "$gui_dir" ]] || continue
-    echo "--- $gui_dir"
-    install_commits "$gui_dir"
-    gui_commit="$(install_commits "$gui_dir" | grep '^build:' | grep -o 'commit=[0-9a-f]*' | cut -d= -f2 | sort -u | head -1)"
-    note_commit "running GUI ($p)" "$gui_commit"
-  done <<< "$gui_paths"
+section "Builds the Windows GUI has run (newest first; the top one is what it runs now)"
+# VS Code keeps one CachedData/<commit> folder per build it has started,
+# so this answers "which build is the GUI" by reading folders instead of
+# asking Windows for its running processes.
+if [[ -n "$profile" ]]; then
+  cached="$profile/AppData/Roaming/Code/CachedData"
+  ls -lt --time-style=long-iso "$cached" 2>/dev/null | grep -E ' [0-9a-f]{40}$' || echo "(no $cached)"
+  gui_commit="$(ls -t "$cached" 2>/dev/null | grep -m1 -E '^[0-9a-f]{40}$')"
+  note_commit "Windows GUI, newest CachedData" "$gui_commit"
+  echo "--- last GUI starts (logs folders)"
+  ls -1t "$profile/AppData/Roaming/Code/logs" 2>/dev/null | head -5 || echo "(none)"
 else
-  echo "(powershell.exe not reachable at $ps_exe - skipped)"
+  echo "(profile unresolved - skipped)"
 fi
 
 section "Native settings.json update settings"
 if [[ -n "$profile" ]]; then
-  grep -n '"update\.' "$profile/AppData/Roaming/Code/User/settings.json" 2>/dev/null || echo "(no update.* keys - update.mode fix NOT applied)"
+  grep -n '"update\.' "$profile/AppData/Roaming/Code/User/settings.json" 2>/dev/null || echo "(no update.* keys)"
 else
   echo "(profile unresolved - can't read native settings.json)"
 fi
@@ -149,12 +143,6 @@ section "Remote-WSL extension"
 if [[ -n "$profile" ]]; then
   ls -d "$profile"/.vscode/extensions/ms-vscode-remote.remote-wsl-* 2>/dev/null || echo "(not found in $profile/.vscode/extensions)"
 fi
-
-section "Commit versions (from Microsoft's update API)"
-for c in $(printf '%s\n' "${SEEN[@]}" | sort -u); do
-  v="$(curl -s --max-time 5 "https://update.code.visualstudio.com/api/versions/commit:$c/win32-x64-user/stable" | grep -o '"productVersion":"[^"]*"' | cut -d'"' -f4)"
-  echo "$c = ${v:-<lookup failed>}"
-done
 
 section "VERDICT"
 for k in "${!SEEN[@]}"; do printf '%s  <- %s\n' "${SEEN[$k]}" "$k"; done | sort
