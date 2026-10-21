@@ -8,16 +8,16 @@ source "$OMAWSL_ROOT_DIR/install/lib.sh"
 # shellcheck source=../../install/terminal/app-herdr.sh
 source "$OMAWSL_ROOT_DIR/install/terminal/app-herdr.sh"
 
-# omawsl_notifications_set <both|sound|popup|off>
-# Saves how Herdr tells you an agent finished or needs input. With a Herdr
-# config, it's set up right away and only saved once that worked (a failed
-# pulseaudio-utils install keeps the previous choice). Without one, it's
+# omawsl_notifications_set <sound|off>
+# Saves whether Herdr plays a sound when an agent finished or needs input.
+# With a Herdr config, it's set up right away and only saved once that
+# worked (a failed package install keeps the previous choice). Without one, it's
 # just saved - omawsl_install_herdr_config applies it when Herdr is chosen.
 omawsl_notifications_set() {
   local slug
   slug="$(omawsl_herdr_notifications_slug "$1")"
   if [[ -z "$slug" ]]; then
-    echo "omawsl: unknown notifications choice '$1' - choose both, sound, popup or off." >&2
+    echo "omawsl: unknown notifications choice '$1' - choose sound or off." >&2
     return 1
   fi
   if [[ -f "$HOME/.config/herdr/config.toml" ]]; then
@@ -30,7 +30,7 @@ omawsl_notifications_set() {
   fi
 }
 
-# omawsl_notifications_command [both|sound|popup|off]
+# omawsl_notifications_command [sound|off]
 # Entry point for `bin/omawsl notifications`. With no argument, asks via
 # gum; cancelling the picker changes nothing.
 omawsl_notifications_command() {
@@ -39,8 +39,7 @@ omawsl_notifications_command() {
     local current
     current="$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)"
     input="$(gum choose --header "Herdr agent notifications (currently: ${current:-not set})" \
-      "$OMAWSL_HERDR_NOTIFY_LABEL_BOTH" "$OMAWSL_HERDR_NOTIFY_LABEL_SOUND" \
-      "$OMAWSL_HERDR_NOTIFY_LABEL_POPUP" "$OMAWSL_HERDR_NOTIFY_LABEL_OFF")" || input=""
+      "$OMAWSL_HERDR_NOTIFY_LABEL_SOUND" "$OMAWSL_HERDR_NOTIFY_LABEL_OFF")" || input=""
     [[ -n "$input" ]] || return 0
   fi
   omawsl_notifications_set "$input"

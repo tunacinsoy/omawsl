@@ -13,22 +13,24 @@ setup() {
   source "$REPO_ROOT/bin/omawsl-sub/notifications.sh"
   stub_command paplay
   stub_hide_command herdr
+  export OMAWSL_NOTIFY_SOUND_DIR="$BATS_TEST_TMPDIR/sounds"
+  mkdir -p "$OMAWSL_NOTIFY_SOUND_DIR"
+  touch "$OMAWSL_NOTIFY_SOUND_DIR/complete.oga" "$OMAWSL_NOTIFY_SOUND_DIR/message-new-instant.oga"
 }
 
 @test "without a Herdr config, only saves the choice" {
-  run omawsl_notifications_command popup
+  run omawsl_notifications_command sound
   [ "$status" -eq 0 ]
-  [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "popup" ]
-  [ ! -e "$HOME/.local/bin/notify-send" ]
+  [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "sound" ]
   [[ "$output" == *"omawsl multiplexer herdr"* ]]
 }
 
 @test "with a Herdr config, sets it up and saves the choice" {
   mkdir -p "$HOME/.config/herdr" "$HOME/.claude"
   printf '[keys]\nprefix = "ctrl+g"\n' > "$HOME/.config/herdr/config.toml"
-  run omawsl_notifications_command both
+  run omawsl_notifications_command sound
   [ "$status" -eq 0 ]
-  [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "both" ]
+  [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "sound" ]
   grep -qx 'delivery = "off"' "$HOME/.config/herdr/config.toml"
   grep -qx 'enabled = false' "$HOME/.config/herdr/config.toml"
   grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json"
@@ -46,14 +48,25 @@ setup() {
   [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "off" ]
 }
 
-@test "rejects an unknown choice" {
-  run omawsl_notifications_command loud
-  [ "$status" -ne 0 ]
-  [[ "$output" == *"unknown notifications choice 'loud'"* ]]
+@test "rejects an unknown choice, including the old popup and both" {
+  local c
+  for c in loud popup both; do
+    run omawsl_notifications_command "$c"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"unknown notifications choice '$c' - choose sound or off"* ]]
+  done
+}
+
+@test "the picker offers only sound and off" {
+  gum_stub_respond "Off"
+  run omawsl_notifications_command
+  [ "$status" -eq 0 ]
+  [ "$(stub_calls)" = "gum choose --header Herdr agent notifications (currently: not set) Sound Off" ]
+  [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "off" ]
 }
 
 @test "with no argument, asks via gum and applies the pick" {
-  gum_stub_respond "Sound only"
+  gum_stub_respond "Sound"
   run omawsl_notifications_command
   [ "$status" -eq 0 ]
   [ "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" = "sound" ]
@@ -64,18 +77,4 @@ setup() {
   run omawsl_notifications_command
   [ "$status" -eq 0 ]
   [ -z "$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)" ]
-}
-
-@test "omawsl-notify-send hands title and body to PowerShell and returns at once" {
-  local out="$BATS_TEST_TMPDIR/ps.out"
-  export OMAWSL_POWERSHELL_FALLBACK="$BATS_TEST_TMPDIR/powershell.exe"
-  printf '#!/usr/bin/env bash\nprintf "%%s|%%s|%%s" "$OMAWSL_NOTIFY_TITLE" "$OMAWSL_NOTIFY_BODY" "$WSLENV" > %q\n' "$out" > "$OMAWSL_POWERSHELL_FALLBACK"
-  chmod +x "$OMAWSL_POWERSHELL_FALLBACK"
-  stub_hide_command powershell.exe
-  export WSLENV="WT_SESSION:"
-  run "$REPO_ROOT/bin/omawsl-notify-send" --app-name Herdr -- 'claude finished' 'ws · "1" <&>'
-  [ "$status" -eq 0 ]
-  local i
-  for i in $(seq 50); do [ -s "$out" ] && break; sleep 0.1; done
-  [ "$(cat "$out")" = 'claude finished|ws · "1" <&>|OMAWSL_NOTIFY_TITLE:OMAWSL_NOTIFY_BODY:WT_SESSION:' ]
 }

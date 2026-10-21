@@ -23,7 +23,7 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
 @test "docs/herdr.md documents omawsl notifications and its limits" {
   local doc="$REPO_ROOT/docs/herdr.md"
-  for s in "omawsl notifications" "pulseaudio-utils" "WSLg" "Claude Code and GitHub Copilot CLI only" "~/.claude/settings.json" "~/.copilot/hooks/omawsl.json" "herdrdev/herdr#5004" "do not disturb automatically"; do
+  for s in "omawsl notifications" "pulseaudio-utils" "sound-theme-freedesktop" "WSLg" "Claude Code and GitHub Copilot CLI only" "~/.claude/settings.json" "~/.copilot/hooks/omawsl.json" "herdrdev/herdr#5004" "nothing on the Windows side"; do
     grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
   done
 }
@@ -39,5 +39,12 @@ REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   local doc="$REPO_ROOT/docs/herdr.md"
   for s in "Ctrl g p c" "note"; do
     grep -qF "$s" "$doc" || { echo "missing: $s"; return 1; }
+  done
+}
+
+@test "docs/herdr.md no longer offers a Windows popup" {
+  local doc="$REPO_ROOT/docs/herdr.md"
+  for s in "notifications both" "notifications popup" "PowerShell"; do
+    ! grep -qF "$s" "$doc" || { echo "still there: $s"; return 1; }
   done
 }

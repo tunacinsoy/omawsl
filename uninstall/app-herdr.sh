@@ -23,10 +23,6 @@ omawsl_uninstall_herdr() {
     herdr server stop >/dev/null 2>&1 || true
   fi
   rm -f "$HOME/.local/bin/herdr"
-  # Older omawsl's notify-send link - only if it's omawsl's.
-  if [[ "$(readlink "$HOME/.local/bin/notify-send" 2>/dev/null)" == */bin/omawsl-notify-send ]]; then
-    rm -f "$HOME/.local/bin/notify-send"
-  fi
   # `omawsl notifications`' Claude Code and Copilot CLI hooks - the user's
   # own hooks stay.
   omawsl_claude_hooks_remove

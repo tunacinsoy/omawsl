@@ -98,17 +98,6 @@ omawsl_herdr_apply_notifications() {
   fi
 }
 
-# omawsl_herdr_unlink_notify_send
-# Removes ~/.local/bin/notify-send only when it's omawsl's own link -
-# older omawsl linked it in for Herdr's popups; bin/omawsl-claude-notify
-# now calls bin/omawsl-notify-send directly.
-omawsl_herdr_unlink_notify_send() {
-  local link="$HOME/.local/bin/notify-send"
-  if [[ -L "$link" && "$(readlink "$link")" == "$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-notify-send" ]]; then
-    rm -f "$link"
-  fi
-}
-
 # Marks omawsl's own entries in ~/.claude/settings.json.
 OMAWSL_CLAUDE_HOOK_MARK="bin/omawsl-claude-notify"
 
@@ -233,31 +222,34 @@ omawsl_copilot_hooks_remove() {
   rm -f "$(omawsl_copilot_hooks_file)"
 }
 
-# omawsl_herdr_setup_notifications <both|sound|popup|off>
+# omawsl_herdr_setup_notifications <sound|off>
 # Everything one notifications choice needs. Sound: paplay
-# (pulseaudio-utils), which reaches Windows' speakers via WSLg's
-# PulseAudio server. Any alert choice: the Claude Code and Copilot CLI
-# hooks that raise them; off removes those. Herdr's own alerts are always switched off.
-# Fails only when paplay can't be installed, so callers can keep the
-# previous choice. Missing WSLg only warns - the choice still applies once
-# it's there.
+# (pulseaudio-utils) and Ubuntu's own sounds (sound-theme-freedesktop),
+# played through WSLg's PulseAudio server - nothing on the Windows side.
+# Sound also gets the Claude Code and Copilot CLI hooks that play them;
+# off removes those. Herdr's own alerts are always switched off. Fails
+# only when a package can't be installed, so callers can keep the previous
+# choice. Missing WSLg only warns - the choice still applies once it's
+# there.
 omawsl_herdr_setup_notifications() {
   local slug="$1"
-  case "$slug" in
-    both|sound)
-      if ! command -v paplay &>/dev/null; then
-        sudo apt-get install -y pulseaudio-utils || true
-        hash -r
-        if ! command -v paplay &>/dev/null; then
-          echo "omawsl: couldn't install pulseaudio-utils (paplay) - Claude Code can't play sounds without it." >&2
-          return 1
-        fi
-      fi
-      [[ -n "${PULSE_SERVER:-}" ]] ||
-        echo "omawsl: no WSLg audio here (PULSE_SERVER is unset) - sounds won't be heard until WSLg is available." >&2
-      ;;
-  esac
-  omawsl_herdr_unlink_notify_send
+  if [[ "$slug" == sound ]]; then
+    local sounds="${OMAWSL_NOTIFY_SOUND_DIR:-/usr/share/sounds/freedesktop/stereo}"
+    if ! command -v paplay &>/dev/null || [[ ! -f "$sounds/complete.oga" ]]; then
+      sudo apt-get install -y pulseaudio-utils sound-theme-freedesktop || true
+      hash -r
+    fi
+    if ! command -v paplay &>/dev/null; then
+      echo "omawsl: couldn't install pulseaudio-utils (paplay) - agents can't play sounds without it." >&2
+      return 1
+    fi
+    if [[ ! -f "$sounds/complete.oga" ]]; then
+      echo "omawsl: couldn't install sound-theme-freedesktop - agents have no sounds to play without it." >&2
+      return 1
+    fi
+    [[ -n "${PULSE_SERVER:-}" ]] ||
+      echo "omawsl: no WSLg audio here (PULSE_SERVER is unset) - sounds won't be heard until WSLg is available." >&2
+  fi
   case "$slug" in
     off)
       omawsl_claude_hooks_remove
