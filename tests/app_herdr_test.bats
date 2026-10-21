@@ -11,6 +11,9 @@ setup() {
   source "$REPO_ROOT/install/terminal/app-herdr.sh"
   stub_command curl
   stub_command sh
+  export OMAWSL_NOTIFY_SOUND_DIR="$BATS_TEST_TMPDIR/sounds"
+  mkdir -p "$OMAWSL_NOTIFY_SOUND_DIR"
+  touch "$OMAWSL_NOTIFY_SOUND_DIR/complete.oga" "$OMAWSL_NOTIFY_SOUND_DIR/message-new-instant.oga"
 }
 
 @test "no-ops entirely when zellij is the chosen multiplexer" {
@@ -162,58 +165,65 @@ setup() {
   [ ! -e "$HOME/.config/herdr" ]
 }
 
-@test "notifications setup installs pulseaudio-utils for sound when paplay is missing" {
+@test "notifications setup installs paplay and Ubuntu's sound theme when they're missing" {
   stub_hide_command paplay herdr
+  rm -rf "$OMAWSL_NOTIFY_SOUND_DIR"
   sudo() {
     echo "sudo $*" >> "$STUB_LOG"
-    mkdir -p "$HOME/.local/bin"
+    mkdir -p "$HOME/.local/bin" "$OMAWSL_NOTIFY_SOUND_DIR"
     printf '#!/usr/bin/env bash\n' > "$HOME/.local/bin/paplay"
     chmod +x "$HOME/.local/bin/paplay"
+    touch "$OMAWSL_NOTIFY_SOUND_DIR/complete.oga" "$OMAWSL_NOTIFY_SOUND_DIR/message-new-instant.oga"
   }
   export -f sudo
   export PATH="$HOME/.local/bin:$PATH"
   run omawsl_herdr_setup_notifications sound
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"sudo apt-get install -y pulseaudio-utils"* ]]
-  [ ! -e "$HOME/.local/bin/notify-send" ]
+  [[ "$(stub_calls)" == *"sudo apt-get install -y pulseaudio-utils sound-theme-freedesktop"* ]]
+}
+
+@test "notifications setup doesn't ask for sudo when paplay and the sounds are there" {
+  stub_command paplay
+  stub_hide_command herdr
+  stub_command sudo
+  run omawsl_herdr_setup_notifications sound
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" != *sudo* ]]
 }
 
 @test "notifications setup fails when paplay can't be installed" {
   stub_hide_command paplay herdr
   stub_command sudo 100
-  run omawsl_herdr_setup_notifications both
+  run omawsl_herdr_setup_notifications sound
   [ "$status" -ne 0 ]
   [[ "$output" == *"pulseaudio-utils"* ]]
 }
 
-@test "notifications setup adds the Claude hooks for an alert choice and removes them for off" {
+@test "notifications setup fails when Ubuntu's sound theme can't be installed" {
+  stub_command paplay
+  stub_hide_command herdr
+  rm -rf "$OMAWSL_NOTIFY_SOUND_DIR"
+  stub_command sudo 100
+  run omawsl_herdr_setup_notifications sound
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"sound-theme-freedesktop"* ]]
+}
+
+@test "notifications setup adds the Claude hooks for sound and removes them for off" {
   stub_command paplay
   stub_hide_command herdr
   mkdir -p "$HOME/.claude"
   local slug
-  for slug in both sound popup; do
-    omawsl_herdr_setup_notifications "$slug"
-    grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json" || { echo "$slug"; return 1; }
-  done
+  omawsl_herdr_setup_notifications sound
+  grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json"
   omawsl_herdr_setup_notifications off
   ! grep -qF 'bin/omawsl-claude-notify' "$HOME/.claude/settings.json"
 }
 
-@test "notifications setup removes omawsl's old notify-send link but never someone else's" {
-  stub_command paplay
-  stub_hide_command herdr
-  mkdir -p "$HOME/.local/bin"
-  ln -s "$REPO_ROOT/bin/omawsl-notify-send" "$HOME/.local/bin/notify-send"
-  omawsl_herdr_setup_notifications both
-  [ ! -e "$HOME/.local/bin/notify-send" ]
-  echo mine > "$HOME/.local/bin/notify-send"
-  omawsl_herdr_setup_notifications popup
-  [ "$(cat "$HOME/.local/bin/notify-send")" = "mine" ]
-}
-
 @test "config deploy applies a notifications choice saved before Herdr was set up" {
   export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  omawsl_save_choice OMAWSL_HERDR_NOTIFICATIONS popup
+  omawsl_save_choice OMAWSL_HERDR_NOTIFICATIONS sound
+  stub_command paplay
   stub_hide_command herdr
   mkdir -p "$HOME/.claude"
   run omawsl_install_herdr_config
@@ -390,15 +400,13 @@ EOF
   [ -f "$HOME/.copilot/hooks/mine.json" ]
 }
 
-@test "notifications setup adds the Copilot hooks for an alert choice and removes them for off" {
+@test "notifications setup adds the Copilot hooks for sound and removes them for off" {
   stub_command paplay
   stub_hide_command herdr
   stub_command copilot
   local slug
-  for slug in both sound popup; do
-    omawsl_herdr_setup_notifications "$slug"
-    [ -f "$HOME/.copilot/hooks/omawsl.json" ] || { echo "$slug"; return 1; }
-  done
+  omawsl_herdr_setup_notifications sound
+  [ -f "$HOME/.copilot/hooks/omawsl.json" ]
   omawsl_herdr_setup_notifications off
   [ ! -e "$HOME/.copilot/hooks/omawsl.json" ]
 }

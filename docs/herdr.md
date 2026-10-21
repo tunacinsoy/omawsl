@@ -47,13 +47,11 @@ popup (`bin/omawsl-herdr-mode`) that shows the mode's hints and reads your next 
 ## Notifications
 
 omawsl can tell you when a Claude Code or GitHub Copilot CLI session in Herdr is **done** -
-your turn - or **needs you** (a permission prompt or a question). It asks how on first run,
-when you pick Herdr, and you can change it any time:
+your turn - or **needs you** (a permission prompt or a question), with a sound. It asks on
+first run, when you pick Herdr, and you can change it any time:
 
     omawsl notifications           # choose interactively
-    omawsl notifications both      # sound + Windows popup
-    omawsl notifications sound     # sound only
-    omawsl notifications popup     # Windows popup only
+    omawsl notifications sound
     omawsl notifications off
 
 For Claude Code, "done" means the whole session is idle: no subagent, background shell,
@@ -75,11 +73,12 @@ How it works:
   `bin/omawsl-copilot-notify`: agentStop and notification), only if Copilot is installed or
   you picked it. `omawsl notifications off` and uninstalling Herdr delete that file. Your own
   hook files there are never touched.
-- **Sound** installs `pulseaudio-utils` - the one step that asks for your sudo password, once
-  per machine - and plays Windows' own notification sounds with `paplay`, through WSLg.
-- **Popup** shows a normal Windows notification via PowerShell. The popup is silent - pick
-  `both` for a sound too. It names the agent the way the sidebar does - your note
-  (`Ctrl g p c`) if it has one, else its title - so you know which pane to go to.
+- **Sound** installs `pulseaudio-utils` and `sound-theme-freedesktop` - the one step that
+  asks for your sudo password, once per machine - and plays Ubuntu's own sounds with
+  `paplay`, through WSLg. Everything happens inside Linux, nothing on the Windows side.
+- **No Windows popup.** omawsl never starts Windows programs from WSL, and a popup would
+  need one. To see which agent it was, look at the sidebar: its symbol shows who's done or
+  blocked.
 
 Good to know:
 
@@ -89,12 +88,8 @@ Good to know:
   installing it.
 - You're alerted for every session, including the one you're looking at.
 - Sound needs WSLg (Windows 11, or Windows 10 with WSL from the Microsoft Store).
-- Hear the sound but no popup appears (it's only in the notification centre)? A full-screen
-  app - Windows Terminal with F11, for example - switches Windows to Do Not Disturb. Turn that
-  off in Settings > System > Notifications > Turn on do not disturb automatically > "When
-  using an app in full-screen mode".
-- No popups at all? Check that notifications from "Windows PowerShell" are allowed in
-  Settings > System > Notifications.
+- No sound? Some managed laptops turn WSLg off, and with it WSL's audio. Then the sidebar is
+  the only signal.
 - Claude Code installed but never started yet? Run `omawsl notifications` again after its
   first start - the hooks need its `~/.claude` folder.
 

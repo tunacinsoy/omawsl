@@ -43,9 +43,9 @@ Commands:
   multiplexer [name]        Choose what new terminals open: zellij
                              (default) or herdr. With no name, choose
                              interactively.
-  notifications [choice]    How Herdr tells you an agent finished or needs
-                             input: both, sound, popup or off. With no
-                             choice, choose interactively.
+  notifications [choice]    Whether Herdr plays a sound when an agent
+                             finished or needs input: sound or off. With
+                             no choice, choose interactively.
 EOF
 }
 

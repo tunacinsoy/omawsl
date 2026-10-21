@@ -132,13 +132,13 @@ setup() {
   gum_stub_respond ""
   gum_stub_respond "Nerd Font (enhanced)"
   gum_stub_respond "Herdr (preview, built for AI coding agents)"
-  gum_stub_respond "Sound + Windows popup"
+  gum_stub_respond "Sound"
 
   omawsl_first_run_choices
 
-  [ "$OMAWSL_HERDR_NOTIFICATIONS" = "both" ]
+  [ "$OMAWSL_HERDR_NOTIFICATIONS" = "sound" ]
   run omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS
-  [ "$output" = "both" ]
+  [ "$output" = "sound" ]
 }
 
 @test "zellij users aren't asked about Herdr notifications" {
