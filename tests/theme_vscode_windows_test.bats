@@ -30,7 +30,7 @@ setup() {
   local f
   for f in "$code_dir/settings.json" "$cursor_dir/settings.json"; do
     [ "$(jq -r '.["workbench.colorTheme"]' "$f")" = "Default Dark Modern" ]
-    [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]' "$f")" = "$TOKYO_BG" ]
+    [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern][Dark Modern]"]["editor.background"]' "$f")" = "$TOKYO_BG" ]
     [ "$(jq -r '.["editor.fontSize"]' "$f")" = 14 ]
   done
   [ -f "$code_dir/settings.json.bak" ]
@@ -51,7 +51,7 @@ EOF
   [ "$status" -eq 0 ]
   grep -qF '// native user settings' "$code_dir/settings.json"
   [ "$(omawsl_strip_jsonc_comments "$code_dir/settings.json" | jq -r '.["workbench.colorTheme"]')" = "Default Dark Modern" ]
-  [ "$(omawsl_strip_jsonc_comments "$code_dir/settings.json" | jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]')" = "$TOKYO_BG" ]
+  [ "$(omawsl_strip_jsonc_comments "$code_dir/settings.json" | jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern][Dark Modern]"]["editor.background"]')" = "$TOKYO_BG" ]
 }
 
 @test "omawsl_theme_apply_vscode skips the native sync when neither native settings.json exists" {
@@ -86,7 +86,7 @@ EOF
   run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
   [ -f "$code_dir/User/settings.json" ]
-  [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]' "$code_dir/User/settings.json")" = "$TOKYO_BG" ]
+  [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern][Dark Modern]"]["editor.background"]' "$code_dir/User/settings.json")" = "$TOKYO_BG" ]
 }
 
 @test "omawsl_theme_apply_vscode does not create a settings.json for an app whose top-level data dir doesn't exist at all" {
@@ -118,10 +118,10 @@ EOF
   run omawsl_theme_apply_vscode "$REPO_ROOT/themes/rose-pine"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.["workbench.colorTheme"]' "$f")" = "Default Light Modern" ]
-  [ "$(jq -c '.["workbench.colorCustomizations"] | keys' "$f")" = '["[Default Light Modern]","editor.lineHighlightBorder"]' ]
-  [ "$(jq -c '.["editor.tokenColorCustomizations"] | keys' "$f")" = '["[Default Light Modern]"]' ]
-  [ "$(jq -r '.["editor.semanticTokenColorCustomizations"]["[Default Light Modern]"].enabled' "$f")" = true ]
-  [ "$(jq -r '.["editor.tokenColorCustomizations"]["[Default Light Modern]"].textMateRules | length > 0' "$f")" = true ]
+  [ "$(jq -c '.["workbench.colorCustomizations"] | keys' "$f")" = '["[Default Light Modern][Light Modern]","editor.lineHighlightBorder"]' ]
+  [ "$(jq -c '.["editor.tokenColorCustomizations"] | keys' "$f")" = '["[Default Light Modern][Light Modern]"]' ]
+  [ "$(jq -r '.["editor.semanticTokenColorCustomizations"]["[Default Light Modern][Light Modern]"].enabled' "$f")" = true ]
+  [ "$(jq -r '.["editor.tokenColorCustomizations"]["[Default Light Modern][Light Modern]"].textMateRules | length > 0' "$f")" = true ]
 }
 
 @test "omawsl_theme_apply_vscode backs up the settings once, as they were before the theme switch" {
@@ -131,4 +131,17 @@ EOF
   run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
   [ "$(cat "$f.bak")" = '{"editor.fontSize": 14}' ]
+}
+
+@test "omawsl_theme_apply_vscode names both IDs VS Code has used for its built-in theme, and replaces an older one-name block" {
+  # VS Code 1.134 calls it "Dark Modern"; older versions "Default Dark
+  # Modern". A block scoped to only the old ID is silently skipped by the
+  # new one - found on the corporate machine.
+  local f="$WINHOME/AppData/Roaming/Code/User/settings.json"
+  mkdir -p "$(dirname "$f")"
+  echo '{"workbench.colorCustomizations": {"[Default Dark Modern]": {"editor.background": "#000000"}}}' > "$f"
+  run omawsl_theme_apply_vscode "$TOKYO"
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.["workbench.colorCustomizations"] | keys' "$f")" = '["[Default Dark Modern][Dark Modern]"]' ]
+  [ "$(jq -c '.["editor.tokenColorCustomizations"] | keys' "$f")" = '["[Default Dark Modern][Dark Modern]"]' ]
 }

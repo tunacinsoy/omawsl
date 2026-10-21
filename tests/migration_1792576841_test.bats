@@ -33,7 +33,7 @@ active_theme() {
   run bash "$MIGRATION"
   [ "$status" -eq 0 ]
   [ "$(jq -r '.["workbench.colorTheme"]' "$CODE_SETTINGS")" = "Default Dark Modern" ]
-  [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]' "$CODE_SETTINGS")" = "#2c2525" ]
+  [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern][Dark Modern]"]["editor.background"]' "$CODE_SETTINGS")" = "#2c2525" ]
   [ "$(jq -r '.["editor.fontSize"]' "$CODE_SETTINGS")" = 14 ]
   [ -z "$(stub_calls)" ]
 }

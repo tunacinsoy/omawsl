@@ -162,8 +162,10 @@ settings themselves:
   `"Default Light Modern"` for Rosé Pine.
 - On top of it, the theme's colors go into `"workbench.colorCustomizations"`,
   `"editor.tokenColorCustomizations"` and `"editor.semanticTokenColorCustomizations"`, scoped
-  to that base theme. Your own customizations in those settings stay; switching themes
-  replaces only omawsl's block.
+  to that base theme. The scope names it both ways, `[Default Dark Modern][Dark Modern]`,
+  because VS Code 1.134 renamed it to "Dark Modern" and only applies a block that names the
+  current one. Your own customizations in those settings stay; switching themes replaces only
+  omawsl's block.
 - The colors come from Omarchy's VS Code theme template (MIT, see `themes/LICENSE.omarchy`)
   filled with the theme's palette (`themes/<name>/vscode-palette.json`), which uses the same
   background and text colors as its Windows Terminal scheme.

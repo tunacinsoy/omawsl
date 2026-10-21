@@ -216,7 +216,11 @@ omawsl_theme_ensure_vscode_settings_exists() {
 # Modern, or Default Light Modern for a light theme), and the rendered
 # theme (omawsl_vscode_theme_render) goes on top as that theme's
 # workbench.colorCustomizations, editor.tokenColorCustomizations and
-# editor.semanticTokenColorCustomizations. Nothing is installed and no
+# editor.semanticTokenColorCustomizations. VS Code 1.134 renamed those
+# built-in themes' IDs to "Dark Modern" / "Light Modern", and applies a
+# scoped block only when it names the active theme's current ID, so the
+# block names both: "[Default Dark Modern][Dark Modern]". The old name still
+# works for workbench.colorTheme in new versions. Nothing is installed and no
 # program runs - omawsl never starts Windows programs (code, cmd.exe) from
 # WSL, and themes no longer need a marketplace extension. The colors are
 # scoped to that base theme, so the user's own customizations in the same
@@ -226,16 +230,23 @@ omawsl_theme_ensure_vscode_settings_exists() {
 # settings.json first only for an app that's installed
 # (omawsl_theme_ensure_vscode_settings_exists).
 omawsl_theme_apply_vscode() {
-  local theme_dir="$1" theme base
+  local theme_dir="$1" theme base scope
   theme="$(omawsl_vscode_theme_render "$theme_dir/vscode-palette.json")" || return 0
-  base="Default Dark Modern"
-  [[ "$(jq -r .type <<< "$theme")" != light ]] || base="Default Light Modern"
+  base="Default Dark Modern" scope="[Default Dark Modern][Dark Modern]"
+  if [[ "$(jq -r .type <<< "$theme")" == light ]]; then
+    base="Default Light Modern" scope="[Default Light Modern][Light Modern]"
+  fi
 
   local colors token_rules semantic scoped
   colors="$(jq -c .colors <<< "$theme")"
   token_rules="$(jq -c '{textMateRules: .tokenColors}' <<< "$theme")"
   semantic="$(jq -c '{enabled: true, rules: .semanticTokenColors}' <<< "$theme")"
-  scoped="(if type == \"object\" then . else {} end) | del(.[\"[Default Dark Modern]\"], .[\"[Default Light Modern]\"]) + {\"[$base]\": \$v}"
+  # Drops every block omawsl may have written before - one-name scopes
+  # included - so there's only ever one.
+  scoped="(if type == \"object\" then . else {} end)
+    | del(.[\"[Default Dark Modern]\"], .[\"[Default Light Modern]\"],
+          .[\"[Default Dark Modern][Dark Modern]\"], .[\"[Default Light Modern][Light Modern]\"])
+    + {\"$scope\": \$v}"
 
   local profile
   if profile="$(omawsl_windows_userprofile)"; then

@@ -38,7 +38,7 @@ setup() {
   bg="$(jq -r .background "$REPO_ROOT/themes/tokyo-night/vscode-palette.json")"
   for f in "$HOME/.vscode-server/data/Machine/settings.json" "$HOME/.cursor-server/data/Machine/settings.json"; do
     [ "$(jq -r '.["workbench.colorTheme"]' "$f")" = "Default Dark Modern" ]
-    [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]' "$f")" = "$bg" ]
+    [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern][Dark Modern]"]["editor.background"]' "$f")" = "$bg" ]
   done
 }
 
