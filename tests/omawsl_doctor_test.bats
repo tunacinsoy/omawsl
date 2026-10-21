@@ -333,3 +333,56 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" != *"Testing branch"* ]]
 }
+
+# fake_vscode <cli_commit> <gui_commit>
+# A Windows-side VS Code install with builds 1.120.0 (a…) and 1.130.0 (b…)
+# whose bin/code asks for <cli_commit>, and a Windows profile whose newest
+# CachedData folder (the build the GUI runs) is <gui_commit>. Only files:
+# doctor reads them and never runs bin/code.
+fake_vscode() {
+  local install="$BATS_TEST_TMPDIR/Program Files/Microsoft VS Code"
+  mkdir -p "$install/bin" "$install/aaaaaaaaaa/resources/app" "$install/bbbbbbbbbb/resources/app"
+  echo '{ "version": "1.120.0" }' > "$install/aaaaaaaaaa/resources/app/package.json"
+  echo '{ "version": "1.130.0" }' > "$install/bbbbbbbbbb/resources/app/package.json"
+  printf '#!/usr/bin/env sh\nCOMMIT="%s"\nexit 1\n' "$1" > "$install/bin/code"
+  chmod +x "$install/bin/code"
+  export PATH="$install/bin:$PATH"
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/Users"
+  mkdir -p "$OMAWSL_WINDOWS_USERS_DIR/testuser/AppData/Roaming/Code/CachedData/$2"
+}
+
+A40=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+B40=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+
+@test "omawsl_doctor warns when code . asks for a different VS Code build than the window runs (issue #35)" {
+  fake_vscode "$A40" "$B40"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"[WARN]"*"code ."*"1.120.0"*"1.130.0"* ]]
+  [[ "$output" == *"ask IT to repair VS Code"* ]]
+  [[ "$output" == *"WSL: Open Folder in WSL"* ]]
+}
+
+@test "omawsl_doctor says nothing about VS Code builds when they match" {
+  fake_vscode "$B40" "$B40"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"[WARN]"* ]]
+}
+
+@test "omawsl_doctor says nothing about VS Code builds when code isn't on PATH" {
+  stub_hide_command code
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/Users"
+  mkdir -p "$OMAWSL_WINDOWS_USERS_DIR/testuser/AppData/Roaming/Code/CachedData/$B40"
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"[WARN]"* ]]
+}
+
+@test "omawsl_doctor says nothing about VS Code builds when the Windows profile can't be found" {
+  fake_vscode "$A40" "$B40"
+  export OMAWSL_WINDOWS_USERS_DIR=/nonexistent/omawsl-tests-have-no-windows-side
+  run omawsl_doctor
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"[WARN]"* ]]
+}

@@ -158,6 +158,35 @@ omawsl_doctor_starship_missing() {
   ! command -v starship &>/dev/null
 }
 
+# omawsl_doctor_vscode_build <install_dir> <commit>
+# The version of <commit>'s build folder in a VS Code install, or the
+# short commit when that folder isn't there.
+omawsl_doctor_vscode_build() {
+  local version
+  version="$(grep -o '"version": *"[^"]*"' "$1/${2:0:10}/resources/app/package.json" 2>/dev/null | head -1 | cut -d'"' -f4)"
+  echo "${version:-${2:0:10}}"
+}
+
+# omawsl_doctor_vscode_build_mismatch
+# Prints "<install dir>|<code . build>|<window build>" and succeeds when
+# the first `code` on PATH asks for a different VS Code build than the
+# Windows window runs (issue #35). Remote-WSL keeps one server build:
+# each `code .` then reinstalls it and drops open windows (#36), and
+# reconnecting windows swap it back. `code .`'s build is the COMMIT in
+# that bin/code, the window's is the newest CachedData/<commit> folder
+# VS Code keeps per build it has started. Only reads files - omawsl never
+# runs Windows programs (CONTRIBUTING.md). Silent when either is unknown.
+omawsl_doctor_vscode_build_mismatch() {
+  local code_cli profile cli_commit gui_commit install
+  code_cli="$(type -P code)" || return 1
+  profile="$(omawsl_windows_userprofile 2>/dev/null)" || return 1
+  cli_commit="$(grep -m1 '^COMMIT=' "$code_cli" 2>/dev/null | cut -d'"' -f2)"
+  gui_commit="$(ls -t "$profile/AppData/Roaming/Code/CachedData" 2>/dev/null | grep -m1 -E '^[0-9a-f]{40}$')"
+  [[ -n "$cli_commit" && -n "$gui_commit" && "$cli_commit" != "$gui_commit" ]] || return 1
+  install="$(dirname "$(dirname "$(readlink -f "$code_cli")")")"
+  echo "$install|$(omawsl_doctor_vscode_build "$install" "$cli_commit")|$(omawsl_doctor_vscode_build "$install" "$gui_commit")"
+}
+
 # omawsl_doctor_report_category <category> <check_fn> <choices_key>
 # Reports every item in the category's registry that's either actually
 # installed (regardless of whether it was ever selected through omawsl's
@@ -240,6 +269,13 @@ omawsl_doctor() {
   echo
   echo "Editors & AI tooling:"
   omawsl_doctor_report_category editor omawsl_doctor_editor_installed OMAWSL_EDITORS
+  local vscode_mismatch install cli_build gui_build
+  if vscode_mismatch="$(omawsl_doctor_vscode_build_mismatch)"; then
+    IFS='|' read -r install cli_build gui_build <<< "$vscode_mismatch"
+    echo "  [WARN]    VS Code: \`code .\` asks for $cli_build but VS Code runs $gui_build, so each \`code .\` reinstalls the WSL server and drops open windows."
+    echo "            Fix: ask IT to repair VS Code in $install so only one build is left."
+    echo "            Until then: open WSL folders from VS Code (Ctrl+R, or F1 > \"WSL: Open Folder in WSL\") instead of \`code .\`."
+  fi
   echo
   echo "Storage:"
   omawsl_doctor_report_category storage omawsl_doctor_storage_installed OMAWSL_STORAGE
