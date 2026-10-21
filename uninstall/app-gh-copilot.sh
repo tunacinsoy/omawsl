@@ -59,7 +59,6 @@ omawsl_uninstall_gh_copilot() {
     echo "omawsl: removed omawsl's GitHub Copilot CLI, but another \`copilot\` that omawsl didn't install is still on PATH:"
     local path
     while IFS= read -r path; do echo "  $path"; done <<< "$leftover"
-    echo "omawsl: remove it yourself (e.g. winget/npm on Windows, or 'sudo rm' for /usr/local/bin), then open a new terminal."
     return 0
   fi
   echo "omawsl: GitHub Copilot CLI removed."
