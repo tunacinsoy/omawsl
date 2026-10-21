@@ -53,6 +53,216 @@ omawsl_herdr_apply_theme() {
   fi
 }
 
+# omawsl_toml_set <file> <table> <key> <value>
+# Sets one `key = value` line inside `[table]`, leaving every other line of
+# the file alone: replaces the key's line if the table has one, adds it at
+# the end of the table if not, and appends the whole table at the end of
+# the file if it isn't there at all. <value> is written verbatim, so
+# strings need their own quotes. Only understands standard `[table]`
+# headers, not dotted keys or inline tables - fine for the two Herdr
+# settings omawsl owns.
+omawsl_toml_set() {
+  local file="$1" table="$2" key="$3" value="$4"
+  local tmp
+  tmp="$(mktemp)"
+  awk -v header="[$table]" -v key="$key" -v line="$key = $value" '
+    function emit() { print line; done = 1 }
+    $0 == header { in_table = 1; seen = 1; print; next }
+    in_table && /^[[:space:]]*\[/ { if (!done) emit(); in_table = 0 }
+    in_table && $0 ~ "^[[:space:]]*" key "[[:space:]]*=" { if (!done) emit(); next }
+    { print }
+    END {
+      if (in_table && !done) emit()
+      if (!seen) { print ""; print header; emit() }
+    }
+  ' "$file" > "$tmp"
+  cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# omawsl_herdr_apply_notifications
+# Turns Herdr's own alerts off - `[ui.sound] enabled = false` and
+# `[ui.toast] delivery = "off"`, the only two Herdr settings `omawsl
+# notifications` touches - and reloads a running Herdr, same shape as
+# omawsl_herdr_apply_theme. Herdr calls every Claude turn end "done", even
+# while background work still runs, so the alerts come from
+# bin/omawsl-claude-notify instead, whatever the choice. No-op without a
+# Herdr config.
+omawsl_herdr_apply_notifications() {
+  local config_file="$HOME/.config/herdr/config.toml"
+  [[ -f "$config_file" ]] || return 0
+  omawsl_toml_set "$config_file" ui.sound enabled false
+  omawsl_toml_set "$config_file" ui.toast delivery '"off"'
+  if command -v herdr &>/dev/null; then
+    herdr server reload-config >/dev/null 2>&1 || true
+  fi
+}
+
+# Marks omawsl's own entries in ~/.claude/settings.json.
+OMAWSL_CLAUDE_HOOK_MARK="bin/omawsl-claude-notify"
+
+# omawsl_claude_hooks_install
+# Points Claude Code's Stop, Notification and PreToolUse(AskUserQuestion)
+# hooks at bin/omawsl-claude-notify, which raises the alerts behind
+# `omawsl notifications`. settings.json has no drop-in directory, so this
+# is the smallest content-checked addition (docs/config-safety.md): one
+# entry per event, added only if that event has none of ours yet, nothing
+# else changed - except that entries pointing at another omawsl checkout
+# (moved, or a dev worktree) are repointed at this one. No ~/.claude yet
+# means Claude Code never ran, and no jq means no safe edit - both only
+# say so, since Herdr's own alerts are off either way. Invalid JSON is
+# never rewritten, only reported.
+omawsl_claude_hooks_install() {
+  local dir="$HOME/.claude"
+  local file="$dir/settings.json"
+  if [[ ! -d "$dir" ]]; then
+    echo "omawsl: Claude Code hasn't run yet, so it can't notify you - start it once, then run: omawsl notifications" >&2
+    return 0
+  fi
+  if ! command -v jq &>/dev/null; then
+    echo "omawsl: jq is missing, so Claude Code can't be set up to notify you - install it (sudo apt-get install jq), then run: omawsl notifications" >&2
+    return 0
+  fi
+  [[ -f "$file" ]] || echo '{}' > "$file"
+  if ! jq -e 'type == "object"' "$file" >/dev/null 2>&1; then
+    echo "omawsl: $file isn't valid JSON - leaving it alone, so Claude Code won't notify you. Fix it, then run: omawsl notifications" >&2
+    return 0
+  fi
+  local tmp
+  tmp="$(mktemp)"
+  jq --arg cmd "\"$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-claude-notify\"" --arg mark "$OMAWSL_CLAUDE_HOOK_MARK" '
+    def add($event; $matcher; $arg):
+      if any(.hooks[$event][]?.hooks[]?; (.command // "") | contains($mark)) then .
+      else .hooks[$event] += [
+        (if $matcher then {matcher: $matcher} else {} end)
+        + {hooks: [{type: "command", command: ($cmd + " " + $arg), async: true, timeout: 10}]}
+      ]
+      end;
+    def ours: (.command // "") | contains($mark);
+    def current: (.command // "") | startswith($cmd + " ");
+    .hooks //= {}
+    | .hooks |= with_entries(
+        if (.value | type) == "array" then
+          .value |= map(
+            if (.hooks | type) == "array" and any(.hooks[]; ours and (current | not))
+            then (.hooks |= map(select(ours and (current | not) | not))) | select((.hooks | length) > 0)
+            else . end)
+        else . end)
+    | add("Stop"; null; "stop")
+    | add("Notification"; null; "notify")
+    | add("PreToolUse"; "AskUserQuestion"; "ask")
+  ' "$file" > "$tmp" && cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# omawsl_claude_hooks_remove
+# Takes out exactly the entries omawsl_claude_hooks_install added, plus
+# any matcher group or event left empty by that. A file without them (or
+# that isn't valid JSON) is left byte-for-byte alone.
+omawsl_claude_hooks_remove() {
+  local file="$HOME/.claude/settings.json"
+  [[ -f "$file" ]] || return 0
+  grep -qF "$OMAWSL_CLAUDE_HOOK_MARK" "$file" || return 0
+  command -v jq &>/dev/null || return 0
+  jq -e 'type == "object"' "$file" >/dev/null 2>&1 || return 0
+  local tmp
+  tmp="$(mktemp)"
+  jq --arg mark "$OMAWSL_CLAUDE_HOOK_MARK" '
+    if (.hooks | type) != "object" then . else
+      .hooks |= with_entries(
+        .value |= (if type == "array" then
+          map(if (.hooks | type) == "array"
+              then .hooks |= map(select((.command // "") | contains($mark) | not))
+              else . end)
+          | map(select((.hooks | type) != "array" or (.hooks | length) > 0))
+        else . end)
+      )
+      | .hooks |= with_entries(select(.value != []))
+      | if .hooks == {} then del(.hooks) else . end
+    end
+  ' "$file" > "$tmp" && cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# omawsl_copilot_hooks_file
+# Where omawsl's GitHub Copilot CLI hooks live: Copilot loads every *.json
+# in its hooks directory ($COPILOT_HOME/hooks, else ~/.copilot/hooks).
+omawsl_copilot_hooks_file() {
+  echo "${COPILOT_HOME:-$HOME/.copilot}/hooks/omawsl.json"
+}
+
+# omawsl_copilot_hooks_install
+# Points Copilot CLI's agentStop and notification hooks at
+# bin/omawsl-copilot-notify. The file is omawsl's own, so it's written
+# whole every time - a moved checkout is repointed for free, and re-runs
+# never duplicate anything. Only when Copilot is installed or chosen, so a
+# machine without it gets no ~/.copilot.
+omawsl_copilot_hooks_install() {
+  command -v copilot &>/dev/null ||
+    omawsl_list_has "$(omawsl_load_choice OMAWSL_EDITORS)" "GitHub Copilot CLI" ||
+    return 0
+  local file cmd
+  file="$(omawsl_copilot_hooks_file)"
+  cmd="\\\"$OMAWSL_HERDR_REPO_ROOT/bin/omawsl-copilot-notify\\\""
+  mkdir -p "$(dirname "$file")"
+  cat > "$file" <<EOF
+{
+  "version": 1,
+  "hooks": {
+    "agentStop": [{"type": "command", "bash": "$cmd stop", "timeoutSec": 10}],
+    "notification": [{"type": "command", "bash": "$cmd notify", "timeoutSec": 10}]
+  }
+}
+EOF
+}
+
+# omawsl_copilot_hooks_remove
+# Deletes omawsl's hooks file; Copilot's other hook files stay.
+omawsl_copilot_hooks_remove() {
+  rm -f "$(omawsl_copilot_hooks_file)"
+}
+
+# omawsl_herdr_setup_notifications <sound|off>
+# Everything one notifications choice needs. Sound: paplay
+# (pulseaudio-utils) and Ubuntu's own sounds (sound-theme-freedesktop),
+# played through WSLg's PulseAudio server - nothing on the Windows side.
+# Sound also gets the Claude Code and Copilot CLI hooks that play them;
+# off removes those. Herdr's own alerts are always switched off. Fails
+# only when a package can't be installed, so callers can keep the previous
+# choice. Missing WSLg only warns - the choice still applies once it's
+# there.
+omawsl_herdr_setup_notifications() {
+  local slug="$1"
+  if [[ "$slug" == sound ]]; then
+    local sounds="${OMAWSL_NOTIFY_SOUND_DIR:-/usr/share/sounds/freedesktop/stereo}"
+    if ! command -v paplay &>/dev/null || [[ ! -f "$sounds/complete.oga" ]]; then
+      sudo apt-get install -y pulseaudio-utils sound-theme-freedesktop || true
+      hash -r
+    fi
+    if ! command -v paplay &>/dev/null; then
+      echo "omawsl: couldn't install pulseaudio-utils (paplay) - agents can't play sounds without it." >&2
+      return 1
+    fi
+    if [[ ! -f "$sounds/complete.oga" ]]; then
+      echo "omawsl: couldn't install sound-theme-freedesktop - agents have no sounds to play without it." >&2
+      return 1
+    fi
+    [[ -n "${PULSE_SERVER:-}" ]] ||
+      echo "omawsl: no WSLg audio here (PULSE_SERVER is unset) - sounds won't be heard until WSLg is available." >&2
+  fi
+  case "$slug" in
+    off)
+      omawsl_claude_hooks_remove
+      omawsl_copilot_hooks_remove
+      ;;
+    *)
+      omawsl_claude_hooks_install
+      omawsl_copilot_hooks_install
+      ;;
+  esac
+  omawsl_herdr_apply_notifications
+}
+
 # omawsl_zellij_current_theme
 # The omawsl theme currently applied, read back from zellij's config -
 # `omawsl theme` rewrites its `theme "..."` line on every run, so it's the
@@ -68,7 +278,10 @@ omawsl_zellij_current_theme() {
 # path. Copy-if-absent like omawsl_install_zellij_config - a user's own
 # Herdr config is never touched. A freshly deployed config then adopts
 # whatever omawsl theme is already applied, so switching to Herdr months
-# after picking a theme doesn't revert Herdr's chrome to tokyo-night.
+# after picking a theme doesn't revert Herdr's chrome to tokyo-night. Same
+# for a notifications choice saved before Herdr's config existed (the
+# first-run question) - a setup failure there only warns, it never stops
+# the install.
 omawsl_install_herdr_config() {
   local config_file="$HOME/.config/herdr/config.toml"
   [[ -f "$config_file" ]] && return 0
@@ -78,6 +291,41 @@ omawsl_install_herdr_config() {
   theme="$(omawsl_zellij_current_theme)"
   if [[ -n "$theme" ]]; then
     omawsl_herdr_apply_theme "$theme"
+  fi
+  local notifications
+  notifications="$(omawsl_load_choice OMAWSL_HERDR_NOTIFICATIONS)"
+  if [[ -n "$notifications" ]]; then
+    omawsl_herdr_setup_notifications "$notifications" ||
+      echo "omawsl: Herdr notifications not fully set up - retry with: omawsl notifications $notifications" >&2
+  fi
+}
+
+# omawsl_herdr_handoff_if_stale
+# After `omawsl update` replaces Herdr's binary, a running server is still
+# the old version, running from a file that no longer exists - anything it
+# starts from its own path fails, and on 2026-10-16 it also read every Alt
+# chord as Ctrl+Alt until it was restarted. Hands the live panes over to a
+# fresh server from the new binary, the way `herdr server live-handoff`
+# is meant to be used after an update (--import-exe, because the old
+# server's own path is gone). No server, or one already current: nothing
+# to do. A failed handoff only prints the command to finish it by hand -
+# the update itself still worked.
+omawsl_herdr_handoff_if_stale() {
+  command -v herdr &>/dev/null || return 0
+  command -v jq &>/dev/null || return 0
+  local bin new
+  bin="$(command -v herdr)"
+  new="$(herdr --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
+  [[ -n "$new" ]] || return 0
+  herdr status server --json 2>/dev/null |
+    jq -e --arg v "$new" '.running == true and (.version != $v or .server_binary_stale == true)' >/dev/null 2>&1 ||
+    return 0
+  local out
+  if out="$(herdr server live-handoff --import-exe "$bin" --expected-version "$new" 2>&1)" &&
+    ! jq -e '.error' <<< "$out" >/dev/null 2>&1; then
+    echo "omawsl: moved your Herdr session to the new server ($new)."
+  else
+    echo "omawsl: Herdr $new is installed, but your running session is still on the old server. Finish with: herdr server live-handoff --import-exe $bin --expected-version $new"
   fi
 }
 
