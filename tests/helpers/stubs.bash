@@ -5,6 +5,11 @@
 STUB_LOG=""
 export STUB_LOG
 
+# The suite runs on a real WSL machine, so no test may find the real
+# /mnt/c/Users: omawsl_windows_userprofile looks here instead. A test that
+# needs a Windows profile builds one under its own BATS_TEST_TMPDIR.
+export OMAWSL_WINDOWS_USERS_DIR=/nonexistent/omawsl-tests-have-no-windows-side
+
 # Registry root for stub_command_output_for's per-command accumulated
 # matchers - see that function for why this exists.
 STUB_OUTPUT_REGISTRY_ROOT=""

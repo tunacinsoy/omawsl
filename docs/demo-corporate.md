@@ -120,9 +120,9 @@
       bin/omawsl theme tokyo-night
       ```
       Say while each one lands: "Watch the Windows Terminal color scheme change too — that's
-      not manual. This is the one deliberate exception to omawsl never touching Windows-side
-      files automatically: it's a local JSON edit to an app you already have installed, backed
-      up first, not a network install."
+      not manual. omawsl only writes color settings into apps you already have installed,
+      backed up first - it never starts a Windows program, so nothing here trips IT's
+      security tools."
       ⭐ Why this matters: Windows Terminal theme auto-sync — a real, visible payoff with zero
       manual Windows-side steps.
 

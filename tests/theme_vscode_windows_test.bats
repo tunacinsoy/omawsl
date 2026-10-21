@@ -7,44 +7,32 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
-  WINHOME="$BATS_TEST_TMPDIR/winhome"
-  mkdir -p "$WINHOME"
-
-  cmd.exe() {
-    echo "cmd.exe $*" >> "$STUB_LOG"
-    if [[ "$*" == *USERPROFILE* ]]; then
-      printf 'C:\\Users\\testuser\r\n'
-    fi
-  }
-  export -f cmd.exe
-
-  wslpath() {
-    echo "$WINHOME"
-  }
-  export -f wslpath
-
-  # Points the cmd.exe fallback at a path that deliberately doesn't
-  # exist, so the "cmd.exe unreachable" test below stays deterministic
-  # even on a real WSL2 box, where the real fallback path genuinely
-  # exists on disk regardless of what stub_hide_command does to $PATH.
-  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/Users"
+  WINHOME="$OMAWSL_WINDOWS_USERS_DIR/testuser"
+  mkdir -p "$WINHOME/AppData"
+  TOKYO="$REPO_ROOT/themes/tokyo-night"
+  TOKYO_BG="$(jq -r .background "$TOKYO/vscode-palette.json")"
 
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/themes/set-vscode-theme.sh"
   command -v jq &>/dev/null || skip "jq not installed on this test host"
 }
 
-@test "omawsl_theme_apply_vscode patches the native Windows Code and Cursor settings.json when they exist" {
+@test "omawsl_theme_apply_vscode writes the theme's colors into the native Windows Code and Cursor settings.json" {
   local code_dir="$WINHOME/AppData/Roaming/Code/User"
   local cursor_dir="$WINHOME/AppData/Roaming/Cursor/User"
   mkdir -p "$code_dir" "$cursor_dir"
   echo '{"editor.fontSize": 14}' > "$code_dir/settings.json"
   echo '{"editor.fontSize": 14}' > "$cursor_dir/settings.json"
 
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
-  [[ "$(jq -r '.["workbench.colorTheme"]' "$code_dir/settings.json")" == "Tokyo Night" ]]
-  [[ "$(jq -r '.["workbench.colorTheme"]' "$cursor_dir/settings.json")" == "Tokyo Night" ]]
+  local f
+  for f in "$code_dir/settings.json" "$cursor_dir/settings.json"; do
+    [ "$(jq -r '.["workbench.colorTheme"]' "$f")" = "Default Dark Modern" ]
+    [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]' "$f")" = "$TOKYO_BG" ]
+    [ "$(jq -r '.["editor.fontSize"]' "$f")" = 14 ]
+  done
   [ -f "$code_dir/settings.json.bak" ]
   [ -f "$cursor_dir/settings.json.bak" ]
 }
@@ -59,28 +47,28 @@ setup() {
 }
 EOF
 
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
   grep -qF '// native user settings' "$code_dir/settings.json"
-  [[ "$(omawsl_strip_jsonc_comments "$code_dir/settings.json" | jq -r '.["workbench.colorTheme"]')" == "Tokyo Night" ]]
+  [ "$(omawsl_strip_jsonc_comments "$code_dir/settings.json" | jq -r '.["workbench.colorTheme"]')" = "Default Dark Modern" ]
+  [ "$(omawsl_strip_jsonc_comments "$code_dir/settings.json" | jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]')" = "$TOKYO_BG" ]
 }
 
 @test "omawsl_theme_apply_vscode skips the native sync when neither native settings.json exists" {
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
   [ ! -d "$WINHOME/AppData/Roaming/Code" ]
   [ ! -d "$WINHOME/AppData/Roaming/Cursor" ]
 }
 
 @test "omawsl_theme_apply_vscode skips the native sync entirely when the Windows profile can't be resolved, but still syncs Remote-WSL settings" {
-  unset -f cmd.exe
-  stub_hide_command cmd.exe
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/no-such-dir"
   mkdir -p "$HOME/.vscode-server/data/Machine"
   cp "$REPO_ROOT/configs/vscode.json" "$HOME/.vscode-server/data/Machine/settings.json"
 
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
-  [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" == "Tokyo Night" ]]
+  [ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" = "Default Dark Modern" ]
   [ ! -d "$WINHOME/AppData/Roaming/Code" ]
   [ ! -d "$WINHOME/AppData/Roaming/Cursor" ]
 }
@@ -95,26 +83,43 @@ EOF
   mkdir -p "$code_dir"
   [ ! -f "$code_dir/User/settings.json" ]
 
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
   [ -f "$code_dir/User/settings.json" ]
-  [[ "$(jq -r '.["workbench.colorTheme"]' "$code_dir/User/settings.json")" == "Tokyo Night" ]]
+  [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]' "$code_dir/User/settings.json")" = "$TOKYO_BG" ]
 }
 
 @test "omawsl_theme_apply_vscode does not create a settings.json for an app whose top-level data dir doesn't exist at all" {
   # Distinguishes "app installed, never customized" (create it) from "app
   # not installed" (don't invent config for software that isn't there).
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
   [ ! -d "$WINHOME/AppData/Roaming/Code" ]
   [ ! -d "$WINHOME/AppData/Roaming/Cursor" ]
 }
 
-@test "omawsl_theme_apply_vscode with an empty extension id sets the theme but installs nothing" {
+@test "omawsl_theme_apply_vscode never starts a program: no code, no cmd.exe, no powershell.exe" {
+  mkdir -p "$WINHOME/AppData/Roaming/Code/User"
+  echo '{}' > "$WINHOME/AppData/Roaming/Code/User/settings.json"
   code() { echo "code $*" >> "$STUB_LOG"; }
-  export -f code
-  omawsl_code_reachable() { return 0; }
-  run omawsl_theme_apply_vscode "Solarized Dark" ""
+  cmd.exe() { echo "cmd.exe $*" >> "$STUB_LOG"; }
+  powershell.exe() { echo "powershell.exe $*" >> "$STUB_LOG"; }
+  export -f code cmd.exe powershell.exe
+  run omawsl_theme_apply_vscode "$TOKYO"
   [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" != *"--install-extension"* ]]
+  [ -z "$(stub_calls)" ]
+}
+
+@test "omawsl_theme_apply_vscode gives a light theme VS Code's light base, and keeps only one omawsl color block" {
+  local f="$WINHOME/AppData/Roaming/Code/User/settings.json"
+  mkdir -p "$(dirname "$f")"
+  echo '{"workbench.colorCustomizations": {"editor.lineHighlightBorder": "#ff0000"}}' > "$f"
+  omawsl_theme_apply_vscode "$TOKYO"
+  run omawsl_theme_apply_vscode "$REPO_ROOT/themes/rose-pine"
+  [ "$status" -eq 0 ]
+  [ "$(jq -r '.["workbench.colorTheme"]' "$f")" = "Default Light Modern" ]
+  [ "$(jq -c '.["workbench.colorCustomizations"] | keys' "$f")" = '["[Default Light Modern]","editor.lineHighlightBorder"]' ]
+  [ "$(jq -c '.["editor.tokenColorCustomizations"] | keys' "$f")" = '["[Default Light Modern]"]' ]
+  [ "$(jq -r '.["editor.semanticTokenColorCustomizations"]["[Default Light Modern]"].enabled' "$f")" = true ]
+  [ "$(jq -r '.["editor.tokenColorCustomizations"]["[Default Light Modern]"].textMateRules | length > 0' "$f")" = true ]
 }

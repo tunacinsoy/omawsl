@@ -7,85 +7,52 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
-  WINHOME="$BATS_TEST_TMPDIR/winhome"
-  mkdir -p "$WINHOME"
-
-  cmd.exe() {
-    if [[ "$*" == *USERPROFILE* ]]; then
-      printf 'C:\\Users\\testuser\r\n'
-    fi
-  }
-  export -f cmd.exe
-
-  wslpath() {
-    echo "$WINHOME"
-  }
-  export -f wslpath
-
-  # Points the cmd.exe fallback at a path that deliberately doesn't
-  # exist, so tests stay deterministic regardless of whether they run on
-  # a real WSL2 box (where the real fallback path genuinely exists) or
-  # CI (where it doesn't). Tests exercising the fallback itself override
-  # this to a fake executable.
-  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/Users"
+  WINHOME="$OMAWSL_WINDOWS_USERS_DIR/testuser"
+  mkdir -p "$WINHOME/AppData" "$OMAWSL_WINDOWS_USERS_DIR/Public" "$OMAWSL_WINDOWS_USERS_DIR/Default/AppData" \
+    "$OMAWSL_WINDOWS_USERS_DIR/Default User" "$OMAWSL_WINDOWS_USERS_DIR/All Users"
+  touch "$OMAWSL_WINDOWS_USERS_DIR/desktop.ini"
 
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/bin/omawsl-sub/windows-terminal.sh"
   command -v jq &>/dev/null || skip "jq not installed on this test host"
 }
 
-@test "omawsl_windows_userprofile resolves via cmd.exe and wslpath" {
+@test "omawsl_windows_userprofile finds the one real profile, skipping Windows' own folders" {
   run omawsl_windows_userprofile
   [ "$status" -eq 0 ]
   [ "$output" = "$WINHOME" ]
 }
 
-@test "omawsl_windows_userprofile fails cleanly when cmd.exe isn't reachable" {
-  unset -f cmd.exe
-  stub_hide_command cmd.exe
-  run omawsl_windows_userprofile
-  [ "$status" -ne 0 ]
-}
-
-@test "omawsl_resolve_cmd_exe falls back to the fixed path when cmd.exe isn't on \$PATH" {
-  unset -f cmd.exe
-  stub_hide_command cmd.exe
-  local fake_cmd="$BATS_TEST_TMPDIR/fake-cmd.exe"
-  cat > "$fake_cmd" <<'SCRIPT'
-#!/usr/bin/env bash
-echo "fallback-invoked $*"
-SCRIPT
-  chmod +x "$fake_cmd"
-  export OMAWSL_CMD_EXE_FALLBACK="$fake_cmd"
-
-  run omawsl_resolve_cmd_exe
-  [ "$status" -eq 0 ]
-  [ "$output" = "$fake_cmd" ]
-}
-
-@test "omawsl_resolve_cmd_exe fails cleanly when neither \$PATH nor the fallback path have cmd.exe" {
-  unset -f cmd.exe
-  stub_hide_command cmd.exe
-  run omawsl_resolve_cmd_exe
-  [ "$status" -ne 0 ]
-}
-
-@test "omawsl_windows_userprofile uses the cmd.exe fallback path when appendWindowsPath is false" {
-  unset -f cmd.exe
-  stub_hide_command cmd.exe
-  local fake_cmd="$BATS_TEST_TMPDIR/fake-cmd.exe"
-  cat > "$fake_cmd" <<'SCRIPT'
-#!/usr/bin/env bash
-if [[ "$*" == *USERPROFILE* ]]; then
-  printf 'C:\\Users\\testuser\r\n'
-fi
-SCRIPT
-  chmod +x "$fake_cmd"
-  export OMAWSL_CMD_EXE_FALLBACK="$fake_cmd"
-
+@test "omawsl_windows_userprofile never starts a Windows program" {
+  local log="$BATS_TEST_TMPDIR/windows-calls"
+  cmd.exe() { echo "cmd.exe $*" >> "$log"; }
+  powershell.exe() { echo "powershell.exe $*" >> "$log"; }
+  export -f cmd.exe powershell.exe
   run omawsl_windows_userprofile
   [ "$status" -eq 0 ]
-  [ "$output" = "$WINHOME" ]
+  [ ! -e "$log" ]
+}
+
+@test "omawsl_windows_userprofile picks the profile named like the Linux user when there are several" {
+  mkdir -p "$OMAWSL_WINDOWS_USERS_DIR/admin-account/AppData" "$OMAWSL_WINDOWS_USERS_DIR/Me/AppData"
+  USER=me run omawsl_windows_userprofile
+  [ "$status" -eq 0 ]
+  [ "$output" = "$OMAWSL_WINDOWS_USERS_DIR/Me" ]
+}
+
+@test "omawsl_windows_userprofile fails with a hint when it can't tell which profile is yours" {
+  mkdir -p "$OMAWSL_WINDOWS_USERS_DIR/admin-account/AppData"
+  USER=someone-else run omawsl_windows_userprofile
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"several Windows profiles"*"admin-account"*"testuser"* ]]
+}
+
+@test "omawsl_windows_userprofile fails quietly without a Windows side" {
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/no-such-dir"
+  run omawsl_windows_userprofile
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
 }
 
 @test "omawsl_windows_terminal_settings_path finds the Store-package path first" {
@@ -143,9 +110,7 @@ SCRIPT
 }
 
 @test "omawsl_theme_apply_windows_terminal skips gracefully when jq isn't reachable" {
-  stub_hide_command jq wslpath
-  wslpath() { echo "$WINHOME"; }
-  export -f wslpath
+  stub_hide_command jq
   run omawsl_theme_apply_windows_terminal "$REPO_ROOT/themes/tokyo-night/windows-terminal-scheme.json"
   [ "$status" -eq 0 ]
   [[ "$output" == *"jq"* ]]

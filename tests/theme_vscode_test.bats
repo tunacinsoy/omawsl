@@ -7,28 +7,6 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
-  WINHOME="$BATS_TEST_TMPDIR/winhome"
-  mkdir -p "$WINHOME"
-
-  cmd.exe() {
-    echo "cmd.exe $*" >> "$STUB_LOG"
-    if [[ "$*" == *USERPROFILE* ]]; then
-      printf 'C:\\Users\\testuser\r\n'
-    fi
-  }
-  export -f cmd.exe
-
-  wslpath() {
-    echo "$WINHOME"
-  }
-  export -f wslpath
-
-  # Points the cmd.exe fallback at a path that deliberately doesn't
-  # exist, so the "cmd.exe unreachable" test below stays deterministic
-  # even on a real WSL2 box, where the real fallback path genuinely
-  # exists on disk regardless of what stub_hide_command does to $PATH.
-  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
-
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/themes/set-vscode-theme.sh"
   command -v jq &>/dev/null || skip "jq not installed on this test host"
@@ -50,74 +28,30 @@ setup() {
   [ ! -f "$HOME/.vscode-server/data/Machine/settings.json" ]
 }
 
-@test "omawsl_theme_apply_vscode patches both VS Code and Cursor settings, installs only the VS Code extension" {
+@test "omawsl_theme_apply_vscode gives both Remote-WSL settings files the theme's colors" {
   mkdir -p "$HOME/.vscode-server/data/Machine" "$HOME/.cursor-server/data/Machine"
   cp "$REPO_ROOT/configs/vscode.json" "$HOME/.vscode-server/data/Machine/settings.json"
   cp "$REPO_ROOT/configs/vscode.json" "$HOME/.cursor-server/data/Machine/settings.json"
-  stub_command code
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+  run omawsl_theme_apply_vscode "$REPO_ROOT/themes/tokyo-night"
   [ "$status" -eq 0 ]
-  [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" == "Tokyo Night" ]]
-  [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.cursor-server/data/Machine/settings.json")" == "Tokyo Night" ]]
-  [[ "$(stub_calls)" == *"code --install-extension enkia.tokyo-night"* ]]
+  local f bg
+  bg="$(jq -r .background "$REPO_ROOT/themes/tokyo-night/vscode-palette.json")"
+  for f in "$HOME/.vscode-server/data/Machine/settings.json" "$HOME/.cursor-server/data/Machine/settings.json"; do
+    [ "$(jq -r '.["workbench.colorTheme"]' "$f")" = "Default Dark Modern" ]
+    [ "$(jq -r '.["workbench.colorCustomizations"]["[Default Dark Modern]"]["editor.background"]' "$f")" = "$bg" ]
+  done
 }
 
-@test "omawsl_theme_apply_vscode isolates a failing WSL-side code --install-extension instead of aborting the rest of the sync" {
-  # Real-world trigger (confirmed live): `code` can be genuinely reachable
-  # on PATH via /mnt/c interop yet still fail to actually run (e.g. "Exec
-  # format error" from a broken/misconfigured Remote-WSL interop setup on
-  # a given machine) - a third-party tool failure, not something omawsl's
-  # own code controls. That shouldn't abort the rest of the theme sync,
-  # same as the cmd.exe native-install path right below it is already
-  # isolated.
-  mkdir -p "$HOME/.vscode-server/data/Machine"
-  cp "$REPO_ROOT/configs/vscode.json" "$HOME/.vscode-server/data/Machine/settings.json"
-  code() { echo "code $*" >> "$STUB_LOG"; return 1; }
-  export -f code
-  # theme.sh/set-vscode-theme.sh run under `set -euo pipefail`. bats' `run`
-  # normally disables errexit for the duration of the call (masking this
-  # exact bug), so force it back on via BATS_RUN_ERREXIT to actually
-  # exercise set -e behavior.
-  BATS_RUN_ERREXIT=1 run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
+@test "omawsl_theme_apply_vscode carries on past a broken settings file, even under set -e" {
+  mkdir -p "$HOME/.vscode-server/data/Machine" "$HOME/.cursor-server/data/Machine"
+  printf 'not valid json {{{\n' > "$HOME/.vscode-server/data/Machine/settings.json"
+  cp "$REPO_ROOT/configs/vscode.json" "$HOME/.cursor-server/data/Machine/settings.json"
+  # theme.sh/set-vscode-theme.sh run under `set -euo pipefail`; bats' `run`
+  # normally turns errexit off, so force it back on.
+  BATS_RUN_ERREXIT=1 run omawsl_theme_apply_vscode "$REPO_ROOT/themes/tokyo-night"
   [ "$status" -eq 0 ]
-  [[ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.vscode-server/data/Machine/settings.json")" == "Tokyo Night" ]]
-  [[ "$(stub_calls)" == *"code --install-extension enkia.tokyo-night"* ]]
-  [[ "$(stub_calls)" == *"cmd.exe /c set NODE_NO_WARNINGS=1&&code --install-extension enkia.tokyo-night"* ]]
-}
-
-@test "omawsl_theme_apply_vscode skips the extension install when code isn't reachable" {
-  stub_hide_command code
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" != *"code --install-extension"* ]]
-}
-
-@test "omawsl_theme_apply_vscode also installs the extension via cmd.exe, not just the WSL-side code CLI" {
-  # code --install-extension invoked directly from a WSL shell only ever
-  # reaches the Remote-WSL extension host (~/.vscode-server/extensions),
-  # never the native Windows-side store, even though `code` itself
-  # resolves to the same native binary via /mnt/c interop - confirmed
-  # live on a real machine (a fresh extension installed the WSL-side way
-  # never appeared in `code --list-extensions` run natively on Windows).
-  # Routing the same install through `cmd.exe /c "..."` - a genuinely
-  # native Windows process - lands it in the native store instead, also
-  # confirmed live. Without this, workbench.colorTheme in the native
-  # settings.json points at a theme VS Code can never resolve, so the
-  # native app silently never shows the new theme.
-  stub_command code
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"cmd.exe /c set NODE_NO_WARNINGS=1&&code --install-extension enkia.tokyo-night"* ]]
-}
-
-@test "omawsl_theme_apply_vscode skips the cmd.exe extension install when cmd.exe isn't reachable, but still installs via the WSL-side code CLI" {
-  unset -f cmd.exe
-  stub_hide_command cmd.exe
-  stub_command code
-  run omawsl_theme_apply_vscode "Tokyo Night" "enkia.tokyo-night"
-  [ "$status" -eq 0 ]
-  [[ "$(stub_calls)" == *"code --install-extension enkia.tokyo-night"* ]]
-  [[ "$(stub_calls)" != *"cmd.exe /c"* ]]
+  [ "$(cat "$HOME/.vscode-server/data/Machine/settings.json")" = "not valid json {{{" ]
+  [ "$(jq -r '.["workbench.colorTheme"]' "$HOME/.cursor-server/data/Machine/settings.json")" = "Default Dark Modern" ]
 }
 
 @test "omawsl_theme_set_vscode_settings backs up the file before editing" {
@@ -240,4 +174,42 @@ EOF
   [ "$status" -eq 0 ]
   grep -qF '// active theme' "$settings"
   [[ "$(omawsl_strip_jsonc_comments "$settings" | jq -r '.["workbench.colorTheme"]')" == "Ocean Green: Dark" ]]
+}
+
+@test "omawsl_json_update_value merges into an object setting and keeps the user's own entries" {
+  local settings="$BATS_TEST_TMPDIR/settings.json"
+  echo '{"workbench.colorCustomizations": {"editor.background": "#000000"}, "editor.fontSize": 14}' > "$settings"
+  run omawsl_json_update_value "$settings" workbench.colorCustomizations '(. // {}) + {"[Default Dark Modern]": $v}' '{"focusBorder": "#f38d70"}'
+  [ "$status" -eq 0 ]
+  [ "$(jq -c '.["workbench.colorCustomizations"]' "$settings")" = '{"editor.background":"#000000","[Default Dark Modern]":{"focusBorder":"#f38d70"}}' ]
+  [ "$(jq -r '.["editor.fontSize"]' "$settings")" = 14 ]
+}
+
+@test "omawsl_json_update_value adds a missing object setting to a JSONC file on one line, keeping comments" {
+  local settings="$BATS_TEST_TMPDIR/settings.json"
+  printf '{\n  // mine\n  "editor.fontSize": 14\n}\n' > "$settings"
+  run omawsl_json_update_value "$settings" workbench.colorCustomizations '(. // {}) + {"[Default Dark Modern]": $v}' '{"focusBorder": "#f38d70"}'
+  [ "$status" -eq 0 ]
+  grep -qF '// mine' "$settings"
+  grep -qxF '  "workbench.colorCustomizations": {"[Default Dark Modern]":{"focusBorder":"#f38d70"}},' "$settings"
+  [ "$(omawsl_strip_jsonc_comments "$settings" | jq -r '.["editor.fontSize"]')" = 14 ]
+}
+
+@test "omawsl_json_update_value updates a one-line object setting in a JSONC file in place" {
+  local settings="$BATS_TEST_TMPDIR/settings.json"
+  printf '{\n  // mine\n  "workbench.colorCustomizations": {"editor.background":"#000000","[Default Dark Modern]":{"focusBorder":"#111111"}},\n  "editor.fontSize": 14\n}\n' > "$settings"
+  run omawsl_json_update_value "$settings" workbench.colorCustomizations '(. // {}) + {"[Default Dark Modern]": $v}' '{"focusBorder": "#f38d70"}'
+  [ "$status" -eq 0 ]
+  grep -qF '// mine' "$settings"
+  [ "$(omawsl_strip_jsonc_comments "$settings" | jq -c '.["workbench.colorCustomizations"]')" = '{"editor.background":"#000000","[Default Dark Modern]":{"focusBorder":"#f38d70"}}' ]
+}
+
+@test "omawsl_json_update_value leaves a hand-written multi-line setting in a JSONC file alone and says so" {
+  local settings="$BATS_TEST_TMPDIR/settings.json"
+  printf '{\n  // mine\n  "workbench.colorCustomizations": {\n    "editor.background": "#000000"\n  }\n}\n' > "$settings"
+  local before; before="$(cat "$settings")"
+  run omawsl_json_update_value "$settings" workbench.colorCustomizations '(. // {}) + {"[Default Dark Modern]": $v}' '{"focusBorder": "#f38d70"}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"workbench.colorCustomizations"*"spans several lines"* ]]
+  [ "$(cat "$settings")" = "$before" ]
 }

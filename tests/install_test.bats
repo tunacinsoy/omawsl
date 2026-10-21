@@ -24,10 +24,9 @@ setup() {
   stub_command gem
   stub_command tar
   stub_command gh
-  # cmd.exe hidden + fallback pointed nowhere: keeps this run off this
-  # machine's real Windows side (see omawsl_cli_test.bats's setup).
-  stub_hide_command docker terraform az gcloud aws lazydocker zellij lazygit fastfetch starship code cursor claude codex agy opencode copilot herdr cmd.exe
-  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
+  # The real Windows side stays out of reach through tests/helpers/stubs.bash
+  # (see omawsl_cli_test.bats's setup).
+  stub_hide_command docker terraform az gcloud aws lazydocker zellij lazygit fastfetch starship code cursor claude codex agy opencode copilot herdr
 
   export OMAWSL_WSL_CONF_FILE="$BATS_TEST_TMPDIR/wsl.conf"
   printf '[boot]\nsystemd=true\n' > "$OMAWSL_WSL_CONF_FILE"
