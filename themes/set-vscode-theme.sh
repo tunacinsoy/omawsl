@@ -2,6 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Kept apart from SCRIPT_DIR, which scripts sourced after this one reset.
+OMAWSL_VSCODE_THEMES_DIR="$SCRIPT_DIR"
 # shellcheck source=../install/lib.sh
 source "$SCRIPT_DIR/../install/lib.sh"
 
@@ -29,68 +31,60 @@ omawsl_native_vscode_settings_path() {
   echo "$1/AppData/Roaming/Code/User/settings.json"
 }
 
-# omawsl_json_set_string_value <settings_file> <key> <value>
-# Merges a single string-valued key into an existing VS Code/Cursor-shaped
-# settings.json, whether it's strict JSON (every omawsl-deployed
-# Remote-WSL machine-settings file) or JSONC with comments (typical of
-# a hand-edited native settings.json - design spec "Sync theme to
-# native Windows-side VS Code/Cursor" §"The JSONC problem"). No-ops if
-# the settings file doesn't exist yet or if jq isn't reachable. Always
-# backs up to <settings_file>.bak first and re-validates its own edit
+# omawsl_json_update_value <settings_file> <key> <jq_filter> [<json>]
+# Sets one top-level key of a VS Code/Cursor-shaped settings.json to
+# <jq_filter> applied to the key's current value (null when missing), with
+# <json> available to the filter as $v - so a caller can merge into an
+# object the user also writes to (their own colorCustomizations stay) or
+# just replace a value. Works on strict JSON (every omawsl-deployed
+# Remote-WSL machine-settings file) and on JSONC with comments (typical of
+# a hand-edited native settings.json - design spec "Sync theme to native
+# Windows-side VS Code/Cursor" §"The JSONC problem"). No-ops if the file
+# doesn't exist yet or jq isn't reachable. Backs up to <settings_file>.bak
+# first - unless OMAWSL_JSON_NO_BACKUP=1, for a caller making several edits
+# that took one backup before the first - and re-validates its own edit
 # before committing - a corrupted settings.json breaks the user's whole
-# editor, not just whichever setting this call is for.
+# editor.
 #
-# Generalized from the original theme-only merge (still exposed below as
-# omawsl_theme_set_vscode_settings, a thin wrapper, so every existing
-# caller/test keeps working unchanged) so the same JSONC-safe machinery
-# can also deploy other single-string settings, like "update.mode".
-#
-# <value> is NOT letters-and-spaces-only - real values include
-# "Ocean Green: Dark", "Monokai Pro (Filter Ristretto)", "Rosé Pine
-# Dawn" (see themes/*/vscode.sh). The JSONC-fallback path below never
-# interpolates it into a sed s/// or awk sub() replacement (both treat
-# '&' and '\' specially, and a stray '/' would break a sed script that
-# uses '/' as its delimiter, which could abort the whole `bin/omawsl
-# theme` run under set -e) - it's spliced in via plain bash string
-# concatenation instead, then reprinted with awk's `print` (never
-# `sub()`/`gsub()`), which has no replacement-text metacharacter
-# handling at all.
-omawsl_json_set_string_value() {
-  local settings_file="$1" key="$2" value="$3"
+# JSONC is edited line by line so comments survive: a missing key is
+# inserted on one line right after the first '{'; an existing one is
+# replaced in place when its value is a string, or an object/array written
+# on that one line (how omawsl writes them). A value spread over several
+# lines is someone's own hand-written setting and is left alone, with a
+# message. New text is spliced in with bash string concatenation and
+# printed with awk's `print` (never sub()/gsub() or sed s///), so '&', '\'
+# or '/' in a value - "Rosé Pine Dawn", "Ocean Green: Dark" - can't break
+# the edit.
+omawsl_json_update_value() {
+  local settings_file="$1" key="$2" filter="$3" value="${4:-null}"
   [[ -f "$settings_file" ]] || return 0
   command -v jq &>/dev/null || return 0
 
-  cp "$settings_file" "$settings_file.bak" || {
+  if [[ "${OMAWSL_JSON_NO_BACKUP:-}" != 1 ]] && ! cp "$settings_file" "$settings_file.bak"; then
     echo "omawsl: couldn't back up $settings_file - skipping the $key sync." >&2
     echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
     return 0
-  }
+  fi
 
-  # Fast path: strict JSON, no comments - merge directly with jq. jq's
-  # --arg safely handles any value, no escaping concerns here.
+  # Fast path: strict JSON, no comments - jq edits it directly.
   if jq empty "$settings_file" 2>/dev/null; then
     local tmp
     tmp="$(mktemp)"
-    jq --arg key "$key" --arg val "$value" '.[$key] = $val' "$settings_file" > "$tmp"
-    cp "$tmp" "$settings_file" || {
+    if ! jq --arg key "$key" --argjson v "$value" ".[\$key] |= ($filter)" "$settings_file" > "$tmp" ||
+      ! cp "$tmp" "$settings_file"; then
       echo "omawsl: couldn't write to $settings_file - skipping the $key sync." >&2
       echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
-      rm -f "$tmp"
-      return 0
-    }
+    fi
     rm -f "$tmp"
     return 0
   fi
 
-  # JSONC fallback: jq couldn't parse it directly (comments, most
-  # likely). Strip comments into a throwaway scratch copy purely to (a)
-  # confirm the file is otherwise structurally valid and (b) check
-  # whether the key already exists - the real edit below never touches
-  # the scratch copy, only the original comment-containing file.
+  # JSONC: a comment-stripped scratch copy only confirms the file is
+  # otherwise valid and tells whether the key exists - the edit below goes
+  # to the original, comments and all.
   local stripped
   stripped="$(mktemp)"
   omawsl_strip_jsonc_comments "$settings_file" > "$stripped"
-
   if ! jq empty "$stripped" 2>/dev/null; then
     echo "omawsl: $settings_file isn't valid JSON - skipping the $key sync." >&2
     echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
@@ -98,41 +92,46 @@ omawsl_json_set_string_value() {
     return 0
   fi
 
-  local tmp_edited key_re
+  local tmp_edited key_re line_no old_line new_line new_value
   tmp_edited="$(mktemp)"
   key_re="${key//./\\.}"
   if jq -e --arg key "$key" 'has($key)' "$stripped" >/dev/null; then
-    local line_no old_line new_line
     line_no="$(grep -n "\"$key_re\"" "$settings_file" | head -1 | cut -d: -f1)"
     old_line="$(sed -n "${line_no}p" "$settings_file")"
-    if [[ "$old_line" =~ ^(.*\"$key_re\"[[:space:]]*:[[:space:]]*)\"[^\"]*\"(.*)$ ]]; then
-      printf -v new_line '%s"%s"%s' "${BASH_REMATCH[1]}" "$value" "${BASH_REMATCH[2]}"
-      awk -v n="$line_no" -v content="$new_line" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
+    local prefix old_value rest
+    local key_part="^(.*\"$key_re\"[[:space:]]*:[[:space:]]*)"
+    local string_value='("([^"\\]|\\.)*")(.*)$'
+    local object_value='([[{].*[]}])([[:space:]]*,?[[:space:]]*)$'
+    if [[ "$old_line" =~ $key_part$string_value ]]; then
+      prefix="${BASH_REMATCH[1]}" old_value="${BASH_REMATCH[2]}" rest="${BASH_REMATCH[4]}"
+    elif [[ "$old_line" =~ $key_part$object_value ]] &&
+      jq empty <<< "${BASH_REMATCH[2]}" 2>/dev/null; then
+      prefix="${BASH_REMATCH[1]}" old_value="${BASH_REMATCH[2]}" rest="${BASH_REMATCH[3]}"
     else
-      cp "$settings_file" "$tmp_edited"
+      echo "omawsl: $key in $settings_file spans several lines - leaving your own setting alone, skipping the $key sync." >&2
+      rm -f "$stripped" "$tmp_edited"
+      return 0
     fi
+    new_value="$(jq -c --argjson v "$value" "$filter" <<< "$old_value")"
+    new_line="$prefix$new_value$rest"
+    awk -v n="$line_no" -v content="$new_line" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
   else
-    # Inserts right after the file's first '{' (design spec: this is
-    # also the documented insert-point risk the rollback test below
-    # exercises - a '{' inside a comment before the real opening brace
-    # would be matched here too, and re-validation below catches it).
-    # If the object has no other members after the inserted key (a
-    # JSONC file that's only comments), the trailing comma this leaves
-    # makes the result invalid JSON too - also caught by re-validation
-    # below, same graceful-skip outcome.
-    local line_no old_line before after new_content
+    # Inserts right after the file's first '{'. A '{' inside a comment
+    # before the real opening brace would be matched too, and a JSONC file
+    # that's only comments ends up with a trailing comma - re-validation
+    # below catches both and rolls back.
+    local before after
+    new_value="$(jq -cn --argjson v "$value" "null | $filter")"
     line_no="$(grep -n '{' "$settings_file" | head -1 | cut -d: -f1)"
     old_line="$(sed -n "${line_no}p" "$settings_file")"
     before="${old_line%%\{*}"
     after="${old_line#*\{}"
-    printf -v new_content '%s{\n  "%s": "%s",\n%s' "$before" "$key" "$value" "$after"
-    awk -v n="$line_no" -v content="$new_content" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
+    printf -v new_line '%s{\n  "%s": %s,\n%s' "$before" "$key" "$new_value" "$after"
+    awk -v n="$line_no" -v content="$new_line" 'NR==n { print content; next } { print }' "$settings_file" > "$tmp_edited"
   fi
 
-  # Re-validate the result before committing - if our own edit produced
-  # something that no longer parses (e.g. a literal '{' inside a
-  # comment threw off the insert point), roll back rather than leave a
-  # broken settings.json in place.
+  # Re-validate before committing; roll back rather than leave a broken
+  # settings.json in place.
   local recheck
   recheck="$(mktemp)"
   omawsl_strip_jsonc_comments "$tmp_edited" > "$recheck"
@@ -140,15 +139,37 @@ omawsl_json_set_string_value() {
     cp "$tmp_edited" "$settings_file" || {
       echo "omawsl: couldn't write to $settings_file - skipping the $key sync." >&2
       echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
-      rm -f "$stripped" "$tmp_edited" "$recheck"
-      return 0
     }
   else
     echo "omawsl: the $key sync edit to $settings_file produced invalid JSON - leaving it untouched (backup at $settings_file.bak)." >&2
     echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
   fi
-
   rm -f "$stripped" "$tmp_edited" "$recheck"
+}
+
+# omawsl_json_set_string_value <settings_file> <key> <value>
+# Sets a single string-valued key (workbench.colorTheme, update.mode) -
+# omawsl_json_update_value with the old value ignored.
+omawsl_json_set_string_value() {
+  omawsl_json_update_value "$1" "$2" '$v' "$(jq -n --arg v "$3" '$v')"
+}
+
+# omawsl_vscode_theme_render <palette_json>
+# Prints a full VS Code color theme: Omarchy's MIT-licensed template
+# (themes/vscode-theme.json.tpl, see themes/LICENSE.omarchy) with every
+# {{ slot }} filled from a theme's vscode-palette.json. Each palette holds
+# the value for every slot, already resolved: Omarchy's own colors.toml run
+# through its omarchy-theme-color, or for the four themes Omarchy doesn't
+# have (catppuccin's Macchiato flavor, dracula, one-dark, solarized) a
+# colors.toml written from that theme's official colors - always with the
+# same background and text color as its Windows Terminal scheme.
+omawsl_vscode_theme_render() {
+  local palette="$1" theme slot value
+  theme="$(cat "$OMAWSL_VSCODE_THEMES_DIR/vscode-theme.json.tpl")" || return 1
+  while IFS=$'\t' read -r slot value; do
+    theme="${theme//"{{ $slot }}"/$value}"
+  done < <(jq -r 'to_entries[] | "\(.key)\t\(.value)"' "$palette")
+  printf '%s\n' "$theme"
 }
 
 # omawsl_theme_set_vscode_settings <settings_file> <color_theme>
@@ -189,84 +210,78 @@ omawsl_theme_ensure_vscode_settings_exists() {
   echo '{}' > "$settings_file"
 }
 
-# omawsl_theme_apply_vscode <color_theme> <extension_id>
-# Applies the theme to VS Code's and Cursor's Remote-WSL settings.json
-# (whichever exist) and, if a Windows profile can be resolved via
-# omawsl_windows_userprofile, to their native Windows-side
-# settings.json too (design spec "Sync theme to native Windows-side VS
-# Code/Cursor" - Cursor reads the same workbench.colorTheme key and
-# shares this same step) - creating a minimal settings.json first via
-# omawsl_theme_ensure_vscode_settings_exists if the app is installed
-# but has never had one (see that function's own comment). Silently
-# skips the native sync if the profile can't be resolved (e.g. not
-# real WSL2) - the Remote-WSL sync and extension install below are
-# unaffected either way. Installs the VS Code extension via `code
-# --install-extension` only when `code` is reachable - matches
-# app-vscode.sh's own detect-and-defer shape (Phase 4). Deliberately
-# does NOT attempt `cursor --install-extension`, same reasoning as
-# app-cursor.sh (Phase 4): Cursor has its own extension distribution
-# and commonly blocks Microsoft-published extensions from its
-# marketplace, so this only touches what's clearly specified (shared
-# settings keys). An empty <extension_id> means a theme VS Code ships
-# built in (e.g. Solarized Dark) - only settings.json is touched.
+# omawsl_theme_apply_vscode <theme_dir>
+# Gives VS Code and Cursor the theme's colors through their settings alone:
+# workbench.colorTheme is set to a theme they ship with (Default Dark
+# Modern, or Default Light Modern for a light theme), and the rendered
+# theme (omawsl_vscode_theme_render) goes on top as that theme's
+# workbench.colorCustomizations, editor.tokenColorCustomizations and
+# editor.semanticTokenColorCustomizations. VS Code 1.134 renamed those
+# built-in themes' IDs to "Dark Modern" / "Light Modern", and applies a
+# scoped block only when it names the active theme's current ID, so the
+# block names both: "[Default Dark Modern][Dark Modern]". The old name still
+# works for workbench.colorTheme in new versions. Nothing is installed and no
+# program runs - omawsl never starts Windows programs (code, cmd.exe) from
+# WSL, and themes no longer need a marketplace extension. The colors are
+# scoped to that base theme, so the user's own customizations in the same
+# settings stay, and switching themes replaces omawsl's block instead of
+# piling them up. Written to the Remote-WSL settings files and, when the
+# Windows profile resolves, the native ones - creating a native
+# settings.json first only for an app that's installed
+# (omawsl_theme_ensure_vscode_settings_exists).
 omawsl_theme_apply_vscode() {
-  local color_theme="$1" extension_id="$2"
+  local theme_dir="$1" theme base scope
+  theme="$(omawsl_vscode_theme_render "$theme_dir/vscode-palette.json")" || return 0
+  base="Default Dark Modern" scope="[Default Dark Modern][Dark Modern]"
+  if [[ "$(jq -r .type <<< "$theme")" == light ]]; then
+    base="Default Light Modern" scope="[Default Light Modern][Light Modern]"
+  fi
 
-  omawsl_theme_set_vscode_settings "$HOME/.vscode-server/data/Machine/settings.json" "$color_theme"
-  omawsl_theme_set_vscode_settings "$HOME/.cursor-server/data/Machine/settings.json" "$color_theme"
+  local colors token_rules semantic scoped
+  colors="$(jq -c .colors <<< "$theme")"
+  token_rules="$(jq -c '{textMateRules: .tokenColors}' <<< "$theme")"
+  semantic="$(jq -c '{enabled: true, rules: .semanticTokenColors}' <<< "$theme")"
+  # Drops every block omawsl may have written before - one-name scopes
+  # included - so there's only ever one.
+  scoped="(if type == \"object\" then . else {} end)
+    | del(.[\"[Default Dark Modern]\"], .[\"[Default Light Modern]\"],
+          .[\"[Default Dark Modern][Dark Modern]\"], .[\"[Default Light Modern][Light Modern]\"])
+    + {\"$scope\": \$v}"
 
   local profile
   if profile="$(omawsl_windows_userprofile)"; then
-    local code_settings
-    code_settings="$(omawsl_native_vscode_settings_path "$profile")"
-    local cursor_settings="$profile/AppData/Roaming/Cursor/User/settings.json"
-    omawsl_theme_ensure_vscode_settings_exists "$code_settings"
-    omawsl_theme_ensure_vscode_settings_exists "$cursor_settings"
-    omawsl_theme_set_vscode_settings "$code_settings" "$color_theme"
-    omawsl_theme_set_vscode_settings "$cursor_settings" "$color_theme"
+    omawsl_theme_ensure_vscode_settings_exists "$(omawsl_native_vscode_settings_path "$profile")"
+    omawsl_theme_ensure_vscode_settings_exists "$profile/AppData/Roaming/Cursor/User/settings.json"
   fi
 
-  if [[ -n "$extension_id" ]] && omawsl_code_reachable; then
-    # NODE_NO_WARNINGS=1: VS Code's `code` CLI is itself a Node.js binary
-    # and emits a `[DEP0169] DeprecationWarning: url.parse()...` to
-    # stderr on every fresh extension install - confirmed Microsoft's own
-    # tooling noise (reproduced in isolation, unrelated to omawsl), but
-    # real, alarming-looking, and repeated on every `bin/omawsl theme`
-    # call. This is the standard Node.js env var for suppressing runtime
-    # deprecation warnings without touching stderr for genuine errors.
-    #
-    # Isolated (|| ...), not left to abort under this file's set -e:
-    # `code` being reachable on PATH doesn't guarantee it actually runs -
-    # confirmed live, a broken/misconfigured Remote-WSL interop setup can
-    # make `code --install-extension` fail outright ("Exec format error")
-    # even though `command -v code` succeeds. That's a third-party tool
-    # failure outside omawsl's control, and shouldn't take the rest of
-    # the theme sync (Windows Terminal, opencode, etc.) down with it.
-    if ! NODE_NO_WARNINGS=1 code --install-extension "$extension_id" >/dev/null; then
-      echo "omawsl: 'code --install-extension $extension_id' failed - skipping, continuing with the rest of the theme sync." >&2
+  # One backup per file, of the settings as they were before this switch -
+  # the four edits below don't each overwrite it.
+  local file
+  while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
+    if ! cp "$file" "$file.bak"; then
+      echo "omawsl: couldn't back up $file - skipping the VS Code theme sync for it." >&2
+      echo "See docs/windows-setup.md#vscode-theme for the manual steps." >&2
+      continue
     fi
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_theme_set_vscode_settings "$file" "$base"
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_json_update_value "$file" workbench.colorCustomizations "$scoped" "$colors"
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_json_update_value "$file" editor.tokenColorCustomizations "$scoped" "$token_rules"
+    OMAWSL_JSON_NO_BACKUP=1 omawsl_json_update_value "$file" editor.semanticTokenColorCustomizations "$scoped" "$semantic"
+  done < <(omawsl_theme_vscode_settings_files)
+}
 
-    # `code --install-extension` invoked directly from this WSL shell
-    # only ever reaches the Remote-WSL extension host
-    # (~/.vscode-server/extensions) - never the native Windows-side
-    # store (%USERPROFILE%\.vscode\extensions) - even though `code`
-    # itself resolves to the same native binary via /mnt/c interop.
-    # Confirmed live: a fresh extension installed the WSL-side way never
-    # appeared in `code --list-extensions` run natively on Windows, only
-    # in ~/.vscode-server/extensions; installing the identical extension
-    # via `cmd.exe /c "code --install-extension ..."` - a genuinely
-    # native Windows process - from the same WSL shell landed it in the
-    # native store instead. Without this, the native settings.json's
-    # workbench.colorTheme (see omawsl_theme_ensure_vscode_settings_exists
-    # above) points at a theme VS Code can never resolve there, so the
-    # native app silently never shows the new theme - this, not the
-    # settings.json edit itself, is what broke native theme sync.
-    # Best-effort (|| true): the WSL-side install above already
-    # succeeded, so a failure here shouldn't fail the rest of
-    # `bin/omawsl theme`.
-    local cmd_exe
-    if cmd_exe="$(omawsl_resolve_cmd_exe)"; then
-      "$cmd_exe" /c "set NODE_NO_WARNINGS=1&&code --install-extension $extension_id" >/dev/null 2>&1 || true
-    fi
+# omawsl_theme_vscode_settings_files
+# Every VS Code/Cursor settings.json omawsl_theme_apply_vscode writes to -
+# the Remote-WSL ones always, the native Windows-side ones only when the
+# Windows profile resolves. Quiet about an unresolved profile: callers that
+# need the user to know have already looked it up and said so.
+omawsl_theme_vscode_settings_files() {
+  echo "$HOME/.vscode-server/data/Machine/settings.json"
+  echo "$HOME/.cursor-server/data/Machine/settings.json"
+  local profile
+  if profile="$(omawsl_windows_userprofile 2>/dev/null)"; then
+    omawsl_native_vscode_settings_path "$profile"
+    echo "$profile/AppData/Roaming/Cursor/User/settings.json"
   fi
 }

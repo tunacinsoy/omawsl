@@ -127,41 +127,45 @@ omawsl_cursor_reachable() {
   command -v cursor &>/dev/null
 }
 
-# omawsl_resolve_cmd_exe
-# Finds cmd.exe even when /etc/wsl.conf has `appendWindowsPath=false` -
-# a setting corporate-managed WSL images commonly set - which keeps
-# every Windows binary off $PATH without disabling interop itself, so
-# `command -v cmd.exe` fails even though cmd.exe and the interop
-# mechanism both still work fine. Falls back to cmd.exe's fixed location
-# under the WSL /mnt/c mount rather than requiring that policy-managed
-# setting to change. OMAWSL_CMD_EXE_FALLBACK is overridable so tests can
-# point it at a path that deliberately doesn't exist - the real fallback
-# path exists on any actual WSL2 box, including whichever one happens to
-# run the test suite.
-omawsl_resolve_cmd_exe() {
-  if command -v cmd.exe &>/dev/null; then
-    echo "cmd.exe"
+# omawsl_windows_userprofile
+# The Windows user's profile folder as a WSL path (e.g. /mnt/c/Users/<name>),
+# found by looking in /mnt/c/Users rather than asking Windows - omawsl never
+# starts Windows programs (cmd.exe, powershell.exe) from WSL. The Windows
+# username often differs from $USER (design spec §11), so this doesn't
+# assume they match: a profile is any folder there with an AppData folder,
+# Windows' own (Default, Public, ...) aside. One profile: that's it. Several:
+# the one named like $USER (case-insensitive), else it says which it found
+# and fails, so the Windows-side step is skipped. No Windows side at all
+# (not WSL, or the bats suite): fails quietly. OMAWSL_WINDOWS_USERS_DIR is
+# overridable so tests never reach the real /mnt/c/Users.
+omawsl_windows_userprofile() {
+  local users_dir="${OMAWSL_WINDOWS_USERS_DIR:-/mnt/c/Users}" dir name
+  local -a profiles=()
+  for dir in "$users_dir"/*/; do
+    dir="${dir%/}"
+    name="${dir##*/}"
+    case "$name" in
+      Default|"Default User"|Public|"All Users"|defaultuser*) continue ;;
+    esac
+    [[ -d "$dir/AppData" ]] && profiles+=("$dir")
+  done
+  if ((${#profiles[@]} == 1)); then
+    echo "${profiles[0]}"
     return 0
   fi
-  local fallback="${OMAWSL_CMD_EXE_FALLBACK:-/mnt/c/Windows/System32/cmd.exe}"
-  [[ -x "$fallback" ]] && echo "$fallback"
-}
-
-# omawsl_windows_userprofile
-# Resolves the Windows user's profile directory as a WSL path
-# (e.g. /mnt/c/Users/<name>) via cmd.exe + wslpath, rather than
-# assuming the Windows username matches $USER - design spec §11 flags
-# this as a real, common mismatch. Prints nothing and returns 1 if
-# cmd.exe/wslpath aren't reachable (e.g. outside real WSL2, as in the
-# bats suite unless stubbed) or the lookup comes back empty.
-omawsl_windows_userprofile() {
-  local cmd_exe
-  cmd_exe="$(omawsl_resolve_cmd_exe)" || return 1
-  command -v wslpath &>/dev/null || return 1
-  local win_path
-  win_path="$("$cmd_exe" /c "echo %USERPROFILE%" 2>/dev/null | tr -d '\r\n')"
-  [[ -n "$win_path" ]] || return 1
-  wslpath -u "$win_path"
+  ((${#profiles[@]} > 1)) || return 1
+  local user="${USER:-}"
+  for dir in "${profiles[@]}"; do
+    name="${dir##*/}"
+    if [[ -n "$user" && "${name,,}" == "${user,,}" ]]; then
+      echo "$dir"
+      return 0
+    fi
+  done
+  local names=""
+  for dir in "${profiles[@]}"; do names+="${names:+, }${dir##*/}"; done
+  echo "omawsl: found several Windows profiles ($names) and none is named $USER - skipping the Windows-side theme settings." >&2
+  return 1
 }
 
 # omawsl_write_version_state <root_dir>
@@ -311,6 +315,39 @@ omawsl_multiplexer_slug() {
   case "$1" in
     "$OMAWSL_MULTIPLEXER_LABEL_HERDR"|herdr) echo "herdr" ;;
     *) echo "zellij" ;;
+  esac
+}
+
+# omawsl_bashrc_zellij_autostart_line [bashrc_file]
+# Line number of the first uncommented `zellij setup --generate-auto-start`
+# line in ~/.bashrc; fails when there's none. That line (from zellij's own
+# docs or an older setup, never written by omawsl) starts zellij whenever
+# $ZELLIJ is unset - before omawsl's block can open Herdr, and again inside
+# every Herdr pane. omawsl never edits lines it doesn't own
+# (docs/config-safety.md), so callers only point at it.
+omawsl_bashrc_zellij_autostart_line() {
+  local bashrc_file="${1:-$HOME/.bashrc}"
+  [[ -f "$bashrc_file" ]] || return 1
+  local n
+  n="$(grep -nE '^[^#]*zellij setup --generate-auto-start' "$bashrc_file" | head -n1 | cut -d: -f1)"
+  [[ -n "$n" ]] || return 1
+  echo "$n"
+}
+
+# Herdr agent notifications - the picker labels, shared by
+# install/first-run-choices.sh and `omawsl notifications` for the same
+# reason as the multiplexer labels above. choices.env stores the slug.
+OMAWSL_HERDR_NOTIFY_LABEL_SOUND="Sound"
+OMAWSL_HERDR_NOTIFY_LABEL_OFF="Off"
+
+# omawsl_herdr_notifications_slug <label_or_slug>
+# sound/off for a label or slug; empty for anything else,
+# including a cancelled picker - unlike the multiplexer there's no default
+# to fall back to, an unanswered question just leaves Herdr's own settings.
+omawsl_herdr_notifications_slug() {
+  case "$1" in
+    "$OMAWSL_HERDR_NOTIFY_LABEL_SOUND"|sound) echo "sound" ;;
+    "$OMAWSL_HERDR_NOTIFY_LABEL_OFF"|off) echo "off" ;;
   esac
 }
 

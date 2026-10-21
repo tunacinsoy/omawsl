@@ -7,14 +7,12 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   export HOME="$BATS_TEST_TMPDIR/home"
   mkdir -p "$HOME"
-  # Keep every theme apply in this file off this machine's real Windows
-  # side: an unstubbed cmd.exe resolves the real %USERPROFILE%, so
-  # omawsl_theme_apply would rewrite the real Windows Terminal and native
-  # VS Code settings (and install real VS Code extensions) - running the
-  # suite used to leave the dev machine on whatever theme ran last. Same
-  # guard as app_vscode_test.bats.
-  stub_hide_command cmd.exe
-  export OMAWSL_CMD_EXE_FALLBACK="$BATS_TEST_TMPDIR/no-such-cmd.exe"
+  # Every theme apply in this file stays off this machine's real Windows
+  # side because tests/helpers/stubs.bash points the Windows profile lookup
+  # at a folder that doesn't exist - otherwise omawsl_theme_apply would
+  # rewrite the real Windows Terminal and native VS Code settings, and
+  # running the suite used to leave the dev machine on whatever theme ran
+  # last.
   source "$REPO_ROOT/install/lib.sh"
   source "$REPO_ROOT/bin/omawsl-sub/theme.sh"
 }
@@ -244,6 +242,8 @@ setup() {
   [[ "$output" == *"uninstall"* ]]
   [[ "$output" == *"doctor"* ]]
   [[ "$output" == *"multiplexer"* ]]
+  [[ "$output" == *"notifications"* ]]
+  [[ "$output" == *"keys"* ]]
 }
 
 @test "bin/omawsl doctor runs end to end with no selections made" {

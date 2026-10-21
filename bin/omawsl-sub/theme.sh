@@ -9,6 +9,8 @@ source "$OMAWSL_ROOT_DIR/install/lib.sh"
 source "$SCRIPT_DIR/windows-terminal.sh"
 # shellcheck source=../../install/terminal/app-herdr.sh
 source "$OMAWSL_ROOT_DIR/install/terminal/app-herdr.sh"
+# shellcheck source=../../themes/set-vscode-theme.sh
+source "$OMAWSL_ROOT_DIR/themes/set-vscode-theme.sh"
 
 # omawsl_theme_names
 # omawsl's own theme set, alphabetical: Omakub's original ten (design spec
@@ -32,8 +34,11 @@ EOF
 }
 
 # omawsl_theme_is_valid <folder_name>
+# Reads the names as a string, not through a pipe: under pipefail, `grep -q`
+# quitting early can kill the writer with SIGPIPE and turn a match into a
+# miss (tests/grep_sigpipe_test.bats).
 omawsl_theme_is_valid() {
-  omawsl_theme_names | grep -qx "$1"
+  grep -qx "$1" <<< "$(omawsl_theme_names)"
 }
 
 # omawsl_theme_display_name <folder_name>
@@ -106,8 +111,8 @@ omawsl_theme_apply_opencode() {
 # own bin/omakub-sub/theme.sh (design spec §11): zellij (per-theme file
 # + sed-patch the active reference), btop (same shape), Neovim (only if
 # ~/.config/nvim exists - Phase 4's app-neovim.sh only creates it when
-# Neovim was selected), VS Code/Cursor (via each theme's own vscode.sh,
-# which sources themes/set-vscode-theme.sh - Task 2), opencode (only
+# Neovim was selected), VS Code/Cursor (the theme's vscode-palette.json,
+# through their settings - themes/set-vscode-theme.sh), opencode (only
 # for the 6 themes with a built-in preset - see
 # omawsl_theme_apply_opencode above), Herdr (its [theme] name, via
 # omawsl_herdr_apply_theme in install/terminal/app-herdr.sh - no-op
@@ -142,8 +147,7 @@ omawsl_theme_apply() {
   cp "$theme_dir/starship.toml" "$HOME/.config/starship.toml"
   cp "$theme_dir/starship-plain.toml" "$HOME/.config/starship-plain.toml"
 
-  # shellcheck source=/dev/null
-  source "$theme_dir/vscode.sh"
+  omawsl_theme_apply_vscode "$theme_dir"
 
   omawsl_theme_apply_opencode "$name"
 
