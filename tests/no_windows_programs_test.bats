@@ -17,6 +17,14 @@ setup() {
   [ -z "$hits" ] || { echo "$hits"; return 1; }
 }
 
+@test "no omawsl script runs the Windows VS Code or Cursor CLI" {
+  local hits
+  hits="$(cd "$REPO_ROOT" && grep -rnIE '\b(code|cursor)(\.exe)? +--' \
+    bin install themes migrations uninstall configs diagnostics boot.sh install.sh 2>/dev/null |
+    grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' || true)"
+  [ -z "$hits" ] || { echo "$hits"; return 1; }
+}
+
 @test "CONTRIBUTING.md states the rule for people and AI tools" {
   grep -qF "never starts a Windows program" "$REPO_ROOT/CONTRIBUTING.md"
 }

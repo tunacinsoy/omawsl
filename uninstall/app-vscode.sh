@@ -7,15 +7,10 @@ source "$SCRIPT_DIR/../install/lib.sh"
 
 # omawsl_uninstall_vscode [settings_file]
 # Inverse of install/terminal/app-vscode.sh: removes the deployed
-# configs/vscode.json copy and uninstalls the Remote-WSL extension if
-# `code` is reachable (best-effort - if it isn't, the settings file
-# removal below is still the meaningful part).
+# configs/vscode.json copy. VS Code itself and its WSL extension are the
+# user's, on Windows: omawsl never runs the Windows `code` CLI.
 omawsl_uninstall_vscode() {
   local settings_file="${1:-$HOME/.vscode-server/data/Machine/settings.json}"
-
-  if omawsl_code_reachable; then
-    code --uninstall-extension ms-vscode-remote.remote-wsl || true
-  fi
 
   rm -f "$settings_file"
   echo "omawsl: VS Code's omawsl-deployed settings removed."

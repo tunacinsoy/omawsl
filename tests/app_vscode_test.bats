@@ -25,40 +25,59 @@ setup() {
   [ ! -f "$HOME/.vscode-server/data/Machine/settings.json" ]
 }
 
-@test "deploys settings and installs the Remote-WSL extension when code is reachable" {
+@test "deploys settings and never runs the Windows code CLI" {
   export OMAWSL_EDITORS="VS Code"
   stub_command code
   run omawsl_install_vscode
   [ "$status" -eq 0 ]
   [ -f "$HOME/.vscode-server/data/Machine/settings.json" ]
   diff "$HOME/.vscode-server/data/Machine/settings.json" "$REPO_ROOT/configs/vscode.json"
-  [[ "$(stub_calls)" == *"code --install-extension ms-vscode-remote.remote-wsl"* ]]
+  [[ "$(stub_calls)" != *"code "* ]]
 }
 
-@test "deploys settings but defers the extension install when code isn't reachable" {
+@test "points at docs/windows-setup.md when code isn't reachable" {
   stub_hide_command code
   export OMAWSL_EDITORS="VS Code"
   run omawsl_install_vscode
   [ "$status" -eq 0 ]
   [ -f "$HOME/.vscode-server/data/Machine/settings.json" ]
-  [[ "$(stub_calls)" != *"code --install-extension"* ]]
   [[ "$output" == *"VS Code isn't reachable yet"* ]]
   [[ "$output" == *"docs/windows-setup.md#vscode"* ]]
+  [[ "$output" != *"code --"* ]]
 }
 
-@test "omawsl_install_vscode sets update.mode to manual in the native settings.json when VS Code is installed on Windows (issue #32/#9)" {
+@test "asks for VS Code's WSL extension when the Windows profile doesn't have it" {
   export OMAWSL_EDITORS="VS Code"
   stub_command code
   export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/Users"
-  WINHOME="$OMAWSL_WINDOWS_USERS_DIR/testuser"
-  mkdir -p "$WINHOME/AppData/Roaming/Code"
-  command -v jq &>/dev/null || skip "jq not installed on this test host"
-
+  mkdir -p "$OMAWSL_WINDOWS_USERS_DIR/testuser/AppData/Roaming/Code" "$OMAWSL_WINDOWS_USERS_DIR/testuser/.vscode/extensions"
   run omawsl_install_vscode
   [ "$status" -eq 0 ]
-  local code_settings="$WINHOME/AppData/Roaming/Code/User/settings.json"
-  [ -f "$code_settings" ]
-  [[ "$(jq -r '.["update.mode"]' "$code_settings")" == "manual" ]]
+  [[ "$output" == *"WSL extension"* ]]
+  [[ "$output" == *"docs/windows-setup.md#vscode"* ]]
+}
+
+@test "says nothing about the WSL extension when the Windows profile has it" {
+  export OMAWSL_EDITORS="VS Code"
+  stub_command code
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/Users"
+  mkdir -p "$OMAWSL_WINDOWS_USERS_DIR/testuser/AppData/Roaming/Code" \
+    "$OMAWSL_WINDOWS_USERS_DIR/testuser/.vscode/extensions/ms-vscode-remote.remote-wsl-0.99.0"
+  run omawsl_install_vscode
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"WSL extension"* ]]
+}
+
+@test "omawsl_install_vscode leaves VS Code's native settings.json alone" {
+  export OMAWSL_EDITORS="VS Code"
+  stub_command code
+  export OMAWSL_WINDOWS_USERS_DIR="$BATS_TEST_TMPDIR/Users"
+  local code_settings="$OMAWSL_WINDOWS_USERS_DIR/testuser/AppData/Roaming/Code/User/settings.json"
+  mkdir -p "$(dirname "$code_settings")"
+  echo '{}' > "$code_settings"
+  run omawsl_install_vscode
+  [ "$status" -eq 0 ]
+  [ "$(cat "$code_settings")" = "{}" ]
 }
 
 @test "omawsl_install_vscode does not create native settings.json for a VS Code that isn't actually installed on Windows" {
@@ -73,12 +92,3 @@ setup() {
   [ ! -d "$WINHOME/AppData/Roaming/Code" ]
 }
 
-@test "omawsl_install_vscode skips the native update.mode sync when the Windows profile can't be resolved" {
-  export OMAWSL_EDITORS="VS Code"
-  stub_command code
-  # No Windows profile is reachable by default - see setup().
-
-  run omawsl_install_vscode
-  [ "$status" -eq 0 ]
-  [ -f "$HOME/.vscode-server/data/Machine/settings.json" ]
-}

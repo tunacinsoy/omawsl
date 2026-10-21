@@ -12,7 +12,7 @@ setup() {
   source "$REPO_ROOT/uninstall/app-cursor.sh"
 }
 
-@test "omawsl_uninstall_vscode removes the deployed settings file and uninstalls the extension when code is reachable" {
+@test "omawsl_uninstall_vscode removes the deployed settings file and never runs the Windows code CLI" {
   local settings="$HOME/.vscode-server/data/Machine/settings.json"
   mkdir -p "$(dirname "$settings")"
   echo '{}' > "$settings"
@@ -20,7 +20,7 @@ setup() {
   run omawsl_uninstall_vscode "$settings"
   [ "$status" -eq 0 ]
   [ ! -f "$settings" ]
-  [[ "$(stub_calls)" == *"code --uninstall-extension ms-vscode-remote.remote-wsl"* ]]
+  [[ "$(stub_calls)" != *"code "* ]]
 }
 
 @test "omawsl_uninstall_vscode removes the settings file even when code isn't reachable" {
