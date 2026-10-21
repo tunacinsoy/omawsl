@@ -24,6 +24,16 @@
   - needs no sudo, and no network access beyond what omawsl already does;
   - says **Do / Expect / Undo**.
 
+## Windows stays Windows
+
+omawsl is a solution for WSL, not for Windows: it **never starts a Windows program** from WSL. No `cmd.exe`, no `powershell.exe`, no Windows `code`. This holds for features, migrations, diagnostics and test steps alike.
+
+- **Why:** on a corporate laptop, everything on the Windows side is managed by IT. A Linux process starting PowerShell looks like an attack to security tools, and anything IT has blocked there is IT's call, not something to work around.
+- **Allowed:** writing color settings into the settings files of apps you already have installed (Windows Terminal, VS Code, Cursor), backed up first, and reading files under `/mnt/c` to find them.
+- **Instead of running a Windows program:** do it inside Linux, or tell the user what to do on Windows themselves.
+
+`tests/no_windows_programs_test.bats` fails if a script starts `cmd.exe` or PowerShell.
+
 ## The ruleset
 
 `.github/rulesets/master.json` is the rule GitHub enforces on `master`:

@@ -524,3 +524,12 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"herdr-reinstalled"* ]]
 }
+
+@test "omawsl_orphan_tool_apply_update hands a running Herdr session to the new server after updating Herdr" {
+  omawsl_herdr_install_steps() { echo "herdr-updated" >> "$STUB_LOG"; }
+  omawsl_herdr_handoff_if_stale() { echo "herdr-handoff" >> "$STUB_LOG"; }
+  export -f omawsl_herdr_install_steps omawsl_herdr_handoff_if_stale
+  run omawsl_orphan_tool_apply_update herdr
+  [ "$status" -eq 0 ]
+  [ "$(stub_calls)" = $'herdr-updated\nherdr-handoff' ]
+}

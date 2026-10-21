@@ -30,7 +30,8 @@ omawsl_gh_copilot_install_steps() {
 # "gh-copilot" (hyphenated). Silent no-op if `gh` isn't on PATH or the old
 # extension was never installed.
 omawsl_gh_copilot_remove_old_extension() {
-  if gh extension list 2>/dev/null | grep -q '^gh-copilot\|^gh copilot'; then
+  # A string, not a pipe - see omawsl_theme_is_valid in bin/omawsl-sub/theme.sh.
+  if grep -q '^gh-copilot\|^gh copilot' <<< "$(gh extension list 2>/dev/null)"; then
     gh extension remove gh-copilot 2>/dev/null || true
   fi
 }

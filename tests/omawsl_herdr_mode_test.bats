@@ -10,7 +10,7 @@ setup() {
   REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
   MODE="$REPO_ROOT/bin/omawsl-herdr-mode"
   export HERDR_BIN_PATH="$BATS_TEST_TMPDIR/herdr"
-  unset STUB_TAB STUB_TABS STUB_PANES STUB_NEIGHBOR_left STUB_NEIGHBOR_right STUB_NEIGHBOR_up STUB_NEIGHBOR_down
+  unset STUB_TAB STUB_TABS STUB_PANES STUB_LABEL STUB_NEIGHBOR_left STUB_NEIGHBOR_right STUB_NEIGHBOR_up STUB_NEIGHBOR_down
   cat > "$HERDR_BIN_PATH" <<'EOF'
 #!/usr/bin/env bash
 echo "herdr $*" >> "$STUB_LOG"
@@ -36,6 +36,12 @@ case "$1 $2" in
     fi ;;
   "tab list")
     printf '{"result":{"tabs":%s}}\n' "${STUB_TABS:-$default_tabs}" ;;
+  "pane get")
+    if [[ -n ${STUB_LABEL:-} ]]; then
+      printf '{"result":{"pane":{"pane_id":"w1:p1","label":"%s"}}}\n' "$STUB_LABEL"
+    else
+      echo '{"result":{"pane":{"pane_id":"w1:p1","label":null}}}'
+    fi ;;
   *) echo '{}' ;;
 esac
 EOF
@@ -46,6 +52,26 @@ EOF
   run bash -c "printf d | '$MODE' pane"
   [ "$status" -eq 0 ]
   [[ "$(stub_calls)" == *"herdr pane split --pane w1:p1 --direction down --focus"* ]]
+}
+
+@test "pane mode: c saves the typed note as the pane's name" {
+  run bash -c "printf 'cinvoice export, waiting on review\n' | '$MODE' pane"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"herdr pane rename w1:p1 invoice export, waiting on review"* ]]
+}
+
+@test "pane mode: c with an empty note clears the pane's name" {
+  export STUB_LABEL="old note"
+  run bash -c "printf 'c\n' | '$MODE' pane"
+  [ "$status" -eq 0 ]
+  [[ "$(stub_calls)" == *"herdr pane rename w1:p1 --clear"* ]]
+}
+
+@test "pane mode: c starts from the pane's current note" {
+  # The prompt is pre-filled with the note so it can be edited, not retyped.
+  export STUB_LABEL="old note"
+  run bash -c "printf 'c\n' | '$MODE' pane"
+  [[ "$(stub_calls)" == *"herdr pane get w1:p1"* ]]
 }
 
 @test "pane mode: hjkl focus is sticky until Esc" {
@@ -125,8 +151,21 @@ EOF
   [[ "$(stub_calls)" == *"herdr pane resize --pane w1:p1 --direction left"* ]]
 }
 
-@test "resize mode: does nothing toward a side with no neighbor" {
+@test "resize mode: l with no right neighbor still moves the border right" {
+  # The right-hand pane: Herdr moves its left border instead.
+  export STUB_NEIGHBOR_left=w1:p0
+  run bash -c "printf 'lr' | '$MODE' resize"
+  [[ "$(stub_calls)" == *"herdr pane resize --pane w1:p1 --direction right"* ]]
+}
+
+@test "resize mode: h with no left neighbor still moves the border left" {
+  export STUB_NEIGHBOR_right=w1:p2
   run bash -c "printf 'hr' | '$MODE' resize"
+  [[ "$(stub_calls)" == *"herdr pane resize --pane w1:p1 --direction left"* ]]
+}
+
+@test "resize mode: HJKL do nothing toward a side with no neighbor" {
+  run bash -c "printf 'HJKLr' | '$MODE' resize"
   [[ "$(stub_calls)" != *"pane resize"* ]]
 }
 
