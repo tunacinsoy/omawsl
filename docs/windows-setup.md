@@ -136,9 +136,10 @@ it runs - nothing to do manually there either.
 ## Windows Terminal theme
 
 Unlike everything else on this page, this one **is** automatic: `bin/omawsl theme <name>`
-edits your real Windows Terminal `settings.json` directly (the one exception to "omawsl never
-touches Windows-side files automatically" - it's a local JSON edit to an already-installed app,
-no network call, no admin rights). It always backs up `settings.json` first
+edits your real Windows Terminal `settings.json` directly - a local JSON edit to an
+already-installed app, no network call, no admin rights. Color settings in Windows Terminal,
+VS Code and Cursor are the only Windows-side files omawsl writes, and it never starts a
+Windows program. It always backs up `settings.json` first
 (`settings.json.bak`) and skips gracefully - printing this same pointer instead of failing -
 if `jq` isn't available or `settings.json` can't be found or parsed. Nothing to do here by
 hand unless that skip message shows up, in which case merge the theme's
@@ -150,9 +151,33 @@ hand unless that skip message shows up, in which case merge the theme's
 
 Also automatic, the same way the Windows Terminal color sync above is: `bin/omawsl theme <name>`
 edits the real native settings.json for VS Code and Cursor if they're installed on Windows -
-`%APPDATA%\Code\User\settings.json` and `%APPDATA%\Cursor\User\settings.json` - setting
-`"workbench.colorTheme"` to the theme's name. This is on top of (not instead of) the existing
-Remote-WSL settings sync, so both a Remote-WSL session and the native app end up themed.
+`%APPDATA%\Code\User\settings.json` and `%APPDATA%\Cursor\User\settings.json` - on top of
+the Remote-WSL settings, so both a Remote-WSL session and the native app end up themed.
+
+No theme extension is installed: omawsl never starts a Windows program, and installing an
+extension would mean running VS Code's `code` command. Instead, every theme's colors go into the
+settings themselves:
+
+- `"workbench.colorTheme"` is set to a theme VS Code ships with: `"Default Dark Modern"`, or
+  `"Default Light Modern"` for Rosé Pine.
+- On top of it, the theme's colors go into `"workbench.colorCustomizations"`,
+  `"editor.tokenColorCustomizations"` and `"editor.semanticTokenColorCustomizations"`, scoped
+  to that base theme. The scope names it both ways, `[Default Dark Modern][Dark Modern]`,
+  because VS Code 1.134 renamed it to "Dark Modern" and only applies a block that names the
+  current one. Your own customizations in those settings stay; switching themes replaces only
+  omawsl's block.
+- The colors come from Omarchy's VS Code theme template (MIT, see `themes/LICENSE.omarchy`)
+  filled with the theme's palette (`themes/<name>/vscode-palette.json`), which uses the same
+  background and text colors as its Windows Terminal scheme.
+
+If you still have **Monokai Pro** installed from an older omawsl Ristretto theme, remove it in
+VS Code's Extensions view: it's a paid extension whose "Register now" dialog shows on every
+start, and omawsl doesn't need it. omawsl tells you once if it finds it, but doesn't uninstall
+it, since that would mean running VS Code.
+
+In a hand-edited settings.json with comments, omawsl adds each of those settings on one line.
+If you've already written one of them yourself across several lines, omawsl leaves it alone and
+says so.
 
 It always backs up each file first (`settings.json.bak`) and skips gracefully - printing this
 same pointer instead of failing - if `jq` isn't available, the file can't be found, or its

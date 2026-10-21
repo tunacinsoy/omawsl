@@ -99,8 +99,8 @@
       through several: catppuccin, gruvbox, rose-pine, osaka-jade.
       Say: "Thirteen themes - Omakub's ten plus Dracula, One Dark and Solarized - applied consistently across zellij, btop, Neovim,
       opencode, and — watch the tab bar — Windows Terminal itself, live."
-      ⭐ Why this matters: Windows Terminal theme auto-sync — the one deliberate exception to
-      omawsl never touching Windows-side files automatically.
+      ⭐ Why this matters: Windows Terminal and VS Code follow the theme too — omawsl only
+      writes their color settings, and never starts a Windows program.
 
 - [ ] **13. ⭐ Granular install: `bin/omawsl install language rust`.**
       ```bash

@@ -59,9 +59,9 @@ Everything on one page: [`docs/keys.md`](docs/keys.md).
 omawsl ships its own theme set - Omakub's original ten (Catppuccin, Everforest, Gruvbox,
 Kanagawa, Matte Black, Nord, Osaka Jade, Ristretto, Rosé Pine, Tokyo Night) plus Dracula,
 One Dark and Solarized - via `bin/omawsl theme <name>`, applied consistently across zellij,
-Herdr, btop, Neovim, VS Code/Cursor, opencode (where it has a matching built-in preset),
-and - the one exception to "never auto-touch Windows-side files" - Windows Terminal's own
-color scheme, synced automatically.
+Herdr, btop, Neovim, VS Code/Cursor, opencode (where it has a matching built-in preset) and
+Windows Terminal. On the Windows side, omawsl only writes color settings into the settings
+files of Windows Terminal, VS Code and Cursor; it never starts a Windows program.
 
 See [`docs/updating.md`](docs/updating.md) for how to keep everything current - omawsl itself, language runtimes, system packages, and the handful of tools with no native updater of their own.
 
