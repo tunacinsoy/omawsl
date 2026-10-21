@@ -22,10 +22,9 @@ source "$SCRIPT_DIR/../install/lib.sh"
 # calls it that way), which bypasses bin/omawsl-sub/uninstall.sh's separate
 # omawsl_uninstall_deselect step - without this, a later reinstall would see
 # Copilot as "already existing" in OMAWSL_EDITORS and
-# omawsl_notice_ai_autopilot_if_needed
-# (docs/superpowers/specs/2026-08-14-ai-cli-autopilot-mode-design.md) would
-# skip the one-time notice on that reinstall. `gh extension remove` is
-# best-effort (`|| true`) for the same reason the npm uninstall above is:
+# omawsl_notice_ai_autopilot_if_needed would skip the one-time notice on
+# that reinstall. `gh extension remove` is best-effort (`|| true`) for the
+# same reason the npm uninstall above is:
 # under `set -euo pipefail`, an unguarded failure there (auth/network/broken
 # extension state) would abort the function before the state cleanup below
 # ever runs, leaving choices.env stale.
