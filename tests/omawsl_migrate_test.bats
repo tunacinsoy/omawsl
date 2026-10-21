@@ -93,3 +93,9 @@ setup() {
   [ "$status" -eq 0 ]
   [ "$(cat "$OMAWSL_STATE_DIR/version")" = "999" ]
 }
+
+@test "the repo's version file matches its newest migration, so a fresh install doesn't re-run them" {
+  local newest
+  newest="$(ls "$REPO_ROOT/migrations" | grep -E '^[0-9]+\.sh$' | sed 's/\.sh$//' | sort -n | tail -1)"
+  [ "$(cat "$REPO_ROOT/version")" = "$newest" ] || { echo "version is $(cat "$REPO_ROOT/version"), newest migration is $newest"; return 1; }
+}
