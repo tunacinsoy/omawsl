@@ -100,17 +100,6 @@ node  24.18.0"
   [[ "$output" == *"GitHub Copilot CLI"* ]]
 }
 
-@test "omawsl_uninstall_gh_copilot clears the persisted autopilot choice" {
-  stub_command mise
-  stub_command gh
-  export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "Yes - autopilot + allow-all"
-  run omawsl_uninstall_gh_copilot
-  [ "$status" -eq 0 ]
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "" ]
-}
-
 @test "omawsl_uninstall_gh_copilot removes GitHub Copilot CLI from the persisted OMAWSL_EDITORS list" {
   stub_command mise
   stub_command gh
@@ -140,7 +129,6 @@ node  24.18.0"
   # process, where an unguarded failing command genuinely aborts the
   # function.
   export OMAWSL_STATE_DIR="$BATS_TEST_TMPDIR/state"
-  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT "Yes - autopilot + allow-all"
   omawsl_save_choice OMAWSL_EDITORS "VS Code,GitHub Copilot CLI,Neovim"
 
   run bash -c '
@@ -160,8 +148,5 @@ node  24.18.0"
     omawsl_uninstall_gh_copilot
   '
   [ "$status" -eq 0 ]
-
-  run omawsl_load_choice OMAWSL_COPILOT_AUTOPILOT
-  [ "$output" = "" ]
   [[ "$(omawsl_load_choice OMAWSL_EDITORS)" == "VS Code,Neovim" ]]
 }

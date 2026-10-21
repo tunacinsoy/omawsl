@@ -35,7 +35,6 @@ omawsl_install_apply_language() {
 # omawsl_install_apply_editor <picked_labels_csv> <existing_labels_csv>
 omawsl_install_apply_editor() {
   local picked="$1" existing="$2"
-  omawsl_prompt_copilot_autopilot_if_needed "$picked" "$existing"
   local merged; merged="$(omawsl_merge_csv "$existing" "$picked")"
   omawsl_save_choice OMAWSL_EDITORS "$merged"
   # The installers below only see this run's picks, not the merged list:

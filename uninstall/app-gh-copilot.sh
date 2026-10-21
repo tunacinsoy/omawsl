@@ -20,18 +20,14 @@ source "$SCRIPT_DIR/../install/lib.sh"
 # space-separated invocation name ("gh copilot"), not the hyphenated
 # "gh-copilot". No-ops the npm step (but still removes the wrapper) if
 # mise isn't reachable, since a leftover wrapper pointing at a now-broken
-# `mise exec` call is worse than nothing. Also clears the persisted
-# OMAWSL_COPILOT_AUTOPILOT choice, so a later reinstall re-prompts instead
-# of silently inheriting a stale answer. Also removes "GitHub Copilot CLI"
+# `mise exec` call is worse than nothing. Also removes "GitHub Copilot CLI"
 # from the persisted OMAWSL_EDITORS list directly: this script supports
 # direct invocation (footer below, and tests/uninstall_gh_copilot_test.bats
 # calls it that way), which bypasses bin/omawsl-sub/uninstall.sh's separate
 # omawsl_uninstall_deselect step - without this, a direct-invoked uninstall
-# would clear the autopilot choice but leave Copilot listed as still
-# selected, so a later reinstall would see it as "already existing" and
-# skip the re-prompt entirely. `gh extension remove` is best-effort
-# (`|| true`) for the same reason the npm uninstall above is: under
-# `set -euo pipefail`, an unguarded failure there (auth/network/broken
+# would leave Copilot listed as still selected. `gh extension remove` is
+# best-effort (`|| true`) for the same reason the npm uninstall above is:
+# under `set -euo pipefail`, an unguarded failure there (auth/network/broken
 # extension state) would abort the function before the state cleanup below
 # ever runs, leaving choices.env stale. Finally re-checks PATH: a
 # `copilot` omawsl never installed (Windows side via /mnt/c interop,
@@ -51,8 +47,6 @@ omawsl_uninstall_gh_copilot() {
   if grep -q '^gh-copilot\|^gh copilot' <<< "$(gh extension list 2>/dev/null)"; then
     gh extension remove gh-copilot || true
   fi
-
-  omawsl_save_choice OMAWSL_COPILOT_AUTOPILOT ""
 
   local editors
   editors="$(omawsl_load_choice OMAWSL_EDITORS)"
