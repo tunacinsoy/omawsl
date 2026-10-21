@@ -39,7 +39,7 @@ omawsl_install_apply_editor() {
   omawsl_save_choice OMAWSL_EDITORS "$merged"
   # The installers below only see this run's picks, not the merged list:
   # otherwise `omawsl install editor gh-copilot` re-ran VS Code's step too,
-  # whose `code --install-extension` call installs the VS Code Server
+  # whose `code --install-extension` call then installed the VS Code Server
   # (issue #16). The interactive picker pre-checks installed items, so
   # anything left checked there still re-runs, as before.
   export OMAWSL_EDITORS="$picked"

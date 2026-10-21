@@ -85,24 +85,18 @@ default Engine-only option.
 
 1. Install VS Code from https://code.visualstudio.com/ (Store, or the direct installer - both
    work; ask IT if Windows software installs are locked down).
-2. Install the "WSL" extension (`ms-vscode-remote.remote-wsl`) from the Extensions view, or let
-   `install.sh` install it for you automatically once `code` is reachable.
+2. Install the "WSL" extension (`ms-vscode-remote.remote-wsl`) from VS Code's Extensions view.
+   omawsl doesn't install it for you: it never runs Windows programs from WSL.
 3. Open a folder from inside WSL with `code .` to connect for the first time, or use the
    Remote-WSL "Connect to WSL" command from VS Code's command palette on Windows.
-4. Verify: `code --version` from your WSL terminal should print a version, not
-   "command not found".
+4. Verify: `type code` from your WSL terminal should print a path, not "not found".
 
 If you run `install.sh` before doing this, nothing fails - the shared settings file still
-deploys (it's inert until VS Code connects), and only the one step needing the live `code` CLI
-is skipped, with a reminder to come back to it.
+deploys (it's inert until VS Code connects), with a reminder of what's left to do.
 
-`install.sh` also sets `"update.mode": "manual"` in VS Code's own native `settings.json` on
-Windows (once VS Code has been installed and run at least once). VS Code's default auto-updater
-checks for and stages a new build practically every time `code` is invoked from WSL, and since
-Remote-WSL's server install is pinned to the exact commit of the currently-running build, that
-made "Updating VS Code Server" reinstall on nearly every `code .` (issues #9, #32). This disables
-only the automatic background check, making updating VS Code fully opt-in - use VS Code's own
-"Check for Updates" command whenever you want one.
+If "Updating VS Code Server" shows up on nearly every `code .`, VS Code's own auto-updater may
+be swapping in new builds (issues #9, #32). Setting **Update: Mode** to `manual` in VS Code's
+settings stops the background updates; use "Check for Updates" whenever you want one.
 
 <a id="cursor"></a>
 ## Cursor
@@ -110,7 +104,7 @@ only the automatic background check, making updating VS Code fully opt-in - use 
 1. Install Cursor from https://cursor.com/ on Windows.
 2. Connect it to this WSL distro once, the same way you'd connect VS Code (Cursor is a VS Code
    fork and uses the same Remote-WSL-style connection flow).
-3. Verify: `cursor --version` from your WSL terminal should print a version.
+3. Verify: `type cursor` from your WSL terminal should print a path.
 
 Cursor shares the same baseline `configs/vscode.json` settings VS Code gets - deployed
 automatically regardless of whether `cursor` is reachable yet. Unlike VS Code, omawsl doesn't

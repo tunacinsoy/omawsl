@@ -24,7 +24,7 @@ setup() {
 
 @test "installing one editor does not re-run installers for editors picked earlier" {
   # Issue #16: `omawsl install editor gh-copilot` re-ran VS Code's install
-  # step (its `code --install-extension` call installs the VS Code Server)
+  # step (its `code --install-extension` call then installed the VS Code Server)
   # just because VS Code was already in the saved list.
   stub_command mise
   omawsl_save_choice OMAWSL_EDITORS "VS Code"
