@@ -8,11 +8,11 @@ DOC="$REPO_ROOT/README.md"
 }
 
 @test "README.md has a Before you begin section" {
-  grep -qF "## Before you begin" "$DOC"
+  grep -qF "<summary><b>Before you begin</b>" "$DOC"
 }
 
 @test "README.md has a What omawsl deliberately excludes section" {
-  grep -qF "## What omawsl deliberately excludes" "$DOC"
+  grep -qF "<summary><b>What omawsl deliberately excludes</b>" "$DOC"
 }
 
 @test "README.md excludes section names all three required items" {
@@ -34,4 +34,12 @@ DOC="$REPO_ROOT/README.md"
 
 @test "README.md links to docs/updating.md" {
   grep -q "docs/updating.md" "$DOC"
+}
+
+@test "README.md only references images that exist in the repo" {
+  local missing=0 src
+  for src in $(grep -oE 'src="assets/[^"]+"' "$DOC" | cut -d'"' -f2); do
+    [ -f "$REPO_ROOT/$src" ] || { echo "missing: $src"; missing=1; }
+  done
+  [ "$missing" -eq 0 ]
 }
